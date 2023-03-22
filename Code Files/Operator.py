@@ -1,21 +1,24 @@
 import pandas as pd
-import PySimpleGUI as sg
+import numpy as np
+# import PySimpleGUI as sg
 import allantools # Documentation: https://pypi.org/project/AllanTools/
 from Allan_Variance import allan_variance, params_from_avar # Documentation: https://github.com/nmayorov/allan-variance
-from OSA import OSA
-from LASER import Laser
-import threading
+# from OSA import OSA
+# from LASER import Laser
+# import threading
 import matplotlib.pyplot as plt
 import os
-from json import load, dump
+# from json import load, dump
 from time import sleep
 import time
-import pylab as plb
-from GUI import enterSubstanceToMeasure
+# import pylab as plb
+# from GUI import enterSubstanceToMeasure
+from datetime import datetime
 
 #Globals
 global numOfMeasurments
 global wavelengths
+global debugMode
 
 rep_values_MHz = {1: '78.56MHz', 2: '39.28MHz', 3: '29.19MHz', 4: '19.64MHz', 5: '15.71MHz',
             6: '13.09MHz', 7: '11.22MHz', 8: '9.821MHz', 9: '8.729MHz', 10: '7.856MHz',
@@ -30,29 +33,31 @@ def setConfig(laser,osa,cf,span,points,speed,power,rep):
     configureOSA(osa,cf,span,points,speed)
 
 def configureLaser(laser, power,rep):
-    # Setting repetition rate
-    laser.pulsePickerRation(rep_values_MHz[rep])
-    sleep(1)
-    laser.powerLevel(int(power))
+    if not debugMode:
+        # Setting repetition rate
+        laser.pulsePickerRation(rep_values_MHz[rep])
+        sleep(1)
+        laser.powerLevel(int(power))
 
 def configureOSA(osa, cf,span,points,speed):
-    convertDict = {
-        "SPEED": {"Normal": "x1", "Fast": "x2"}
-    }
-    # Set center frequency
-    osa.setCenterFreq(cf)
-    sleep(1)
-    # Set Span
-    osa.setSpan(span)
-    sleep(1)
-    # Set number of sampling points
-    if (points == "Auto (500)"):
-        points = "auto on"
-    osa.setPoints(points)
-    sleep(1)
-    # Set sampling speed
-    osa.setSpeed(convertDict["SPEED"][speed])
-    sleep(1)
+    if not debugMode:
+        convertDict = {
+            "SPEED": {"Normal": "x1", "Fast": "x2"}
+        }
+        # Set center frequency
+        osa.setCenterFreq(cf)
+        sleep(1)
+        # Set Span
+        osa.setSpan(span)
+        sleep(1)
+        # Set number of sampling points
+        if (points == "Auto (500)"):
+            points = "auto on"
+        osa.setPoints(points)
+        sleep(1)
+        # Set sampling speed
+        osa.setSpeed(convertDict["SPEED"][speed])
+        sleep(1)
 
 # End Sample Managment: ----------------------------------------------------------------------------------------------
 
@@ -69,31 +74,34 @@ def getReps(values):
                 reps.append(int(rep_key[1:]))
         except:
             continue
+    return reps
 
 def meanMeasure(laser,osa ,numOfSamples,numOfDots):
-    measuretList = []
-    resultList = []
-    for i in numOfSamples:
-        sleep(0.2)
-        osa.sweep()
-        data = osa.getCSVFile("noiseMeasurment")
-        data_decoded = data.decode("utf-8")
-        data_decoded = data_decoded.split("\r\n")
-        smpls = data_decoded[39:-2]
-        wavelengths = [float(pair.split(",")[0]) for pair in smpls]
-        measurment = [float(pair.split(",")[1]) for pair in smpls]
-        measuretList.append(measurment)
-    i = 0
-    j = 0
-    while (i < numOfDots):
-        sum = 0;
-        while (j < numOfSamples):
-            sum += measuretList[j][i]
-            j = j+1
-        resultList.append(sum/numOfSamples)
+    if not debugMode:
+        measuretList = []
+        resultList = []
+        for i in numOfSamples:
+            sleep(0.2)
+            osa.sweep()
+            data = osa.getCSVFile("noiseMeasurment")
+            data_decoded = data.decode("utf-8")
+            data_decoded = data_decoded.split("\r\n")
+            smpls = data_decoded[39:-2]
+            wavelengths = [float(pair.split(",")[0]) for pair in smpls]
+            measurment = [float(pair.split(",")[1]) for pair in smpls]
+            measuretList.append(measurment)
+        i = 0
         j = 0
-        i = i+1
-    return resultList
+        while (i < numOfDots):
+            sum = 0
+            while (j < numOfSamples):
+                sum += measuretList[j][i]
+                j = j+1
+            resultList.append(sum/numOfSamples)
+            j = 0
+            i = i+1
+        return resultList
+    return np.random.rand(numOfDots)*(-100)
 
 def noiseMeasurments(laser,osa, numOfDots,noiseNum=3):
     # Here we are taking in mind that the laser and the OSA are already configed.
@@ -131,11 +139,25 @@ def laserMeasurment(laser,osa, numOfSamples,numOfDots,darkMeasurment=0,emptyMeas
 #def plotResults():
 #    skip
 
-def test_sweep(laser,osa,values):
+def getTime():
+    time = str(datetime.today())
+    time = time.replace('-', '_')
+    time = time.replace(' ', '_')
+    time = time.replace(':', '_')
+    time = time.replace('.', '_')
+    return time
+
+def testManagment(laser,osa,values,debug):
+    global debugMode
+    debugMode = debug
     # This function will manage all the test process and call to all the relevant functions.
-    enterSubstanceToMeasure()
+    # enterSubstanceToMeasure()
     reps = getReps(values)
-    setConfig(laser,osa,values["test_CF"],values["test_SPAN"],values["test_PTS"],values["minPL"],reps[0])
+    if values["test_PTS"] == "Auto (500)":
+        pts = 500
+    else:
+        pts = int(values["test_PTS"])
+    setConfig(laser,osa,values["test_CF"],values["test_SPAN"], pts, values['test_SPD'], values["minPL"], reps[0])
     start = int(values["minPL"])
     if (values["testPowerLevelSweep"]):
         stop = int(values["maxPL"])
@@ -146,24 +168,25 @@ def test_sweep(laser,osa,values):
     powers = range(start,stop,step)
     
     # Making the CSV File
-    pts = values["PTS"]
     startF = int(values["CF"]) - int(values["SPAN"])/2
     stopF = startF + int(values["SPAN"])
-    freqs_columns = [str(freq) for freq in range(startF, stopF, int(values["SPAN"])/pts)]
+    freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["SPAN"])/pts)]
     allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Start Power (I0)','End Power (I)', 'I/I0 Ratio', 'SAMPLINGS_NUMBER']+freqs_columns)
 
     # Start the tests:
     for freq in reps:
         for p in powers:
             configureLaser(laser, p,freq)
-            laser.emission(1)
-            result = meanMeasure(laser,osa, values["numSamplesParameter"],values["test_PTS"])
-            laser.emission(0)
+            if not debugMode:
+                laser.emission(1)
+            result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
+            if not debugMode:
+                laser.emission(0)
             laserPower = calculateLaserLightPower(p,freq)
             capturePower = calculateCaptureLightPower()
             # Preparing new row for allResults
             new_row = []
-            new_row.append(time.time())
+            new_row.append(getTime())
             new_row.append(values["TEST1_COMMENT"])
             new_row.append(values["CF"])
             new_row.append(values["SPAN"])
@@ -173,23 +196,22 @@ def test_sweep(laser,osa,values):
             new_row.append(capturePower)
             new_row.append(capturePower/laserPower)
             new_row.append(values["numSamplesParameter"])
-            new_row = new_row + result
+            new_row = new_row + list(result)
             # Append the new row to the dataframe
             allResults_df.loc[len(allResults_df)] = new_row
 
-    allResults_df.to_csv(values["TEST1_COMMENT"]+'.csv', index=False)
+    allResults_df.to_csv(getTime()+"_"+values["TEST1_COMMENT"]+'.csv', index=False)
 
 
 # This function responsibles for Beer-Lambert Law:
 
 def calculateCaptureLightPower():
-    skip # OSA - Power of capture light
+    return True # OSA - Power of capture light
 
 def calculateLaserLightPower(power,frequency):
-    skip # 
-
+    return True
 def calculateConcentrationOfSubstance():
-    skip
+    return True
 
 def beerLambertLaw(laserpower):
     calculateCaptureLightPower()
@@ -243,3 +265,7 @@ def runSample(laser,osa, isConnected,debugMode, values):
         return "Can't Save the file - device is not connsected"
 
 # End of "Operator.py"
+
+
+if __name__ == '__main__':
+    print("this is operator.py")

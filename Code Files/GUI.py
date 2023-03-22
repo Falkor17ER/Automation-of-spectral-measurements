@@ -3,13 +3,15 @@
 import PySimpleGUI as sg
 from OSA import OSA
 from LASER import Laser
-from Operator import *
+# from Operator import *
+from Operator import testManagment, runSample
 import threading
 import matplotlib.pyplot as plt
 import os
 from json import load, dump
 from time import sleep
 from time  import clock, time
+
 # Globals
 global layouts
 global cwd
@@ -170,8 +172,7 @@ def enterSubstanceToMeasure():
     return window
     
     
-    
-    
+        
     waitRespondTime = clock()
     #while (time()-waitRespondTime <= 600):
     while (True):
@@ -244,9 +245,9 @@ while True:
                 getTestErrorText = "Error: The max Number of Points per sample is XXX points."
             elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
                 getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
-            elif ( values["testPowerLevelSweep"] and (int(values["maxPL"]) < 6 or int(values["max"]) > 100) ):
+            elif ( values["testPowerLevelSweep"] and (int(values["maxPL"]) < 6 or int(values["maxPL"]) > 100) ):
                 getTestErrorText = "Error: The end power of the laser must be btween 6 to 100"
-            elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["minPL"])) ):
+            elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["maxPL"])) ):
                 getTestErrorText = "Error: The start power must be smaller than the end power"
             elif (int(values["numSamplesParameter"]) > 3 or int(values["numSamplesParameter"]) <= 0):
                 getTestErrorText = "Error: The number of samples must be between 1 to 3."
@@ -265,10 +266,8 @@ while True:
             elif (values["testBeerLambertLaw"] and (int(values["lineStrength"]) < 0)):
                 getTestErrorText = "Error: (Beer-Lamber Law) The 'Line Strength' must be bigger than zero."
             if (getTestErrorText == ""):
-                if (not debugMode):
-                    test_sweep(laser,osa,values)
-                else:
-                    enterSubstanceToMeasure()
+                testManagment(laser,osa,values,debugMode)
+                enterSubstanceToMeasure()
             else:
                 flag_endText = True
                 window['section_endText'].update(visible=True)
