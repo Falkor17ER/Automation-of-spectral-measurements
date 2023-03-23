@@ -4,13 +4,14 @@ import PySimpleGUI as sg
 from OSA import OSA
 from LASER import Laser
 # from Operator import *
-from Operator import testManagment, runSample
+from Operator import getSweepResults, runSample, setConfig, makedirectory
 import threading
 import matplotlib.pyplot as plt
 import os
 from json import load, dump
 from time import sleep
 from time  import clock, time
+import shutil
 
 # Globals
 global layouts
@@ -155,32 +156,6 @@ def updateJsonFileBeforeEnd(values):
     with open(cwd+"\\connections.json", 'w') as f:
         dump(connectionsDict, f)
 
-def startMessage():
-    message = [[sg.Push(),sg.Text("Finish the darl measurment"),sg.Push()],[sg.Push(),sg.Text("Insert the substance to the box and press 'Continue'"),sg.Push()],[sg.Push(),sg.Button("Continue"),sg.Push()]]
-    return message
-
-def enterSubstanceToMeasure():
-    thread = threading.Thread(target=startMessage)
-    thread.start()
-    message = startMessage()
-    insertWindow = [[sg.TabGroup(message)]]
-    try:
-        window.close()
-        window = sg.Window('Insert Substance', insertWindow, disable_close=True, size = SIZE)
-    except:
-        window = sg.Window('Insert Substance', insertWindow, disable_close=True, size = SIZE)
-    return window
-    
-    
-        
-    waitRespondTime = clock()
-    #while (time()-waitRespondTime <= 600):
-    while (True):
-        if (event == "Continue"):
-            thread.close()
-            return True
-    return False
-
 # The checking events - The managment of the GUI:
 
 window = reopenMainL()
@@ -266,8 +241,13 @@ while True:
             elif (values["testBeerLambertLaw"] and (int(values["lineStrength"]) < 0)):
                 getTestErrorText = "Error: (Beer-Lamber Law) The 'Line Strength' must be bigger than zero."
             if (getTestErrorText == ""):
-                testManagment(laser,osa,values,debugMode)
-                enterSubstanceToMeasure()
+                dirname = makedirectory(values["test_name"])
+                getSweepResults(laser,osa,values,debugMode,dirname+"\\clean.csv")
+                tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
+                if (tempEvent.upper()=="OK"):
+                    getSweepResults(laser,osa,values,debugMode,dirname+"\\substance.csv")
+                else:
+                    shutil.rmtree(dirname)
             else:
                 flag_endText = True
                 window['section_endText'].update(visible=True)
@@ -341,4 +321,28 @@ window.close()
     #     laser.emission(0)
 
 # ---------------------------------------------------------------------
+
+# def startMessage():
+#     message = [[sg.Push(),sg.Text("Finish the empty measurment"),sg.Push()],[sg.Push(),sg.Text("Insert the substance to the box and press 'Continue'"),sg.Push()],[sg.Push(),sg.Button("Continue"),sg.Push()]]
+#     return message
+
+# def enterSubstanceToMeasure():
+#     thread = threading.Thread(target=startMessage)
+#     thread.start()
+#     message = startMessage()
+#     insertWindow = [[sg.TabGroup(message)]]
+#     try:
+#         window.close()
+#         window = sg.Window('Insert Substance', insertWindow, disable_close=True, size = SIZE)
+#     except:
+#         window = sg.Window('Insert Substance', insertWindow, disable_close=True, size = SIZE)
+#     return window
+
+#     waitRespondTime = clock()
+#     #while (time()-waitRespondTime <= 600):
+#     while (True):
+#         if (event == "Continue"):
+#             thread.close()
+#             return True
+#     return False
 

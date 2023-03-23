@@ -130,15 +130,6 @@ def laserMeasurment(laser,osa, numOfSamples,numOfDots,darkMeasurment=0,emptyMeas
         measurment -= emptyMeasurment
     return measurment
 
-#def CSVFilecreator():
-#    skip
-
-#def analyizer():
-#    skip
-
-#def plotResults():
-#    skip
-
 def getTime():
     time = str(datetime.today())
     time = time.replace('-', '_')
@@ -147,7 +138,12 @@ def getTime():
     time = time.replace('.', '_')
     return time
 
-def testManagment(laser,osa,values,debug):
+def makedirectory(dirname):
+    dir = "../Results/"+getTime()+"_"+dirname
+    os.mkdir(dir)
+    return dir
+
+def getSweepResults(laser,osa,values,debug,csvname):
     global debugMode
     debugMode = debug
     # This function will manage all the test process and call to all the relevant functions.
@@ -165,14 +161,12 @@ def testManagment(laser,osa,values,debug):
     else:
         stop = start + 1
         step = 1
-    powers = range(start,stop,step)
-    
+    powers = range(start,stop+1,step)
     # Making the CSV File
     startF = int(values["CF"]) - int(values["SPAN"])/2
     stopF = startF + int(values["SPAN"])
     freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["SPAN"])/pts)]
     allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Start Power (I0)','End Power (I)', 'I/I0 Ratio', 'SAMPLINGS_NUMBER']+freqs_columns)
-
     # Start the tests:
     for freq in reps:
         for p in powers:
@@ -199,9 +193,7 @@ def testManagment(laser,osa,values,debug):
             new_row = new_row + list(result)
             # Append the new row to the dataframe
             allResults_df.loc[len(allResults_df)] = new_row
-
-    allResults_df.to_csv(getTime()+"_"+values["TEST1_COMMENT"]+'.csv', index=False)
-
+    allResults_df.to_csv(csvname, index=False)
 
 # This function responsibles for Beer-Lambert Law:
 
@@ -217,6 +209,16 @@ def beerLambertLaw(laserpower):
     calculateCaptureLightPower()
     calculateLaserLightPower(laserpower)
     calculateConcentrationOfSubstance()
+
+#def CSVFilecreator():
+#    skip
+
+#def analyizer():
+#    skip
+
+#def plotResults():
+#    skip
+
 
 # End Tests Managment: ----------------------------------------------------------------------------------------------
 
@@ -265,7 +267,6 @@ def runSample(laser,osa, isConnected,debugMode, values):
         return "Can't Save the file - device is not connsected"
 
 # End of "Operator.py"
-
 
 if __name__ == '__main__':
     print("this is operator.py")
