@@ -12,6 +12,7 @@ from json import load, dump
 from time import sleep
 from time  import clock, time
 import shutil
+from Analyzer import getNormlized
 
 # Globals
 global layouts
@@ -59,6 +60,10 @@ SIZE = (600,600)
 #sg.theme('DarkBlue')
 
 # Functions:
+def interactivePlot(df):
+    print(df)
+    return True
+
 
 # This function is the first Tab of the GUI window - Responsible for the connections with the Laser & OSA devices.
 def getConnections():
@@ -105,6 +110,18 @@ def getSampleL():
         sampleL = [[sg.Text("Connect to devices first or work in 'Debug Mode'")]]
     return sampleL
 
+
+def getResultsTabLayout():
+    if (isConnected or debugMode):
+        foldersNames = os.listdir("..\\Results")
+        foldersNames.sort()
+        Layout = [[sg.Text("Select sample to plot", font='David 15 bold')],
+                    [sg.Listbox(foldersNames, select_mode='LISTBOX_SELECT_MODE_SINGLE', key="-SAMPLE_TO_PLOT-", size=(SIZE[1],20))],
+                    [sg.Push(), sg.Button("Load", key="-LOAD_SAMPLE-"), sg.Push()]]
+    else:
+        Layout = [[sg.Text("Connect to devices first or work in 'Debug Mode'")]]
+    return Layout
+
 def collapse(layout, key, visible):
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
@@ -136,7 +153,7 @@ def getTests():
     return test_values
 
 def reopenMainL(window = None):
-    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests())]], size = (SIZE[0],SIZE[1]-70))],
+    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],
         [[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status)]]]
     try:
         window.close()
@@ -258,7 +275,13 @@ while True:
     elif event == "Stop laser":
         if isConnected or debugMode:
             laser.emission(0)
-    
+
+    elif event == "-LOAD_SAMPLE-":
+        normlized_df = getNormlized("..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0])
+        thread = threading.Thread(targetio=interactivePlot, args=[normlized_df])
+        # Start the thread
+        thread.start()
+
     elif event == 'Close':
         #updateJsonFileBeforeEnd()
         break
