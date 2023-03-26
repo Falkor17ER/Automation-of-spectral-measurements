@@ -12,7 +12,7 @@ from json import load, dump
 from time import sleep
 from time  import clock, time
 import shutil
-from Analyzer import getNormlized
+from Analyzer import getNormlizedByCustomFreq
 
 # Globals
 global layouts
@@ -109,7 +109,6 @@ def getSampleL():
     else:
         sampleL = [[sg.Text("Connect to devices first or work in 'Debug Mode'")]]
     return sampleL
-
 
 def getResultsTabLayout():
     if (isConnected or debugMode):
@@ -277,7 +276,7 @@ while True:
             laser.emission(0)
 
     elif event == "-LOAD_SAMPLE-":
-        normlized_df = getNormlized("..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0])
+        normlized_df = getNormlizedByCustomFreq("..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0], '1475')
         thread = threading.Thread(targetio=interactivePlot, args=[normlized_df])
         # Start the thread
         thread.start()
