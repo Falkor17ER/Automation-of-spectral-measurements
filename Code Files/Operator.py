@@ -15,6 +15,7 @@ import time
 # from GUI import enterSubstanceToMeasure
 from datetime import datetime
 
+
 #Globals
 global numOfMeasurments
 global wavelengths
@@ -77,10 +78,14 @@ def getReps(values):
     return reps
 
 def meanMeasure(laser,osa ,numOfSamples,numOfDots):
+    try:
+        numOfSamples = int(numOfSamples)
+    except:
+        numOfSamples=1
     if not debugMode:
         measuretList = []
         resultList = []
-        for i in numOfSamples:
+        for i in range(0,numOfSamples):
             sleep(0.2)
             osa.sweep()
             data = osa.getCSVFile("noiseMeasurment")
@@ -92,15 +97,17 @@ def meanMeasure(laser,osa ,numOfSamples,numOfDots):
             measuretList.append(measurment)
         i = 0
         j = 0
-        while (i < numOfDots):
-            sum = 0
-            while (j < numOfSamples):
-                sum += measuretList[j][i]
-                j = j+1
-            resultList.append(sum/numOfSamples)
-            j = 0
-            i = i+1
-        return resultList
+        if numOfSamples > 1:
+            while (i < numOfDots):
+                sum = 0
+                while (j < numOfSamples):
+                    sum += measuretList[j][i]
+                    j = j+1
+                resultList.append(sum/numOfSamples)
+                j = 0
+                i = i+1
+            return resultList
+        return measuretList[0]
     return np.random.rand(numOfDots)*(-100)
 
 def noiseMeasurments(laser,osa, numOfDots,noiseNum=3):
@@ -171,10 +178,10 @@ def getSweepResults(laser,osa,values,debug,csvname):
     for freq in reps:
         for p in powers:
             configureLaser(laser, p,freq)
-            if not debugMode:
+            if (not debugMode):
                 laser.emission(1)
             result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
-            if not debugMode:
+            if (not debugMode):
                 laser.emission(0)
             laserPower = calculateLaserLightPower(p,freq)
             capturePower = calculateCaptureLightPower()
@@ -204,11 +211,6 @@ def calculateLaserLightPower(power,frequency):
     return True
 def calculateConcentrationOfSubstance():
     return True
-
-def beerLambertLaw(laserpower):
-    calculateCaptureLightPower()
-    calculateLaserLightPower(laserpower)
-    calculateConcentrationOfSubstance()
 
 #def CSVFilecreator():
 #    skip

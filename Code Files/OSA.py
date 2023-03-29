@@ -1,5 +1,5 @@
 import socket
-from time import sleep
+from time import sleep, time
 
 class OSA:
     # Class to operate the OSA
@@ -12,6 +12,7 @@ class OSA:
         self.sock.connect(server_address)
         self.sock.settimeout(20)
         self.Auth()
+        self._pts = None
 
 
     def sendToOSA(self, string: str, print_flag = True):
@@ -70,9 +71,11 @@ class OSA:
         # The number of points per sweep.
         if points == 'auto on':
             self.sendToOSA(':sens:sweep:points:{}'.format(points))
+            self._pts = 500
         else:
             self.sendToOSA(':sens:sweep:points:auto off')
             self.sendToOSA(':sens:sweep:points {}'.format(points))
+            self._pts = int(points)
         return True
 
     def setSpeed(self, speed):
@@ -91,9 +94,14 @@ class OSA:
         self.sendToOSA(':MMEMORY:CDIRECTORY?')
         print(self.receiveFromOSA())
         self.sendToOSA(':MMEMORY:STORE:TRACE TRA,CSV,"{}",INTERNAL'.format(name))
-        # self.sendToOSA(':MMEMORY:DATA "{}.csv", internal'.format(name))
-        self.sendToOSA(':MMEMORY:DATA? "{}.csv", internal'.format(name))
-        data = self.sock.recv(1024*1024)
+        completeFile = False
+        while not completeFile:
+            # self.sendToOSA(':MMEMORY:DATA "{}.csv", internal'.format(name))
+            self.sendToOSA(':MMEMORY:DATA? "{}.csv", internal'.format(name))
+            data = self.sock.recv(1024*1024)
+            sleep(0.5)
+            if self.__checkNumberOfPoints(data=data):
+                completeFile = True
         self.sendToOSA(':MMEMORY:DELETE "{}.csv", internal'.format(name))
         return data
 
@@ -102,20 +110,24 @@ class OSA:
         # number of sweeps
         while mode != 0:
             # mode: number of sweeps
-            self.sendToOSA(':init:smode 1')
-            sleep(0.3)
-            self.sendToOSA('*CLS')
-            sleep(0.3)
-            self.sendToOSA(':init')
-            sleep(0.3)
 
-            # Wating for sweep to complete
-            ans = '0'
-            while(ans != '1'):
-                self.sendToOSA(':stat:oper:even?', print_flag=False)
-                sleep(0.2)
-                ans = self.receiveFromOSA()
-                
+
+            self.sendToOSA(':init:smode 1')
+            self.sendToOSA('*CLS')
+            sweep_completed = False
+            while not sweep_completed:
+                self.sendToOSA(':init')
+                start = time()
+                # Wating for sweep to complete
+                while True:
+                    self.sendToOSA(':stat:oper:even?', print_flag=False)                
+                    ans = self.receiveFromOSA()
+                    if ans == '1':
+                        sweep_completed = True
+                        break
+                    if time() - start > 5:
+                        break
+                                
                 
             mode = mode - 1
     
@@ -153,3 +165,11 @@ class OSA:
             print(index)
             print(i)    
             mode = mode - 1
+
+    def __checkNumberOfPoints(self, data):
+        data_decoded = data.decode("utf-8")
+        data_decoded = data_decoded.split("\r\n")
+        len_smpls = len(data_decoded[39:-2])
+        if len_smpls == self._pts:
+            return True
+        return False
