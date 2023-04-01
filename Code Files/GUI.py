@@ -1,18 +1,16 @@
 # This file contains the Graphical user interface and delivers the requests from the user to devices
-
-import PySimpleGUI as sg
 from OSA import OSA
 from LASER import Laser
-# from Operator import *
 from Operator import getSweepResults, runSample, setConfig, makedirectory
-import threading
-import matplotlib.pyplot as plt
-import os
+from Interactive_Graph import interactiveGraph
 from json import load, dump
-from time import sleep
-from time  import clock, time
+import PySimpleGUI as sg
+import threading
+import os
 import shutil
 from Analyzer import getNormlizedByCustomFreq
+
+#---------------------------------------------------------------------------------------------------------------------------
 
 # Globals
 global layouts
@@ -30,6 +28,9 @@ global getConnectionsText
 global getSamplesText
 global getTests1Text
 global getRTLText
+global statusText
+global graphStatusText
+statusText = ""
 live_flag = True    # For real time monitoring
 isConnected = False # Until first connection
 debugMode = False
@@ -43,8 +44,9 @@ flag_testPowerLevelSweep = False
 flag_testAllanVariance = False
 flag_testBeerLambertLaw = False
 flag_endText = False
-
 # sg.theme_previewer()
+
+#---------------------------------------------------------------------------------------------------------------------------
 
 # Initial reads
 # The Currently working directory - where this .py file can be found.
@@ -55,9 +57,11 @@ rep_values_MHz = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MHz': 4, '1
                 '13.09MHz': 6, '11.22MHz': 7, '9.821MHz': 8, '8.729MHz': 9, '7.856MHz': 10, '6.547MHz': 12, 
                 '5.612MHz': 14, '4.910MHz': 16, '4.365MHz': 18, '3.928MHz': 20, '3.571MHz': 22, '3.143MHz': 25, 
                 '2.910MHz': 27, '2.709MHz': 29, '2.455MHz': 32, '2.311MHz': 34, '2.123MHz': 37, '1.964MHz': 40}
-# The size of the GUI window.
+# The size of the GUI window (Width, Length).
 SIZE = (600,600)
 #sg.theme('DarkBlue')
+
+#---------------------------------------------------------------------------------------------------------------------------
 
 # Functions:
 def interactivePlot(df):
@@ -91,6 +95,14 @@ def updateConnections(values):
 
 #--- Here we finished with Connections.
 
+#---------------------------------------------------------------------------------------------------------------------------
+
+#--- Here we start with Layouts:
+
+def collapse(layout, key, visible):
+    # Hide or show the relevants fields.
+    return sg.pin(sg.Column(layout, key=key, visible=visible))
+
 def getSampleL():
     if (isConnected or debugMode):
         sampleL = [[sg.Push(), sg.Text("OSA", font='David 15 bold'), sg.Push()],
@@ -110,6 +122,7 @@ def getSampleL():
         sampleL = [[sg.Text("Connect to devices first or work in 'Debug Mode'")]]
     return sampleL
 
+<<<<<<< HEAD
 def getResultsTabLayout():
     if (isConnected or debugMode):
         foldersNames = os.listdir("..\\Results")
@@ -124,6 +137,8 @@ def getResultsTabLayout():
 def collapse(layout, key, visible):
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
+=======
+>>>>>>> origin/InteractiveResults
 def getTests():
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
     allanVarianceSection = [[sg.Text("Parametr1"),sg.Input("0",s=3,key="allanV1"),sg.Text("Parameter2"),sg.Input("0",s=3,key="allanV2"),sg.Text("Parameter3"),sg.Input("0",s=3,key="allanV3")]]
@@ -151,6 +166,7 @@ def getTests():
         test_values = [[sg.Text("Connect to devices first or run in 'Debug Mode'")]]
     return test_values
 
+<<<<<<< HEAD
 def reopenMainL(window = None):
     mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],
         [[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status)]]]
@@ -161,7 +177,22 @@ def reopenMainL(window = None):
         window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE)
     return window
     
+=======
+def getResultsTabLayout():
+    foldersNames = os.listdir("..\\Results")
+    foldersNames.sort()
+    Layout = [[sg.Text("Select sample to plot", font='David 15 bold')],
+                [sg.Listbox(foldersNames, select_mode='LISTBOX_SELECT_MODE_SINGLE', key="-SAMPLE_TO_PLOT-", size=(SIZE[1],20))],
+                [sg.Push(), sg.Button("Load", key="-LOAD_SAMPLE-"), sg.Push()]]
+    return Layout
+
+# End of Layouts.-----------------------------------------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------------------------------------------------------
+
+>>>>>>> origin/InteractiveResults
 def updateJsonFileBeforeEnd(values):
+    # This funciton save default connection parameters.
     with open(cwd+"\\connections.json", 'r') as f:
         connectionsDict = load(f)
     connectionsDict["OSA"]["IP"] = values[0]
@@ -171,6 +202,18 @@ def updateJsonFileBeforeEnd(values):
     connectionsDict["Samples"]["Serial"] = values[3]
     with open(cwd+"\\connections.json", 'w') as f:
         dump(connectionsDict, f)
+
+#---------------------------------------------------------------------------------------------------------------------------
+
+def reopenMainL(window = None):
+    # This function start the GUI window.
+    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Button("Debug Graph"), sg.Push(), sg.Text(status)]]
+    try:
+        window.close()
+        window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE)
+    except:
+        window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE)
+    return window
 
 # The checking events - The managment of the GUI:
 
@@ -200,6 +243,10 @@ while True:
         osa = None
         window = reopenMainL(window)
 
+    elif event == 'Debug Graph':
+        csvFile = "..\\Results\\2023_03_23_15_29_25_116512_Eyal & Alex\\"
+        threading.Thread(target=interactiveGraph(values, csvFile)).start()
+
     elif event == 'Sample':
         if ( isConnected or (not debugMode) ):
             setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"])
@@ -212,8 +259,8 @@ while True:
     elif event == "selectAllRep":
         RepList = ["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r12","r14","r16","r18","r20","r22","r25","r27","r29","r32","r34","r37","r40"]
         for i in RepList:
-            values[i] = not values[i]
-        window.update(default=values["selectAllRep"])##### lesader
+            values[i] = values['selectAllRep']
+            window[i].update(values["selectAllRep"])
         print(values)
 
     elif event == "testAllanVariance":
@@ -257,13 +304,14 @@ while True:
             elif (values["testBeerLambertLaw"] and (int(values["lineStrength"]) < 0)):
                 getTestErrorText = "Error: (Beer-Lamber Law) The 'Line Strength' must be bigger than zero."
             if (getTestErrorText == ""):
-                dirname = makedirectory(values["test_name"])
-                getSweepResults(laser,osa,values,debugMode,dirname+"\\clean.csv")
+                dirName = makedirectory(values["test_name"])
+                getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
                 tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
                 if (tempEvent.upper()=="OK"):
-                    getSweepResults(laser,osa,values,debugMode,dirname+"\\substance.csv")
+                    getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
+                    interactiveGraph(values, dirName+"\\")
                 else:
-                    shutil.rmtree(dirname)
+                    shutil.rmtree(dirName)
             else:
                 flag_endText = True
                 window['section_endText'].update(visible=True)
@@ -274,6 +322,7 @@ while True:
     elif event == "Stop laser":
         if isConnected or debugMode:
             laser.emission(0)
+<<<<<<< HEAD
 
     elif event == "-LOAD_SAMPLE-":
         normlized_df = getNormlizedByCustomFreq("..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0], '1475')
@@ -283,88 +332,17 @@ while True:
 
     elif event == 'Close':
         #updateJsonFileBeforeEnd()
+=======
+    
+    elif event == "-LOAD_SAMPLE-":
+        dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+        thread = threading.Thread(target=interactiveGraph(values, dirName)).start()
+
+    elif ( (event == 'Close') or (event == sg.WIN_CLOSED) ):
+        window.close()
+>>>>>>> origin/InteractiveResults
         break
 
-window.close()
+# End of File.
 
-# -------------------------------------------------------------------------------------
-
-# def getRTL():
-#     if (isConnected):
-#         RTL = [[sg.Button("Open monitor"), sg.Button("Close monitor"), sg.Push()],
-#             [sg.Button("Start laser"), sg.Button("Stop laser"), sg.Push()],
-#             [sg.Text(getRTLText), sg.Push()]]
-#     else:
-#         RTL = [[sg.Text(getRTLText)]]
-#     return RTL
-
-# def startMonitor():
-#     sample_name = "Live OSA"
-#     def updateGraph(osa, sample_name):
-#         # getting to data the swept values
-#         data = osa.getCSVFile(sample_name)
-#         data_decoded = data.decode("utf-8")
-#         data_decoded = data_decoded.split("\r\n")
-#         smpls = data_decoded[39:-2]
-#         wavelengths = [float(pair.split(",")[0]) for pair in smpls]
-#         vals = [float(pair.split(",")[1]) for pair in smpls]
-#         # performing a sweep (like a sample)
-
-#         plt.plot(wavelengths, vals, '-', color='r', linewidth=2)
-#         plt.xlabel('Wavelength [nm]')
-#         plt.ylabel('Power [dB]')
-#         plt.title("Calibration")
-#         plt.ylim(-100, 0)
-#         plt.pause(1)
-#         plt.clf()
-#         plt.draw()
-    
-#     osa.setSpeed("x2")
-#     osa.setPoints("300")
-
-#     while live_flag:
-#         osa.sweepLive()
-#         updateGraph(osa, sample_name)
-#     plt.close()
-
-# ---------------------------------------------------------------------
-
-    # elif event == 'Open monitor':
-    #     if isConnected or debugMode:
-    #         # setting flag to allow plot
-    #         live_flag = True
-    #         # Create the thread
-    #         thread = threading.Thread(target=startMonitor)
-    #         # Start the thread
-    #         thread.start()
-
-    # elif event == "Close monitor":
-    #     live_flag = False
-    #     laser.emission(0)
-
-# ---------------------------------------------------------------------
-
-# def startMessage():
-#     message = [[sg.Push(),sg.Text("Finish the empty measurment"),sg.Push()],[sg.Push(),sg.Text("Insert the substance to the box and press 'Continue'"),sg.Push()],[sg.Push(),sg.Button("Continue"),sg.Push()]]
-#     return message
-
-# def enterSubstanceToMeasure():
-#     thread = threading.Thread(target=startMessage)
-#     thread.start()
-#     message = startMessage()
-#     insertWindow = [[sg.TabGroup(message)]]
-#     try:
-#         window.close()
-#         window = sg.Window('Insert Substance', insertWindow, disable_close=True, size = SIZE)
-#     except:
-#         window = sg.Window('Insert Substance', insertWindow, disable_close=True, size = SIZE)
-#     return window
-
-#     waitRespondTime = clock()
-#     #while (time()-waitRespondTime <= 600):
-#     while (True):
-#         if (event == "Continue"):
-#             thread.close()
-#             return True
-#     return False
-
+#---------------------------------------------------------------------------------------------------------------------------

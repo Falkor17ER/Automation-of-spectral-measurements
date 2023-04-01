@@ -15,6 +15,7 @@ import time
 # from GUI import enterSubstanceToMeasure
 from datetime import datetime
 
+
 #Globals
 global numOfMeasurments
 global wavelengths
@@ -26,6 +27,12 @@ rep_values_MHz = {1: '78.56MHz', 2: '39.28MHz', 3: '29.19MHz', 4: '19.64MHz', 5:
             22: '3.571MHz', 25: '3.143MHz', 27: '2.910MHz', 29: '2.709MHz', 32: '2.455MHz',
             34: '2.311MHz', 37: '2.123MHz', 40: '1.964MHz'}
 
+# Possible values for the laser Reputation.
+rep_values_MHz_inverted = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MHz': 4, '15.71MHz': 5, 
+                '13.09MHz': 6, '11.22MHz': 7, '9.821MHz': 8, '8.729MHz': 9, '7.856MHz': 10, '6.547MHz': 12, 
+                '5.612MHz': 14, '4.910MHz': 16, '4.365MHz': 18, '3.928MHz': 20, '3.571MHz': 22, '3.143MHz': 25, 
+                '2.910MHz': 27, '2.709MHz': 29, '2.455MHz': 32, '2.311MHz': 34, '2.123MHz': 37, '1.964MHz': 40}
+
 # Sample Managment: ----------------------------------------------------------------------------------------------
 
 def setConfig(laser,osa,cf,span,points,speed,power,rep):
@@ -35,7 +42,7 @@ def setConfig(laser,osa,cf,span,points,speed,power,rep):
 def configureLaser(laser, power,rep):
     if not debugMode:
         # Setting repetition rate
-        laser.pulsePickerRation(rep_values_MHz[rep])
+        laser.pulsePickerRation(rep)
         sleep(1)
         laser.powerLevel(int(power))
 
@@ -77,10 +84,14 @@ def getReps(values):
     return reps
 
 def meanMeasure(laser,osa ,numOfSamples,numOfDots):
+    try:
+        numOfSamples = int(numOfSamples)
+    except:
+        numOfSamples=1
     if not debugMode:
         measuretList = []
         resultList = []
-        for i in numOfSamples:
+        for i in range(0,numOfSamples):
             sleep(0.2)
             osa.sweep()
             data = osa.getCSVFile("noiseMeasurment")
@@ -92,15 +103,17 @@ def meanMeasure(laser,osa ,numOfSamples,numOfDots):
             measuretList.append(measurment)
         i = 0
         j = 0
-        while (i < numOfDots):
-            sum = 0
-            while (j < numOfSamples):
-                sum += measuretList[j][i]
-                j = j+1
-            resultList.append(sum/numOfSamples)
-            j = 0
-            i = i+1
-        return resultList
+        if numOfSamples > 1:
+            while (i < numOfDots):
+                sum = 0
+                while (j < numOfSamples):
+                    sum += measuretList[j][i]
+                    j = j+1
+                resultList.append(sum/numOfSamples)
+                j = 0
+                i = i+1
+            return resultList
+        return measuretList[0]
     return np.random.rand(numOfDots)*(-100)
 
 def noiseMeasurments(laser,osa, numOfDots,noiseNum=3):
@@ -170,11 +183,11 @@ def getSweepResults(laser,osa,values,debug,csvname):
     # Start the tests:
     for freq in reps:
         for p in powers:
-            configureLaser(laser, p,freq)
-            if not debugMode:
+            configureLaser(laser, p, freq)
+            if (not debugMode):
                 laser.emission(1)
             result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
-            if not debugMode:
+            if (not debugMode):
                 laser.emission(0)
             laserPower = calculateLaserLightPower(p,freq)
             capturePower = calculateCaptureLightPower()
@@ -204,11 +217,6 @@ def calculateLaserLightPower(power,frequency):
     return True
 def calculateConcentrationOfSubstance():
     return True
-
-def beerLambertLaw(laserpower):
-    calculateCaptureLightPower()
-    calculateLaserLightPower(laserpower)
-    calculateConcentrationOfSubstance()
 
 #def CSVFilecreator():
 #    skip
