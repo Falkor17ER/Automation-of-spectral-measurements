@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Analyzer import getNormlizedByCustomFreq, beerLambertLaw
+import argparse
 
 GRAPH_SIZE = (1280,1024)
 PLOT_SIZE = (13,8)
@@ -176,7 +177,7 @@ def draw_figure(canvas, figure):
 
 # The managment function:
 
-def interactiveGraph(values,csvFile):
+def interactiveGraph(csvFile):
     sg.theme('DarkBlue')
     clean = True
     substance = True
@@ -402,3 +403,17 @@ def interactiveGraph(values,csvFile):
                     window2['section_normValue'].update(False)
 
 ####################################################
+
+if __name__ == '__main__':
+    # Create the argument parser
+    parser = argparse.ArgumentParser(description='Plot graphs')
+
+    # Add arguments
+    parser.add_argument('--csv_name', type=str)
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    if args.csv_name == None:
+        args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements-1\\Results\\2023_03_29_18_05_49_952582_VideoSample\\"
+    interactiveGraph(args.csv_name)

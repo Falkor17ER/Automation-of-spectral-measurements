@@ -6,7 +6,9 @@ from Interactive_Graph import interactiveGraph
 from json import load, dump
 import PySimpleGUI as sg
 import threading
+import subprocess
 import os
+import signal
 import shutil
 
 #---------------------------------------------------------------------------------------------------------------------------
@@ -43,6 +45,7 @@ flag_testPowerLevelSweep = False
 flag_testAllanVariance = False
 flag_testBeerLambertLaw = False
 flag_endText = False
+graphs_pids = []
 # sg.theme_previewer()
 
 #---------------------------------------------------------------------------------------------------------------------------
@@ -172,7 +175,8 @@ def updateJsonFileBeforeEnd(values):
 
 def reopenMainL(window = None):
     # This function start the GUI window.
-    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Button("Debug Graph"), sg.Push(), sg.Text(status)]]
+    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status)]]
+    # mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Button("Debug Graph"), sg.Push(), sg.Text(status)]]
     try:
         window.close()
         window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE)
@@ -181,120 +185,144 @@ def reopenMainL(window = None):
     return window
 
 # The checking events - The managment of the GUI:
+def mainLoop():
+    window = reopenMainL()
+    while True:
+        event, values = window.read()
+        if event == 'Connect':
+            try:
+                osa = OSA(values[0])
+                laser = Laser(values[2])
+                if not isConnected:
+                    isConnected = True
+                    debugMode = False
+                    status = "Devices are connected"
+                    getConnectionsText = getSamplesText = getTests1Text = getRTLText = "The devices are connected"
+                    window.close()
+                    window = reopenMainL()
+            except:
+                print("Failed to connect to OSA or Laser, try again or continue wiht DEBUG mode.")
+            updateConnections(values)
+            
+        elif event == 'Debug Mode':
+            debugMode = True
+            status = "Debug Mode"
+            getConnectionsText = getSamplesText = getTests1Text = "Now you are working in 'Debug Mode'!"
+            laser = None
+            osa = None
+            window = reopenMainL(window)
 
-window = reopenMainL()
-while True:
-    event, values = window.read()
-    if event == 'Connect':
-        try:
-            osa = OSA(values[0])
-            laser = Laser(values[2])
-            if not isConnected:
-                isConnected = True
-                debugMode = False
-                status = "Devices are connected"
-                getConnectionsText = getSamplesText = getTests1Text = getRTLText = "The devices are connected"
-                window.close()
-                window = reopenMainL()
-        except:
-            print("Failed to connect to OSA or Laser, try again or continue wiht DEBUG mode.")
-        updateConnections(values)
+        # elif event == 'Debug Graph':
+        #     csvFile = "..\\Results\\2023_03_23_15_29_25_116512_Eyal & Alex\\"
+        #     command = 'py'
+        #     args = ['Interactive_Graph.py', '--csv_name', csvFile]
+        #     process = subprocess.Popen([command] + args)
+        #     pid = process.pid
+        #     graphs_pids.append(pid)
+
+        elif event == 'Sample':
+            if ( isConnected or (not debugMode) ):
+                setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"])
+                getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
         
-    elif event == 'Debug Mode':
-        debugMode = True
-        status = "Debug Mode"
-        getConnectionsText = getSamplesText = getTests1Text = "Now you are working in 'Debug Mode'!"
-        laser = None
-        osa = None
-        window = reopenMainL(window)
+        elif event == "testPowerLevelSweep":
+            flag_testPowerLevelSweep = not flag_testPowerLevelSweep
+            window['section_powerSweep'].update(visible=flag_testPowerLevelSweep)
 
-    elif event == 'Debug Graph':
-        csvFile = "..\\Results\\2023_03_23_15_29_25_116512_Eyal & Alex\\"
-        threading.Thread(target=interactiveGraph(values, csvFile)).start()
+        elif event == "selectAllRep":
+            RepList = ["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r12","r14","r16","r18","r20","r22","r25","r27","r29","r32","r34","r37","r40"]
+            for i in RepList:
+                values[i] = values['selectAllRep']
+                window[i].update(values["selectAllRep"])
+            print(values)
 
-    elif event == 'Sample':
-        if ( isConnected or (not debugMode) ):
-            setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"])
-            getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
-    
-    elif event == "testPowerLevelSweep":
-        flag_testPowerLevelSweep = not flag_testPowerLevelSweep
-        window['section_powerSweep'].update(visible=flag_testPowerLevelSweep)
+        elif event == "testAllanVariance":
+            flag_testAllanVariance = not flag_testAllanVariance
+            window['section_allanVariance'].update(visible=flag_testAllanVariance)
 
-    elif event == "selectAllRep":
-        RepList = ["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r12","r14","r16","r18","r20","r22","r25","r27","r29","r32","r34","r37","r40"]
-        for i in RepList:
-            values[i] = values['selectAllRep']
-            window[i].update(values["selectAllRep"])
-        print(values)
+        elif event == "testBeerLambertLaw":
+            flag_testBeerLambertLaw = not flag_testBeerLambertLaw
+            window['section_beerLambertLaw'].update(visible=flag_testBeerLambertLaw)
 
-    elif event == "testAllanVariance":
-        flag_testAllanVariance = not flag_testAllanVariance
-        window['section_allanVariance'].update(visible=flag_testAllanVariance)
-
-    elif event == "testBeerLambertLaw":
-        flag_testBeerLambertLaw = not flag_testBeerLambertLaw
-        window['section_beerLambertLaw'].update(visible=flag_testBeerLambertLaw)
-
-    elif event == "Start Test":
-        getTestErrorText = ""
-        flag_endText = False
-        if (isConnected or debugMode):
-            if (int(values["test_CF"]) < 700):
-                getTestErrorText = "Error: The 'Center Frequency' can only be between 700nm to 1600nm."
-            elif (int(values["test_SPAN"]) > 250):
-                getTestErrorText = "Error: The 'Span' value can only be between XXX to YYY."
-            elif ( (values["test_PTS"] != "Auto (500)") and int(values["test_PTS"]) > 2000):
-                getTestErrorText = "Error: The max Number of Points per sample is XXX points."
-            elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
-                getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
-            elif ( values["testPowerLevelSweep"] and (int(values["maxPL"]) < 6 or int(values["maxPL"]) > 100) ):
-                getTestErrorText = "Error: The end power of the laser must be btween 6 to 100"
-            elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["maxPL"])) ):
-                getTestErrorText = "Error: The start power must be smaller than the end power"
-            elif (int(values["numSamplesParameter"]) > 3 or int(values["numSamplesParameter"]) <= 0):
-                getTestErrorText = "Error: The number of samples must be between 1 to 3."
-            elif (not values["r1"] and not values["r2"] and not values["r3"] and not values["r4"] and not values["r5"] and not values["r6"] and not values["r7"] and not values["r8"] and not values["r9"] and not values["r10"] and not values["r12"] and not values["r14"] and not values["r16"] and not values["r18"] and not values["r20"] and not values["r22"] and not values["r25"] and not values["r27"] and not values["r29"] and not values["r32"] and not values["r34"] and not values["r37"] and not values["r40"]):
-                getTestErrorText = "Error: No repetition value was chosen"
-            elif (values["test_name"] == ""):
-                getTestErrorText = "Error: No name for 'Output name'."
-            elif (values["testAllanVariance"] and (int(values["allanV1"]) < 0)):
-                getTestErrorText = "Error: The first Allan parameter must be bigger than zero."
-            elif (values["testAllanVariance"] and (int(values["allanV2"]) < 0)):
-                getTestErrorText = "Error: The second Allan parameter must be bigger than zero."
-            elif (values["testAllanVariance"] and (int(values["allanV3"]) < 0)):
-                getTestErrorText = "Error: The third Allan parameter must be bigger than zero."    
-            elif (values["testBeerLambertLaw"] and (int(values["interactionLength"]) < 0)):
-                getTestErrorText = "Error: (Beer-Lamber Law) The 'Interaction Length' must be bigger than zero."    
-            elif (values["testBeerLambertLaw"] and (int(values["lineStrength"]) < 0)):
-                getTestErrorText = "Error: (Beer-Lamber Law) The 'Line Strength' must be bigger than zero."
-            if (getTestErrorText == ""):
-                dirName = makedirectory(values["test_name"])
-                getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
-                tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
-                if (tempEvent.upper()=="OK"):
-                    getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
-                    interactiveGraph(values, dirName+"\\")
+        elif event == "Start Test":
+            getTestErrorText = ""
+            flag_endText = False
+            if (isConnected or debugMode):
+                if (int(values["test_CF"]) < 700):
+                    getTestErrorText = "Error: The 'Center Frequency' can only be between 700nm to 1600nm."
+                elif (int(values["test_SPAN"]) > 250):
+                    getTestErrorText = "Error: The 'Span' value can only be between XXX to YYY."
+                elif ( (values["test_PTS"] != "Auto (500)") and int(values["test_PTS"]) > 2000):
+                    getTestErrorText = "Error: The max Number of Points per sample is XXX points."
+                elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
+                    getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
+                elif ( values["testPowerLevelSweep"] and (int(values["maxPL"]) < 6 or int(values["maxPL"]) > 100) ):
+                    getTestErrorText = "Error: The end power of the laser must be btween 6 to 100"
+                elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["maxPL"])) ):
+                    getTestErrorText = "Error: The start power must be smaller than the end power"
+                elif (int(values["numSamplesParameter"]) > 3 or int(values["numSamplesParameter"]) <= 0):
+                    getTestErrorText = "Error: The number of samples must be between 1 to 3."
+                elif (not values["r1"] and not values["r2"] and not values["r3"] and not values["r4"] and not values["r5"] and not values["r6"] and not values["r7"] and not values["r8"] and not values["r9"] and not values["r10"] and not values["r12"] and not values["r14"] and not values["r16"] and not values["r18"] and not values["r20"] and not values["r22"] and not values["r25"] and not values["r27"] and not values["r29"] and not values["r32"] and not values["r34"] and not values["r37"] and not values["r40"]):
+                    getTestErrorText = "Error: No repetition value was chosen"
+                elif (values["test_name"] == ""):
+                    getTestErrorText = "Error: No name for 'Output name'."
+                elif (values["testAllanVariance"] and (int(values["allanV1"]) < 0)):
+                    getTestErrorText = "Error: The first Allan parameter must be bigger than zero."
+                elif (values["testAllanVariance"] and (int(values["allanV2"]) < 0)):
+                    getTestErrorText = "Error: The second Allan parameter must be bigger than zero."
+                elif (values["testAllanVariance"] and (int(values["allanV3"]) < 0)):
+                    getTestErrorText = "Error: The third Allan parameter must be bigger than zero."    
+                elif (values["testBeerLambertLaw"] and (int(values["interactionLength"]) < 0)):
+                    getTestErrorText = "Error: (Beer-Lamber Law) The 'Interaction Length' must be bigger than zero."    
+                elif (values["testBeerLambertLaw"] and (int(values["lineStrength"]) < 0)):
+                    getTestErrorText = "Error: (Beer-Lamber Law) The 'Line Strength' must be bigger than zero."
+                if (getTestErrorText == ""):
+                    dirName = makedirectory(values["test_name"])
+                    getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
+                    tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
+                    if (tempEvent.upper()=="OK"):
+                        getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
+                        command = 'py'
+                        args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
+                        process = subprocess.Popen([command] + args)
+                        pid = process.pid
+                        graphs_pids.append(pid)
+                    else:
+                        shutil.rmtree(dirName)
                 else:
-                    shutil.rmtree(dirName)
-            else:
-                flag_endText = True
-                window['section_endText'].update(visible=True)
+                    flag_endText = True
+                    window['section_endText'].update(visible=True)
 
-    elif event == "Start laser":
-        if isConnected:
-            laser.emission(1)
-    elif event == "Stop laser":
-        if isConnected or debugMode:
-            laser.emission(0)
-    
-    elif event == "-LOAD_SAMPLE-":
-        dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
-        thread = threading.Thread(target=interactiveGraph(values, dirName)).start()
+        elif event == "Start laser":
+            if isConnected:
+                laser.emission(1)
+        elif event == "Stop laser":
+            if isConnected or debugMode:
+                laser.emission(0)
+        
+        elif event == "-LOAD_SAMPLE-":
+            dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+            command = 'py'
+            args = ['Interactive_Graph.py', '--csv_name', dirName]
+            process = subprocess.Popen([command] + args)
+            pid = process.pid
+            graphs_pids.append(pid)
+            # t.join()
 
-    elif ( (event == 'Close') or (event == sg.WIN_CLOSED) ):
-        window.close()
-        break
+        elif ( (event == 'Close') or (event == sg.WIN_CLOSED) ):
+            window.close()
+            for pid in graphs_pids:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    print(f"Process with PID {pid} killed successfully.")
+                except OSError as e:
+                    print(f"Error killing process with PID {pid}: {e}")
+            break
+
+
+
+if __name__ == '__main__':
+    mainLoop()
 
 # End of File.
 
