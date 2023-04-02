@@ -3,14 +3,14 @@ import pandas as pd
 import PySimpleGUI as sg
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from Analyzer import getNormlizedByCustomFreq, beerLambertLaw
 import argparse
 
 GRAPH_SIZE = (1280,1024)
-PLOT_SIZE = (13,8)
+PLOT_SIZE = (12,7)
 
-graphStatusText = "Hello"
+graphStatusText = "Choose graph type"
 imageStatusText = ""
 
 
@@ -56,6 +56,23 @@ class CursorClass(object):
 
 #---------------------------------------------------------------------------------------------------------------------------
 
+class Toolbar(NavigationToolbar2Tk):
+    def __init__(self, *args, **kwargs):
+        super(Toolbar, self).__init__(*args, **kwargs)
+
+def draw_figure_w_toolbar(canvas, fig, canvas_toolbar):
+    if canvas.children:
+        for child in canvas.winfo_children():
+            child.destroy()
+    if canvas_toolbar.children:
+        for child in canvas_toolbar.winfo_children():
+            child.destroy()
+    figure_canvas_agg = FigureCanvasTkAgg(fig, master=canvas)
+    figure_canvas_agg.draw()
+    toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
+    toolbar.update()
+    figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
+
 # Layouts:
 
 def collapse(layout, key, visible):
@@ -77,7 +94,22 @@ def getLayout(frequencyList, powerList):
     [collapse(sweepRepetitionCompareSection, 'section_sweepRepetitionCompare', False)],
     [collapse(beerLambertResultsSection, 'section_beerLambertResults', False)],
     [collapse(allanVarianceCompareSection, 'section_allanVarianceCompare', False)], [sg.Push(), sg.Text("Enter name for image:"), sg.Input("save_name",s=20,key="imageName"), sg.Push()], [sg.Push(),sg.Button("Close Graph"), sg.Button("Clear All"), sg.Button("Save Image"), sg.Push()],[sg.Push(), sg.Text(str(imageStatusText)), sg.Push()]]
-    graph_layout = [[sg.Push(),sg.Text("Graph Space:"),sg.Push()], [sg.Push(), sg.Canvas(key='figCanvas'), sg.Push()]]
+    graph_layout = [
+        [sg.Push(),sg.Text("Graph Space:"),sg.Push()],
+        [sg.T('Controls:')],
+        [sg.Canvas(key='controls_cv')],
+        [sg.T('Figure:')],
+        [sg.Column(
+            layout=[
+                [sg.Canvas(key='figCanvas',
+                        # it's important that you set this size
+                        size=(400 * 2, 400)
+                        )]
+            ],
+            background_color='#DAE0E6',
+            pad=(0, 0)
+    )],
+        ]
     Layout = [[sg.Column(menu_layout), sg.Column(graph_layout, s=GRAPH_SIZE)]]
     return Layout
 
@@ -87,7 +119,7 @@ def getLayout(frequencyList, powerList):
 
 # Additional functions:
 
-def setTitels(fig,graphMode):
+def setTitels(fig, graphMode):
     fig.clear()
     if (graphMode == ""):
         return
@@ -100,10 +132,10 @@ def setTitels(fig,graphMode):
         plt.ylabel('Normal Ratio')
         plt.title("No parameters choosen")
         
-def changeGraph(df,fig,xAxis,rep,power,mode, graphMode='clean'):
+def changeGraph(df, fig, xAxis, rep,power,mode, graphMode = 'clean'):
     # xAxis is a list.
     # yAxis is a dictionary.
-    setTitels(fig,graphMode)
+    setTitels(fig, graphMode)
     yDictionary = {}
     for r in rep:
         for p in power:
@@ -121,7 +153,7 @@ def changeGraph(df,fig,xAxis,rep,power,mode, graphMode='clean'):
     plt.legend()
     return yDictionary
 
-def checkForParameters(fig,a,b,graphMode):
+def checkForParameters(fig, a, b, graphMode):
     if ( (len(a) == 0) or (len(b) == 0) ):
         setTitels(fig, graphMode)
         if ( (len(a) == 0) and (len(b) == 0 ) ):
@@ -166,12 +198,12 @@ def updateDataframe(df,fig,graphMode,window):
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-def draw_figure(canvas, figure):
-    # This function embedded the ploted graph into the graph window.
-    figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
-    figure_canvas_agg.draw()
-    figure_canvas_agg.get_tk_widget().pack(side='top', fill='both', expand=1)
-    return figure_canvas_agg
+# def draw_figure(canvas, figure):
+#     # This function embedded the ploted graph into the graph window.
+#     figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
+#     figure_canvas_agg.draw()
+#     figure_canvas_agg.get_tk_widget().pack(side='top', fill='both', expand=1)
+#     return figure_canvas_agg
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -196,21 +228,31 @@ def interactiveGraph(csvFile):
     if ( (clean == False) and (substance == False) and (norm == False) ):
         tempEvent = sg.popup_ok_cancel("There was a problem to load the files. Press 'OK' to exit.")
         exit()
+    
     yAxisPowerS_dictionary = {}
     yAxisRepS_dictionary = {}
     frequencyList = []
     powerList = []
     x = []
+
     window2 = sg.Window("Interactive Graph", getLayout(frequencyList, powerList),finalize=True)
     # Creating the automatic first graph:
     fig = plt.figure()
+    plt.ion() 
+    # fig = plt.gcf()
     fig.set_figwidth(PLOT_SIZE[0])
     fig.set_figheight(PLOT_SIZE[1])
-    draw_figure(window2['figCanvas'].TKCanvas, fig)
+    # draw_figure(window2['figCanvas'].TKCanvas, fig)
+    draw_figure_w_toolbar(window2['figCanvas'].TKCanvas, fig, window2['controls_cv'].TKCanvas)
     plt.title('No Plot to show. Choose data...')
+    # Set the x-axis
+    start_f = float(df_clean.columns[10])
+    stop_f = float(df_clean.columns[-1])
+    
     # End of creating the graph.
 
     while True:
+
         event, values = window2.read()
         # Closing the graph.
         if ( (event == 'Close Graph') or (event == sg.WIN_CLOSED) ):
@@ -279,6 +321,8 @@ def interactiveGraph(csvFile):
                     else: # Plot the data and add to the yAxisPowerS dictionary.
                         row = (np.where((df.REP_RATE == values['_RepetitionListBoxPC_'][0]) & (df.POWER == int(key))))[0]
                         yAxisPowerS_dictionary[key] = plt.plot(x, list(df.iloc[[row[0]]].values.tolist())[0][10:], label=key+'%')
+                        plt.xticks(np.arange(start_f, stop_f, (start_f-stop_f)/10))
+                        window2['section_graphMode'].update()
                         print("The yAxisPowerS_dictionary (Adding) is: ", yAxisPowerS_dictionary.keys())
                 # Removing the chosen data from PowerListBoxPC to yAxisPowerS_dictionary:
                 delList = []
@@ -310,6 +354,8 @@ def interactiveGraph(csvFile):
                     else: # Plot the data and add to the yAxisPowerS dictionary.
                         row = (np.where((df.REP_RATE == key) & (df.POWER == int(values['_PowerListBoxRC_'][0]))))[0]
                         yAxisRepS_dictionary[key] = plt.plot(x, list(df.iloc[[row[0]]].values.tolist())[0][10:], label=key)
+                        plt.xticks(np.arange(start_f, stop_f, (start_f-stop_f)/10))
+                        window2['section_graphMode'].update()
                         print("The yAxisRepS_dictionary (Adding) is: ", yAxisRepS_dictionary.keys())
                 # Removing the chosen data from PowerListBoxPC to yAxisPowerS_dictionary:
                 delList = []
@@ -395,6 +441,10 @@ def interactiveGraph(csvFile):
                     window2['section_graphMode'].update()
                     normValue = "Normelaized frequency: " + normValue + "MHz."
                     window2['section_normValue'].update()
+                    values['cleanCheckBox'] = False
+                    values['substanceCheckBox'] = False
+                    window2['cleanCheckBox'].Update(False)
+                    window2['substanceCheckBox'].Update(False)
                 except:
                     graphMode = ""
                     values['normCheckBox'] = False
