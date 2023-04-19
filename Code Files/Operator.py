@@ -216,6 +216,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
             else:
                 if (not debugMode):
                     laser.emission(1)
+                sleep(0.5)
                 result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
                 if (not debugMode):
                     laser.emission(0)    
