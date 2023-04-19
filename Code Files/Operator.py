@@ -9,8 +9,7 @@ from Allan_Variance import allan_variance, params_from_avar # Documentation: htt
 import matplotlib.pyplot as plt
 import os
 # from json import load, dump
-from time import sleep
-import time
+from time import sleep, time
 # import pylab as plb
 # from GUI import enterSubstanceToMeasure
 from datetime import datetime
@@ -180,53 +179,62 @@ def getSweepResults(laser,osa,values,debug,csvname):
     stopF = startF + int(values["SPAN"])
     freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["SPAN"])/pts)]
     allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Start Power (I0)','End Power (I)', 'I/I0 Ratio', 'SAMPLINGS_NUMBER']+freqs_columns)
+    laserPower = True
+    capturePower = True
     # Start the tests:
+    if (not debugMode):
+        laser.emission(0)
     for freq in reps:
         for p in powers:
             configureLaser(laser, p, freq)
-            if (not debugMode):
-                laser.emission(1)
-            result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
-            if (not debugMode):
-                laser.emission(0)
-            laserPower = calculateLaserLightPower(p,freq)
-            capturePower = calculateCaptureLightPower()
-            # Preparing new row for allResults
-            new_row = []
-            new_row.append(getTime())
-            new_row.append(values["TEST1_COMMENT"])
-            new_row.append(values["CF"])
-            new_row.append(values["SPAN"])
-            new_row.append(rep_values_MHz[freq])
-            new_row.append(p)
-            new_row.append(laserPower)
-            new_row.append(capturePower)
-            new_row.append(capturePower/laserPower)
-            new_row.append(values["numSamplesParameter"])
-            new_row = new_row + list(result)
-            # Append the new row to the dataframe
-            allResults_df.loc[len(allResults_df)] = new_row
+            if csvname[-9:-4] == "allan":
+                totalTime = int(values['totalTimeAllanVariance'])
+                intervalTime = int(values['intervalTimeAllanVariance'])
+                startTime = time()
+                lastTime = startTime
+                if (not debugMode):
+                    laser.emission(1)
+                while(time() - startTime < totalTime):
+                    result = meanMeasure(laser,osa, 1 ,pts)
+                    lastTime = time()
+                    new_row = []
+                    new_row.append(getTime())
+                    new_row.append(values["TEST1_COMMENT"])
+                    new_row.append(values["CF"])
+                    new_row.append(values["SPAN"])
+                    new_row.append(rep_values_MHz[freq])
+                    new_row.append(p)
+                    new_row.append(lastTime-startTime)
+                    new_row.append(laserPower)
+                    new_row.append(capturePower)
+                    new_row.append(capturePower/laserPower)
+                    new_row.append(values["numSamplesParameter"])
+                    sleep(intervalTime)
+                if (not debugMode):
+                    laser.emission(0)
+                sleep(5)
+            else:
+                if (not debugMode):
+                    laser.emission(1)
+                result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
+                if (not debugMode):
+                    laser.emission(0)    
+                # Preparing new row for allResults
+                new_row = []
+                new_row.append(getTime())
+                new_row.append(values["TEST1_COMMENT"])
+                new_row.append(values["CF"])
+                new_row.append(values["SPAN"])
+                new_row.append(rep_values_MHz[freq])
+                new_row.append(p)
+                new_row.append(laserPower)
+                new_row.append(capturePower)
+                new_row.append(capturePower/laserPower)
+                new_row.append(values["numSamplesParameter"])
+                new_row = new_row + list(result)
+                # Append the new row to the dataframe
+                allResults_df.loc[len(allResults_df)] = new_row
     allResults_df.to_csv(csvname, index=False)
-
-# This function responsibles for Beer-Lambert Law:
-
-def calculateCaptureLightPower():
-    return True # OSA - Power of capture light
-
-def calculateLaserLightPower(power,frequency):
-    return True
-def calculateConcentrationOfSubstance():
-    return True
-
-#def CSVFilecreator():
-#    skip
-
-#def analyizer():
-#    skip
-
-#def plotResults():
-#    skip
-
 
 # End Tests Managment: ----------------------------------------------------------------------------------------------
 
@@ -278,3 +286,21 @@ def runSample(laser,osa, isConnected,debugMode, values):
 
 if __name__ == '__main__':
     print("this is operator.py")
+
+
+#---------------------------------------------------------------------------------------------------------------------------
+# Comments to delete after all the work:
+
+
+# This function responsibles for Beer-Lambert Law:
+
+# def calculateCaptureLightPower():
+#     return True # OSA - Power of capture light
+
+# def calculateLaserLightPower(power,frequency):
+#     return True
+# def calculateConcentrationOfSubstance():
+#     return True
+
+# # laserPower = calculateLaserLightPower(p,freq)
+#             # capturePower = calculateCaptureLightPower()

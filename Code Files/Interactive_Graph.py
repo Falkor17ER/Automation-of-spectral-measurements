@@ -4,8 +4,10 @@ import PySimpleGUI as sg
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import matplotlib.colors as mcolors
 from Analyzer import getNormlizedByCustomFreq, beerLambertLaw
 import argparse
+import os
 
 GRAPH_SIZE = (1280,1024)
 PLOT_SIZE = (12,7)
@@ -72,6 +74,7 @@ def draw_figure_w_toolbar(canvas, fig, canvas_toolbar):
     toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
     toolbar.update()
     figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
+    return figure_canvas_agg
 
 # Layouts:
 
@@ -109,6 +112,39 @@ def getLayout(frequencyList, powerList):
             background_color='#DAE0E6',
             pad=(0, 0)
     )],
+        ]
+    Layout = [[sg.Column(menu_layout), sg.Column(graph_layout, s=GRAPH_SIZE)]]
+    return Layout
+
+def getAllanLayout(frequencyList, powerList, numIntervals):
+    # xAxis is a list of lists.
+    menu_layout = [[sg.Text("Select graph type:")],
+                   [sg.Combo(["Raw Data","Ratio Data"], default_value="Ratio Data", key='-ALLAN_GRAPH_TYPE-', enable_events=True)],
+                   [sg.Text("Select Rep and Power pair:")],
+                   [sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='single', key='-ALLAN_REP-'),
+                    sg.Listbox(values=powerList, s=(14,10), enable_events=True, select_mode='single', key='-ALLAN_POWER-')],
+                   [sg.Button("Close", key='-ALLAN_CLOSE-')]
+                   
+                   ]
+    graph_layout = [
+        [sg.Push(),sg.Text("Graph Space:"),sg.Push()],
+        [sg.T('Controls:')],
+        [sg.Canvas(key='controls_cv')],
+        [sg.T('Figure:')],
+        [sg.Column(
+            layout=[
+                [sg.Canvas(key='figCanvas',
+                        # it's important that you set this size
+                        size=(400 * 2, 400)
+                        )]
+            ],
+            background_color='#DAE0E6',
+            pad=(0, 0)
+        )],
+        [sg.Text('Graphs Interval')],
+        [sg.Slider(range=(min(numIntervals), max(numIntervals)), size=(60, 10),
+                orientation='h', key='-SLIDER-', resolution=1/(10*len(numIntervals)))],
+        [sg.Button("Hold", key="-HOLD_TRACE-"), sg.Button("Clear All", key="-ALLAN_CLEAR-"), sg.Button("Play/Pause", key="-ALLAN_PLAY-"), sg.Push()]
         ]
     Layout = [[sg.Column(menu_layout), sg.Column(graph_layout, s=GRAPH_SIZE)]]
     return Layout
@@ -210,6 +246,163 @@ def updateDataframe(df,fig,graphMode,window):
 # The managment function:
 
 def interactiveGraph(csvFile):
+    filesList = os.listdir(csvFile)
+    for file in filesList:
+        if file[:-4] == 'clean' or file[:-4] == 'substance':
+            type_of_graph = 'regular'
+            break
+        elif file[:-4] == 'allan':
+            type_of_graph = 'allan'
+            break
+
+    if type_of_graph == 'regular':
+        regularSweepGraph(csvFile)
+    elif type_of_graph == 'allan':
+        allanVarianceGraph(csvFile)
+
+def allanVarianceGraph(csvFile):
+
+    colors = [name for name, hex in mcolors.CSS4_COLORS.items()
+                   if np.mean(mcolors.hex2color(hex)) < 0.7]
+    colors.pop(0)
+    color = colors[0]
+
+    def update_internal_graph(ax, temp_df, fig_agg, i, color):
+        ax.cla()
+        ax.grid()
+        try:
+            line1 = ax.plot(np.asarray(temp_df.columns[11:], float), temp_df.iloc[i,11:], label='{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i]), color = color)
+            # Add a legend
+            ax.legend(loc='upper right')
+            fig_agg.draw()
+            return line1[0]
+        except:
+            return False
+
+    def add_allan_history(ax, hold_lines, fig_agg):
+        for line1 in hold_lines.values():
+            ax.add_line(line1)
+        ax.legend(loc='upper right')
+        fig_agg.draw()
+
+    sg.theme('DarkBlue')
+
+    try:
+        allan_df = pd.read_csv(csvFile + 'allan_ratio.csv')
+    except:
+        print("Coudln't read "+csvFile + 'allan_ratio.csv')
+        return False
+    
+    window2 = sg.Window("Interactive Allan Variance Graph", getAllanLayout(allan_df['REP_RATE'].unique().tolist(), allan_df['POWER'].unique().tolist(), allan_df['Interval'].unique().tolist()),finalize=True)
+    interval_list = allan_df['Interval'].unique().tolist()
+    # draw the initial plot in the window
+    fig = plt.Figure()
+    fig.set_figwidth(PLOT_SIZE[0])
+    fig.set_figheight(PLOT_SIZE[1]-2)
+    ax = fig.add_subplot(111)
+    ax.set_xlabel("Wavelength [nm]")
+    ax.set_ylabel("Power(0)/Power(t)")
+    ax.grid()
+    fig_agg = draw_figure_w_toolbar(window2['figCanvas'].TKCanvas, fig, window2['controls_cv'].TKCanvas)
+    hold_lines = {}
+
+    slider_elem = window2['-SLIDER-']
+    window2['-SLIDER-'].bind('<ButtonRelease-1>', ' Release')
+    slider_update = False
+    test_selected = False
+    i = 0
+
+    while True:
+
+        event, values = window2.read(timeout=1000)
+        # Closing the graph.
+        if ( (event == '-ALLAN_CLOSE-') or (event == sg.WIN_CLOSED) ):
+            window2.close()
+            break
+        if event == '-ALLAN_PLAY-' and test_selected:
+            # Start or stop auto switching
+            slider_update = not slider_update
+        if slider_update and  event == '__TIMEOUT__':
+            # Update to next timestamp
+            slider_elem.update(i)
+            curr_label = '{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i])
+            if curr_label not in hold_lines.keys():
+                line1 = update_internal_graph(ax, temp_df, fig_agg, i, color)
+                add_allan_history(ax, hold_lines, fig_agg)
+            i = (i+1) % len(interval_list)
+
+        if values['-ALLAN_REP-'] and values['-ALLAN_POWER-'] and not test_selected:
+            # First time test selection
+            temp_df = allan_df[(allan_df['REP_RATE'] == values['-ALLAN_REP-'][0]) & (allan_df['POWER'] == values['-ALLAN_POWER-'][0])]
+            if len(temp_df) > 0:
+                test_selected = True
+                slider_update = True
+                slider_elem.Update(range=(min(temp_df['Interval']), max(temp_df['Interval'])))
+                interval_list = temp_df['Interval'].unique().tolist()
+            else:
+                test_selected = False
+
+        if test_selected and (event == '-ALLAN_REP-' or event == '-ALLAN_POWER-'):
+            # Test Update
+            temp_df = allan_df[(allan_df['REP_RATE'] == values['-ALLAN_REP-'][0]) & (allan_df['POWER'] == values['-ALLAN_POWER-'][0])]
+            if len(temp_df) > 0:
+                test_selected = True
+                slider_update = True
+                slider_elem.Update(range=(min(temp_df['Interval']), max(temp_df['Interval'])))
+                interval_list = temp_df['Interval'].unique().tolist()
+                i = 0
+            else:
+                test_selected = False
+        
+        if event == '-SLIDER- Release':
+            interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+            i = interval
+            curr_label = '{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i])
+            if curr_label not in hold_lines.keys():
+                line1 = update_internal_graph(ax, temp_df, fig_agg, i, color)
+                add_allan_history(ax, hold_lines, fig_agg)
+
+        if event == '-HOLD_TRACE-':
+            if line1 != False:
+                hold_lines[line1._label] = line1
+                colors.remove(color)
+                color = colors[0]
+
+        if event == '-ALLAN_CLEAR-':
+            ax.cla()
+            ax.grid()
+            fig_agg.draw()
+            hold_lines = {} # deleting history
+            colors = [name for name, hex in mcolors.CSS4_COLORS.items()
+                   if np.mean(mcolors.hex2color(hex)) < 0.7]
+            colors.pop(0)
+            
+        if event == '-ALLAN_GRAPH_TYPE-':
+            # ["Raw Data","Ratio Data"]
+            ax.cla()
+            ax.grid()
+            i = 0
+            fig_agg.draw()
+            if values['-ALLAN_GRAPH_TYPE-'] == "Ratio Data":
+                try:
+                    allan_df = pd.read_csv(csvFile + 'allan_ratio.csv')
+                    ax.set_ylabel("Power(0)/Power(t)")
+                except:
+                    print("Coudln't read "+csvFile + 'allan_ratio.csv')
+                    exit()
+            else:
+                try:
+                    allan_df = pd.read_csv(csvFile + 'allan.csv')
+                except:
+                    print("Coudln't read "+csvFile + 'allan.csv')
+                    exit()
+            window2['-ALLAN_REP-'].update(allan_df['REP_RATE'].unique().tolist())
+            window2['-ALLAN_POWER-'].update(allan_df['POWER'].unique().tolist())
+            test_selected = False
+            slider_update = False
+            interval_list = allan_df['Interval'].unique().tolist()
+
+def regularSweepGraph(csvFile):
     sg.theme('DarkBlue')
     clean = True
     substance = True
@@ -320,7 +513,7 @@ def interactiveGraph(csvFile):
                         None # OK, don't do anything.
                     else: # Plot the data and add to the yAxisPowerS dictionary.
                         row = (np.where((df.REP_RATE == values['_RepetitionListBoxPC_'][0]) & (df.POWER == int(key))))[0]
-                        yAxisPowerS_dictionary[key] = plt.plot(x, list(df.iloc[[row[0]]].values.tolist())[0][10:], label=key+'%')
+                        yAxisPowerS_dictionary[key] = plt.plot(np.asarray(x, float), list(df.iloc[[row[0]]].values.tolist())[0][10:], label=key+'%')
                         plt.xticks(np.arange(start_f, stop_f, (start_f-stop_f)/10))
                         window2['section_graphMode'].update()
                         print("The yAxisPowerS_dictionary (Adding) is: ", yAxisPowerS_dictionary.keys())
@@ -353,7 +546,7 @@ def interactiveGraph(csvFile):
                         None # OK, don't do anything.
                     else: # Plot the data and add to the yAxisPowerS dictionary.
                         row = (np.where((df.REP_RATE == key) & (df.POWER == int(values['_PowerListBoxRC_'][0]))))[0]
-                        yAxisRepS_dictionary[key] = plt.plot(x, list(df.iloc[[row[0]]].values.tolist())[0][10:], label=key)
+                        yAxisRepS_dictionary[key] = plt.plot(np.asarray(x, float), list(df.iloc[[row[0]]].values.tolist())[0][10:], label=key)
                         plt.xticks(np.arange(start_f, stop_f, (start_f-stop_f)/10))
                         window2['section_graphMode'].update()
                         print("The yAxisRepS_dictionary (Adding) is: ", yAxisRepS_dictionary.keys())
@@ -465,5 +658,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements-1\\Results\\2023_03_29_18_05_49_952582_VideoSample\\"
+        args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements-1\\Results\\2023_04_02_16_50_53_859012_allan\\"
     interactiveGraph(args.csv_name)
