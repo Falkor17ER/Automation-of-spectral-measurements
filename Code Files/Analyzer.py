@@ -7,7 +7,7 @@ def normalize(x, y):
     x_new = x/y
     return x_new
 
-def getNormlizedByRealFreq(dirname, real_freq = '1500'):
+def getNormlizedByRealFreq(dirname, to_norm, real_freq = '1500'):
     try:
         # Load clean and substance csvs
         clean_df = pd.read_csv(dirname+'\\'+'clean.csv')
@@ -15,33 +15,36 @@ def getNormlizedByRealFreq(dirname, real_freq = '1500'):
     except:
         return False
 
-    # Getting the elemnts of normalizations:
-    norm_vals = clean_df[real_freq]
-
     columns = substance_df.columns.to_list()
     freqs = [element for element in columns[10:]]
     R, _ = substance_df.shape
-    
-    # Normalizing both clean and substance CSVs
-    for idx in range(0,R):
-        # Iterating over each row and normlizing
-        clean_df.iloc[idx,10:] = clean_df.iloc[idx,10:].apply(lambda val : val/norm_vals[idx])
-        substance_df.iloc[idx,10:] = substance_df.iloc[idx,10:].apply(lambda val : val/norm_vals[idx])
+
+    if to_norm:
+        # Getting the elemnts of normalizations:
+        norm_vals_clean = clean_df[real_freq]
+        norm_vals_substance = substance_df[real_freq]
+
+        # Normalizing both clean and substance CSVs
+        for idx in range(0,R):
+            # Iterating over each row and normlizing
+            clean_df.iloc[idx,10:] = clean_df.iloc[idx,10:].apply(lambda val : val - norm_vals_clean[idx])
+            substance_df.iloc[idx,10:] = substance_df.iloc[idx,10:].apply(lambda val : val - norm_vals_substance[idx])
 
     divided_df = substance_df.copy()
-    divided_df[freqs] = divided_df[freqs].div(clean_df[freqs])
+    divided_df[freqs] = divided_df[freqs].subtract(clean_df[freqs])
     
     return divided_df
 
-def getNormlizedByCustomFreq(dirname, Freq = '1500'):
+def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     # looking for a frequency closest to the users choice
     clean_df = pd.read_csv(dirname+'\\'+'clean.csv', nrows=1)
     columns = clean_df.columns.to_list()
     freqs = [float(element) for element in columns[10:]]
     distance_from_user = [abs(float(Freq)-element) for element in freqs]
     real_freq = str(freqs[np.argmin(distance_from_user)])
-    df = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq)
+    df = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, to_norm=to_norm)
     df.to_csv(dirname+'norm.csv', index=False, encoding='utf-8')
+
 
 def beerLambertLaw(laserpower=0):
     concentration = 0

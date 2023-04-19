@@ -178,9 +178,9 @@ def changeGraph(df, fig, xAxis, rep,power,mode, graphMode = 'clean'):
             row = (np.where((df.REP_RATE == r) & (df.POWER == int(p))))[0]
             yPlot = list(df.iloc[[row[0]]].values.tolist())[0][10:]
             if (mode == 'PowerSweep'):
-                yDictionary[p] = plt.plot(xAxis, yPlot, label=p+'%')
+                yDictionary[p] = plt.plot(np.asarray(xAxis, float), yPlot, label=p+'%')
             if (mode == 'RepetitionSweep'):
-                yDictionary[r] = plt.plot(xAxis, yPlot, label=r)
+                yDictionary[r] = plt.plot(np.asarray(xAxis, float), yPlot, label=r)
     if (mode == 'PowerSweep'):
         graphTitle = rep[0]+" - Power Comparation Sweep Graph"
     if (mode == 'RepetitionSweep'):
@@ -609,41 +609,42 @@ def regularSweepGraph(csvFile):
                 window2['substanceCheckBox'].update(False)
                 graphStatusText = "No substance.csv file was found."
                 window2['section_graphMode'].update()
-        elif (event == 'normCheckBox'):
+
+        elif ( (event == 'normCheckBox') or (event == 'OK') ):
             if (norm == True):
                 if (values['normCheckBox'] == True):
-                    window2['section_normValue'].update(True)
-                    normValue = "Frequency to normal are between"+list(df_clean.columns.values.tolist())[10]+" nm to "+list(df_clean.columns.values.tolist())[-1]+" nm."
-                    window2['section_normValue'].update()
+                    if (event == 'normCheckBox'):
+                        normValue = "Frequency to normal are between"+list(df_clean.columns.values.tolist())[10]+" nm to "+list(df_clean.columns.values.tolist())[-1]+" nm."
+                        getNormlizedByCustomFreq(csvFile, values["normValue"], False)
+                    elif (event == 'OK'):
+                        getNormlizedByCustomFreq(csvFile, values["normValue"], True)
+                    try:
+                        df_norm = pd.read_csv(csvFile + 'norm.csv')
+                        df = df_norm
+                        graphMode = "norm"
+                        x, yAxisPowerS_dictionary, yAxisRepS_dictionary, window2 = updateDataframe(df,fig,graphMode,window2)
+                        graphStatusText = "Mode: Normal.csv graph"
+                        window2['section_graphMode'].update()
+                        normValue = "Normelaized frequency: " + normValue + "MHz."
+                        window2['section_normValue'].update(True)
+                        values['cleanCheckBox'] = False
+                        values['substanceCheckBox'] = False
+                        window2['cleanCheckBox'].Update(False)
+                        window2['substanceCheckBox'].Update(False)
+                    except:
+                        graphMode = ""
+                        values['normCheckBox'] = False
+                        window2.Element('normCheckBox').update(False)
+                        graphStatusText = "Problem loading norm.CSV file"
+                        window2['section_normValue'].update(False)
                 else:
                     setTitels(fig,"")
                     window2 = resetBoxs(window2)
-            if (norm == False):
+            else: # (if norm == False):
                 values['normCheckBox'] = False
                 window2['normCheckBox'].update(False)
                 graphStatusText = "No norm.csv file was found."
                 window2['section_graphMode'].update()
-        elif (event == 'OK'):
-                try:
-                    getNormlizedByCustomFreq(csvFile, values["normValue"])
-                    df_norm = pd.read_csv(csvFile + 'norm.csv')
-                    df = df_norm
-                    graphMode = "norm"
-                    x, yAxisPowerS_dictionary, yAxisRepS_dictionary, window2 = updateDataframe(df,fig,graphMode,window2)
-                    graphStatusText = "Mode: Normal.csv graph"
-                    window2['section_graphMode'].update()
-                    normValue = "Normelaized frequency: " + normValue + "MHz."
-                    window2['section_normValue'].update()
-                    values['cleanCheckBox'] = False
-                    values['substanceCheckBox'] = False
-                    window2['cleanCheckBox'].Update(False)
-                    window2['substanceCheckBox'].Update(False)
-                except:
-                    graphMode = ""
-                    values['normCheckBox'] = False
-                    window2.Element('normCheckBox').update(False)
-                    graphStatusText = "Problem loading norm.CSV file"
-                    window2['section_normValue'].update(False)
 
 ####################################################
 
