@@ -34,9 +34,9 @@ rep_values_MHz_inverted = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MH
 
 # Sample Managment: ----------------------------------------------------------------------------------------------
 
-def setConfig(laser,osa,cf,span,points,speed,power,rep):
+def setConfig(laser,osa,cf,span,points,speed,power,rep,sens,res):
     configureLaser(laser,power,rep)
-    configureOSA(osa,cf,span,points,speed)
+    configureOSA(osa,cf,span,points,speed,sens,res)
 
 def configureLaser(laser, power,rep):
     if not debugMode:
@@ -45,10 +45,11 @@ def configureLaser(laser, power,rep):
         sleep(1)
         laser.powerLevel(int(power))
 
-def configureOSA(osa, cf,span,points,speed):
+def configureOSA(osa, cf,span,points,speed,sens,res):
     if not debugMode:
         convertDict = {
-            "SPEED": {"Normal": "x1", "Fast": "x2"}
+            "SPEED": {"Normal": "x1", "Fast": "x2"},
+            "Sens": {"NORM/HOLD": 0, "NORM/AUTO": 1, "NORMAL": 6, "MID": 2, "HIGH1": 3, "HIGH2": 4, "HIGH3": 5}
         }
         # Set center frequency
         osa.setCenterFreq(cf)
@@ -64,6 +65,14 @@ def configureOSA(osa, cf,span,points,speed):
         # Set sampling speed
         osa.setSpeed(convertDict["SPEED"][speed])
         sleep(1)
+        # Set sampling sensetivity
+        osa.setSens(convertDict["Sens"][sens])
+        sleep(1)
+        # Set sampling resolution
+        osa.setRes(res)
+        sleep(1)
+        
+
 
 # End Sample Managment: ----------------------------------------------------------------------------------------------
 
@@ -150,8 +159,8 @@ def getTime():
     time = time.replace('.', '_')
     return time
 
-def makedirectory(dirname):
-    dir = "../Results/"+getTime()+"_"+dirname
+def makedirectory(dirname, ):
+    dir = "../Results/"+getTime()+"___"+dirname+"___"
     os.mkdir(dir)
     return dir
 
@@ -165,7 +174,11 @@ def getSweepResults(laser,osa,values,debug,csvname):
         pts = 500
     else:
         pts = int(values["test_PTS"])
-    setConfig(laser,osa,values["test_CF"],values["test_SPAN"], pts, values['test_SPD'], values["minPL"], reps[0])
+    if values["test_res"] == "Manuall (Enter a value)":
+        res = values["test_manuallRes"]
+    else:
+        res = values["test_res"]
+    setConfig(laser,osa,values["test_CF"],values["test_SPAN"], pts, values['test_SPD'], values["minPL"], reps[0], values['test_sens'], res)
     start = int(values["minPL"])
     if (values["testPowerLevelSweep"]):
         stop = int(values["maxPL"])
@@ -182,12 +195,18 @@ def getSweepResults(laser,osa,values,debug,csvname):
     laserPower = True
     capturePower = True
     # Start the tests:
+    #if (not debugMode):
+    #    laser.emission(0)
     if (not debugMode):
-        laser.emission(0)
+        laser.emission(1)
     for freq in reps:
         for p in powers:
             configureLaser(laser, p, freq)
-            if csvname[-9:-4] == "allan":
+            
+            ##################################################### To Change instead of Allan
+            if csvname[-9:-4] == "allan": # Analyze Graph: Beer-Lambert & Allan Variance Mode
+                if (not debugMode):
+                    laser.emission(0)
                 totalTime = int(values['totalTimeAllanVariance'])
                 intervalTime = int(values['intervalTimeAllanVariance'])
                 startTime = time()
@@ -213,13 +232,16 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 if (not debugMode):
                     laser.emission(0)
                 sleep(5)
-            else:
-                if (not debugMode):
-                    laser.emission(1)
-                sleep(0.5)
+            ###################################################################
+            
+            else: # Regular Mode
+                #if (not debugMode):
+                #    laser.emission(1)
+                # sleep(0.5)
+                sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
                 result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
-                if (not debugMode):
-                    laser.emission(0)    
+                #if (not debugMode):
+                #    laser.emission(0)    
                 # Preparing new row for allResults
                 new_row = []
                 new_row.append(getTime())
@@ -235,6 +257,8 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 new_row = new_row + list(result)
                 # Append the new row to the dataframe
                 allResults_df.loc[len(allResults_df)] = new_row
+    if (not debugMode):
+        laser.emission(0) # Turn off the laser after the measurments sweep. 
     allResults_df.to_csv(csvname, index=False)
 
 # End Tests Managment: ----------------------------------------------------------------------------------------------

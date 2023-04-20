@@ -125,12 +125,13 @@ def getTests():
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
     allanVarianceSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalTimeAllanVariance"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",s=3,key="intervalTimeAllanVariance"), sg.Text("seconds")]]
     beerLambertLawSection = [[sg.Text("Interaction length [cm]"), sg.Input("10",s=5,key="interactionLength"),sg.Text("Line Strength (According to Manufactor):"), sg.Input("50",s=5,key="lineStrength")]]
+    manuallResSection = [[sg.Text("Please enter a value: "), sg.Input("2nm",s=5,key="test_manuallRes"), sg.Text("nm")]]
     endTextSection = [[sg.Push(),sg.Text(str(getTestErrorText)),sg.Push()]]
     if (isConnected or debugMode):
         test_values = [[sg.Push(), sg.Text("Tests - choose the tests you want", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
                     sg.Text("Span:"), sg.Input("50",s=5,key="test_SPAN"), sg.Text("[nm]")],
-                    [sg.Text("Num of Ponits:"), sg.Input("Auto (500)",s=12,key="test_PTS"), sg.Text("Speed:"), sg.Combo(["Normal", "Fast"], default_value='Normal',key="test_SPD")],
+                    [sg.Text("Num of Ponits:"), sg.Input("Auto (500)",s=12,key="test_PTS"), sg.Text("Speed:"), sg.Combo(["Normal", "Fast"], default_value='Normal',key="test_SPD"), sg.Text("Sensetivity: "), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="test_sens")], [sg.Text("Resolution: "), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>", "Manuall (Enter a value)"], enable_events=True, default_value="1nm <0.820nm>" ,key="test_res"), collapse(manuallResSection, 'section_manuallRes', False)],
                     [sg.Text("Start Power Level [%]:"), sg.Input("6",s=3,key="minPL"), sg.Checkbox(text="Sweep?", enable_events=True, key="testPowerLevelSweep"), collapse(powerSweepSection, 'section_powerSweep', False)],
                     [sg.Text("Number of samples per parameter: "), sg.Input("1",s=2,key="numSamplesParameter"), sg.Text("(max: 100)")],
                     [sg.Text("Choose the repetition rates [MHz]:"),sg.Checkbox(text="Select all", enable_events=True, key="selectAllRep")],
@@ -239,6 +240,12 @@ while True:
             window[i].update(values["selectAllRep"])
         print(values)
 
+    elif event == "test_res":
+        if values["test_res"] == "Manuall (Enter a value)":
+            window['section_manuallRes'].update(visible=True)
+        else:
+            window['section_manuallRes'].update(visible=False)
+
     elif event == "testAllanVariance":
         flag_testAllanVariance = not flag_testAllanVariance
         window['section_allanVariance'].update(visible=flag_testAllanVariance)
@@ -282,7 +289,11 @@ while True:
                 popup_win = popup('Starting Clean Test...')
                 window.force_focus()
                 # threading.Thread(target=installation, args=(window, 5), daemon=True).start()
-                dirName = makedirectory(values["test_name"])
+                if values["test_res"] == "Manuall (Enter a value)":
+                    res = values["test_manuallRes"]
+                else:
+                    res = values["test_res"]
+                dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_SPD"],values["test_sens"],res)
                 getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
                 popup_win.close()
                 tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
