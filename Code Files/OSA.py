@@ -91,7 +91,9 @@ class OSA:
     ############################################################################## Page 68 on OSA Control Manuall
     def setRes(self, res):
     # Changing the resolution of the device measurment
-        # self.sendToOSA(''.format(res)) 
+        # self.sendToOSA(':SENSe:BANDwidth|:BWIDth[:RESolution]<wsp><NRf>[M|Hz]'.format(res))
+        self.sendToOSA(':SENSe:BANDwidth|:BWIDth[:RESolution] {}[M|Hz]'.format(res))
+        #self.sendToOSA(''.format(res))
         return True
 
     def saveBMPFile(self, name='temp'):

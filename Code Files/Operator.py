@@ -159,8 +159,8 @@ def getTime():
     time = time.replace('.', '_')
     return time
 
-def makedirectory(dirname, ):
-    dir = "../Results/"+getTime()+"___"+dirname+"___"
+def makedirectory(dirname, cf,span,npoints,speed,sens,res):
+    dir = "../Results/"+getTime()+"___"+dirname+"___CF="+cf+"nm, Span="+span+"nm, NPoints="+npoints+", speed="+speed+", sens="+sens+", res="+res 
     os.mkdir(dir)
     return dir
 
@@ -188,9 +188,9 @@ def getSweepResults(laser,osa,values,debug,csvname):
         step = 1
     powers = range(start,stop+1,step)
     # Making the CSV File
-    startF = int(values["CF"]) - int(values["SPAN"])/2
-    stopF = startF + int(values["SPAN"])
-    freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["SPAN"])/pts)]
+    startF = int(values["test_CF"]) - int(values["test_SPAN"])/2
+    stopF = startF + int(values["test_SPAN"])
+    freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["test_SPAN"])/pts)]
     allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Start Power (I0)','End Power (I)', 'I/I0 Ratio', 'SAMPLINGS_NUMBER']+freqs_columns)
     laserPower = True
     capturePower = True
@@ -207,6 +207,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
             if csvname[-9:-4] == "allan": # Analyze Graph: Beer-Lambert & Allan Variance Mode
                 if (not debugMode):
                     laser.emission(0)
+                    sleep(5)
                 totalTime = int(values['totalTimeAllanVariance'])
                 intervalTime = int(values['intervalTimeAllanVariance'])
                 startTime = time()
@@ -219,8 +220,8 @@ def getSweepResults(laser,osa,values,debug,csvname):
                     new_row = []
                     new_row.append(getTime())
                     new_row.append(values["TEST1_COMMENT"])
-                    new_row.append(values["CF"])
-                    new_row.append(values["SPAN"])
+                    new_row.append(values["test_CF"])
+                    new_row.append(values["test_SPAN"])
                     new_row.append(rep_values_MHz[freq])
                     new_row.append(p)
                     new_row.append(lastTime-startTime)
@@ -246,8 +247,8 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 new_row = []
                 new_row.append(getTime())
                 new_row.append(values["TEST1_COMMENT"])
-                new_row.append(values["CF"])
-                new_row.append(values["SPAN"])
+                new_row.append(values["test_CF"])
+                new_row.append(values["test_SPAN"])
                 new_row.append(rep_values_MHz[freq])
                 new_row.append(p)
                 new_row.append(laserPower)
