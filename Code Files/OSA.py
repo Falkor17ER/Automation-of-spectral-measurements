@@ -83,6 +83,17 @@ class OSA:
         self.sendToOSA(':sens:sweep:speed {}'.format(speed))
         return True
 
+    def setSens(self, sens):
+        # Changing the sensetivity of the device measurment
+        self.sendToOSA(':sens:sens {}'.format(sens))
+        return True
+
+    ############################################################################## Page 68 on OSA Control Manuall
+    def setRes(self, res):
+    # Changing the resolution of the device measurment
+        # self.sendToOSA(''.format(res)) 
+        return True
+
     def saveBMPFile(self, name='temp'):
         # Saving a picture from the OSA device.
         self.sendToOSA(':mmem:stor:grap color,bmp,"{}",int'.format(name))
