@@ -28,24 +28,16 @@ global laserFrequanceyMeasurment
 global status
 global getConnectionsText
 global getSamplesText
-global getTests1Text
-global getRTLText
-global statusText
-global graphStatusText
-statusText = ""
+global getTestsText
+global getTestErrorText
 live_flag = True    # For real time monitoring
 isConnected = False # Until first connection
 debugMode = False
 status = "The devices are not connected"
 getConnectionsText = "If you don't succed to connect you can work in 'Debug Mode'"
 getSamplesText = "Connect to devices first or work in 'Debug Mode'"
-getTests1Text = "Connect to devices first or work in 'Debug Mode'"
+getTestsText = "Connect to devices first or work in 'Debug Mode'"
 getTestErrorText = ""
-getRTLText = "Connect to devices first!"
-flag_testPowerLevelSweep = False
-flag_testAllanVariance = False
-flag_testBeerLambertLaw = False
-flag_endText = False
 graphs_pids = []
 # sg.theme_previewer()
 
@@ -79,7 +71,7 @@ def getConnections():
                     [sg.Text("COM:"), sg.Push(), sg.Input(connectionsDict["LASER"]["COM"],s=15)],
                     [sg.Text("Serial:"), sg.Push(), sg.Input(connectionsDict["LASER"]["Serial"],s=15)],
                     [sg.Push(), sg.Button("Connect"), sg.Push()],
-                    [sg.Text(getConnectionsText)]]
+                    [sg.Push(), sg.Text(getConnectionsText), sg.Push()]]
     return connections
 
 def updateConnections(values):
@@ -116,17 +108,27 @@ def getSampleL():
                     [sg.Checkbox("Save sample", key="Save"), sg.Push(), sg.Text("Output name:"), sg.Input("demo_sample", s=15, key="sample_name")],
                     [sg.Checkbox("Plot sample", key="Plot")],
                     [sg.Push(), sg.Button("Sample"), sg.Push()],
-                    [sg.Text(getSamplesText)]]
+                    [sg.Push(), sg.Text(getSamplesText), sg.Push()]]
     else:
-        sampleL = [[sg.Text("Connect to devices first or work in 'Debug Mode'")]]
+        sampleL = [[sg.Push(), sg.Text("Connect to devices first or work in 'Debug Mode'"), sg.Push()]]
     return sampleL
+
+def getDatabases():
+    try:
+        foldersNames = os.listdir("..\\Databases")
+    except:
+        os.mkdir("..\\Databases")
+        foldersNames = os.listdir("..\\Databases")
+    foldersNames.sort()   
+    return foldersNames
 
 def getTests():
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
-    allanVarianceSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalTimeAllanVariance"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",s=3,key="intervalTimeAllanVariance"), sg.Text("seconds")]]
-    beerLambertLawSection = [[sg.Text("Interaction length [cm]"), sg.Input("10",s=5,key="interactionLength"),sg.Text("Line Strength (According to Manufactor):"), sg.Input("50",s=5,key="lineStrength")]]
-    manuallResSection = [[sg.Text("Please enter a value: "), sg.Input("2nm",s=5,key="test_manuallRes"), sg.Text("nm")]]
-    endTextSection = [[sg.Push(),sg.Text(str(getTestErrorText)),sg.Push()]]
+    analyzerSection = [[sg.Text("Interaction length: "), sg.Input("10",s=5,key="interactionLength"), sg.Text("mm")], [sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",s=3,key="intervalTime"), sg.Text("seconds")]]
+    manuallResSection = [[sg.Text("Please enter a value: "), sg.Input("2",s=5,key="test_manuallRes"), sg.Text("nm")]]
+    databasefolder = getDatabases()
+    databaseLayout = [[sg.Text("Select Substance info from database:", font='David 12 bold')],
+                [sg.Listbox(databasefolder, select_mode='LISTBOX_SELECT_MODE_SINGLE', key="test_database", size=(SIZE[1],2))]]
     if (isConnected or debugMode):
         test_values = [[sg.Push(), sg.Text("Tests - choose the tests you want", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
@@ -139,18 +141,21 @@ def getTests():
                     [sg.Checkbox(text="8.729",font='David 11',key="r9",default=False),sg.Checkbox(text="7.856",font='David 11',key="r10",default=False),sg.Checkbox(text="6.547",font='David 11',key="r12",default=False),sg.Checkbox(text="5.612",font='David 11',key="r14",default=False),sg.Checkbox(text="4.910",font='David 11',key="r16",default=False),sg.Checkbox(text="4.365",font='David 11',key="r18",default=False),sg.Checkbox(text="3.928",font='David 11',key="r20",default=False),sg.Checkbox(text="3.571",font='David 11',key="r22",default=False)],
                     [sg.Checkbox(text="3.143",font='David 11',key="r25",default=False),sg.Checkbox(text="2.910",font='David 11',key="r27",default=False),sg.Checkbox(text="2.709",font='David 11',key="r29",default=False),sg.Checkbox(text="2.455",font='David 11',key="r32",default=False),sg.Checkbox(text="2.311",font='David 11',key="r34",default=False),sg.Checkbox(text="2.123",font='David 11',key="r37",default=False),sg.Checkbox(text="1.964",font='David 11',key="r40",default=False)],
                     [],[],
-                    [sg.Text("Output name:"), sg.Input("Test_sample1", s=15, key="test_name"), sg.Push()],[],
-                    [sg.Checkbox(text="Allan Variance test?",enable_events=True,key="testAllanVariance")], [collapse(allanVarianceSection, 'section_allanVariance', False)],
-                    [sg.Checkbox(text="Beer-Lambert Law test?",enable_events=True,key="testBeerLambertLaw")], [collapse(beerLambertLawSection, 'section_beerLambertLaw', False)],
-                    [sg.Text("Comments:"),sg.Input("",s=30,key="TEST1_COMMENT")],
+                    [sg.Text("Output name:"), sg.Input("Test_sample1", s=15, key="test_name"), sg.Push(), sg.Text("Comments:"),sg.Input("",s=30,key="TEST1_COMMENT")], [],
+                    [sg.Checkbox(text="Analyzer (Beer-Lambert & Allan Variance) ?",enable_events=True,key="test_analyzer")], [collapse(analyzerSection, 'section_analyzer', False)],
+                    [collapse(databaseLayout, 'section_database', False)],
                     [sg.Push(), sg.Button("Start Test"), sg.Push()],
-                    [sg.Text(text="",enable_events=True,key="endText")],[collapse(endTextSection, 'section_endText', True)]]
+                    [sg.Push(),sg.Text(str(getTestErrorText), key="test_errorText"),sg.Push()]]
     else:
-        test_values = [[sg.Text("Connect to devices first or run in 'Debug Mode'")]]
+        test_values = [[sg.Push(), sg.Text("Connect to devices first or run in 'Debug Mode'"), sg.Push()]]
     return test_values
 
 def getResultsTabLayout():
-    foldersNames = os.listdir("..\\Results")
+    try:
+        foldersNames = os.listdir("..\\Results")
+    except:
+        os.mkdir("..\\Results")
+        foldersNames = os.listdir("..\\Results")
     foldersNames.sort()
     Layout = [[sg.Text("Select sample to plot", font='David 15 bold')],
                 [sg.Listbox(foldersNames, select_mode='LISTBOX_SELECT_MODE_SINGLE', key="-SAMPLE_TO_PLOT-", size=(SIZE[1],20))],
@@ -178,11 +183,41 @@ def updateJsonFileBeforeEnd(values):
     with open(cwd+"\\connections.json", 'w') as f:
         dump(connectionsDict, f)
 
+def checkStartConditions(values):
+    getTestErrorText = ""
+    if (int(values["test_CF"]) < 700):
+        getTestErrorText = "Error: The 'Center Frequency' can only be between 700nm to 1600nm."
+    elif (int(values["test_SPAN"]) > 250):
+        getTestErrorText = "Error: The 'Span' value can only be between XXX to YYY."
+    elif ( (values["test_PTS"] != "Auto (500)") and int(values["test_PTS"]) > 2000):
+        getTestErrorText = "Error: The max Number of Points per sample is XXX points."
+    elif ( (values["test_res"] == "Manuall (Enter a value)") and ((float(values["test_manuallRes"]) < 0) or (float(values["test_manuallRes"]) > 4) )):################################################
+        getTestErrorText = "Error: The resolution you enter is not good value."
+    elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
+        getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
+    elif ( values["testPowerLevelSweep"] and (int(values["maxPL"]) < 6 or int(values["maxPL"]) > 100) ):
+        getTestErrorText = "Error: The end power of the laser must be btween 6 to 100"
+    elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["maxPL"])) ):
+        getTestErrorText = "Error: The start power must be smaller than the end power"
+    elif (int(values["numSamplesParameter"]) > 100 or int(values["numSamplesParameter"]) <= 0):
+        getTestErrorText = "Error: The number of samples must be between 1 to 3."
+    elif (not values["r1"] and not values["r2"] and not values["r3"] and not values["r4"] and not values["r5"] and not values["r6"] and not values["r7"] and not values["r8"] and not values["r9"] and not values["r10"] and not values["r12"] and not values["r14"] and not values["r16"] and not values["r18"] and not values["r20"] and not values["r22"] and not values["r25"] and not values["r27"] and not values["r29"] and not values["r32"] and not values["r34"] and not values["r37"] and not values["r40"]):
+        getTestErrorText = "Error: No repetition value was chosen"
+    elif (values["test_name"] == ""): # Not a must.
+        getTestErrorText = "Error: No name for 'Output name'."
+    elif (values["test_analyzer"] and ( (int(values["interactionLength"]) < 0) or (int(values["interactionLength"]) > 1000) )):
+        getTestErrorText = "Error: (Analyzer) The 'Interaction Length' must be bigger than zero and smaller than 1000 [mm]."
+    elif (values["test_analyzer"] and ( (int(values["totalSampleTime"]) < 0) or (int(values["totalSampleTime"]) > 3600) )):
+        getTestErrorText = "Error: (Analyzer) The 'Total time sample' must be bigger than zero. Max: 1 Hour."
+    elif (values["test_analyzer"] and ( (int(values["intervalTime"]) < 0.5) or (int(values["intervalTime"]) > int(values["totalSampleTime"])) )):
+        getTestErrorText = "Error: (Analyzer) The interval time must be bigger than 0.5 seconds and smaller from the Total time."
+    return getTestErrorText
+
 #---------------------------------------------------------------------------------------------------------------------------
 
 def reopenMainL(window = None):
     # This function start the GUI window.
-    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status)]]
+    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0]+30,SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status)]]
     # mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Button("Debug Graph"), sg.Push(), sg.Text(status)]]
     try:
         window.close()
@@ -209,7 +244,7 @@ while True:
                 isConnected = True
                 debugMode = False
                 status = "Devices are connected"
-                getConnectionsText = getSamplesText = getTests1Text = getRTLText = "The devices are connected"
+                getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "The devices are connected"
                 window.close()
                 window = reopenMainL()
         except:
@@ -219,7 +254,7 @@ while True:
     elif event == 'Debug Mode':
         debugMode = True
         status = "Debug Mode"
-        getConnectionsText = getSamplesText = getTests1Text = "Now you are working in 'Debug Mode'!"
+        getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "Now you are working in 'Debug Mode'!"
         laser = None
         osa = None
         window = reopenMainL(window)
@@ -230,8 +265,10 @@ while True:
             getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
     
     elif event == "testPowerLevelSweep":
-        flag_testPowerLevelSweep = not flag_testPowerLevelSweep
-        window['section_powerSweep'].update(visible=flag_testPowerLevelSweep)
+        if (values["testPowerLevelSweep"] == True):
+            window['section_powerSweep'].update(visible=True)
+        else:
+            window['section_powerSweep'].update(visible=False)
 
     elif event == "selectAllRep":
         RepList = ["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r12","r14","r16","r18","r20","r22","r25","r27","r29","r32","r34","r37","r40"]
@@ -246,69 +283,42 @@ while True:
         else:
             window['section_manuallRes'].update(visible=False)
 
-    elif event == "testAllanVariance":
-        flag_testAllanVariance = not flag_testAllanVariance
-        window['section_allanVariance'].update(visible=flag_testAllanVariance)
-
-    elif event == "testBeerLambertLaw":
-        flag_testBeerLambertLaw = not flag_testBeerLambertLaw
-        window['section_beerLambertLaw'].update(visible=flag_testBeerLambertLaw)
+    elif event == "test_analyzer":
+        if (values["test_analyzer"] == True):
+            window['section_analyzer'].update(visible=True)
+            window['section_database'].update(visible=True)
+        else:
+            window['section_analyzer'].update(visible=False)
+            window['section_database'].update(visible=False)
 
     elif event == "Start Test":
-        getTestErrorText = ""
-        flag_endText = False
         if (isConnected or debugMode):
-            if (int(values["test_CF"]) < 700):
-                getTestErrorText = "Error: The 'Center Frequency' can only be between 700nm to 1600nm."
-            elif (int(values["test_SPAN"]) > 250):
-                getTestErrorText = "Error: The 'Span' value can only be between XXX to YYY."
-            elif ( (values["test_PTS"] != "Auto (500)") and int(values["test_PTS"]) > 2000):
-                getTestErrorText = "Error: The max Number of Points per sample is XXX points."
-            elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
-                getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
-            elif ( values["testPowerLevelSweep"] and (int(values["maxPL"]) < 6 or int(values["maxPL"]) > 100) ):
-                getTestErrorText = "Error: The end power of the laser must be btween 6 to 100"
-            elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["maxPL"])) ):
-                getTestErrorText = "Error: The start power must be smaller than the end power"
-            elif (int(values["numSamplesParameter"]) > 100 or int(values["numSamplesParameter"]) <= 0):
-                getTestErrorText = "Error: The number of samples must be between 1 to 3."
-            elif (not values["r1"] and not values["r2"] and not values["r3"] and not values["r4"] and not values["r5"] and not values["r6"] and not values["r7"] and not values["r8"] and not values["r9"] and not values["r10"] and not values["r12"] and not values["r14"] and not values["r16"] and not values["r18"] and not values["r20"] and not values["r22"] and not values["r25"] and not values["r27"] and not values["r29"] and not values["r32"] and not values["r34"] and not values["r37"] and not values["r40"]):
-                getTestErrorText = "Error: No repetition value was chosen"
-            elif (values["test_name"] == ""):
-                getTestErrorText = "Error: No name for 'Output name'."
-            elif (values["testBeerLambertLaw"] and (int(values["interactionLength"]) < 0)):
-                getTestErrorText = "Error: (Beer-Lamber Law) The 'Interaction Length' must be bigger than zero."    
-            elif (values["testBeerLambertLaw"] and (int(values["lineStrength"]) < 0)):
-                getTestErrorText = "Error: (Beer-Lamber Law) The 'Line Strength' must be bigger than zero."
-            elif (values['testAllanVariance'] and ( int(values['totalTimeAllanVariance']) < 1) ):
-                getTestErrorText = "Total time for test  must be at least 1 second."
-            elif (values['testAllanVariance'] and ( int(values['intervalTimeAllanVariance'])<0.5) ):
-                getTestErrorText = "Error: Total time per sample of 'Allan Variance' test is less than 0.5 sec"
-            elif (getTestErrorText == ""):
-                window['Start Test'].update(disabled=True)
-                popup_win = popup('Starting Clean Test...')
-                window.force_focus()
-                # threading.Thread(target=installation, args=(window, 5), daemon=True).start()
+            getTestErrorText = checkStartConditions(values)
+            if (getTestErrorText == ""):
+                # EveryThing is OK
                 if values["test_res"] == "Manuall (Enter a value)":
                     res = values["test_manuallRes"]
                 else:
                     res = values["test_res"]
-                dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_SPD"],values["test_sens"],res)
+                window['Start Test'].update(disabled=True)
+                window_message = sg.Window("",[[sg.Text("Executing Clean Test...")]])
+                
+                dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_SPD"],values["test_sens"],res,values["test_analyzer"])
                 getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
-                popup_win.close()
+                window_message.close()
+                # For user
                 tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
+                # OK was chosen
                 if (tempEvent.upper()=="OK"):
-                    popup_win = popup('Starting Substance Test...')
-                    window.force_focus()
-                    getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
-                    popup_win.close()
+                    window_message = sg.Window("",[[sg.Text("Executing Substance Test...")]])
+                    if (values['test_analyzer']):
+                        getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv") 
+                    else:
+                        getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
+                    window_message.close()
+                    # Adding to Results tab.
                     updateResults(window)
-                    if (values['testAllanVariance']):
-                        popup_win = popup('Starting Allan Variance Test...')
-                        window.force_focus()
-                        getSweepResults(laser,osa,values,debugMode,dirName+"\\allan.csv") 
-                        popup_win.close()
-                        getNormlizedAllanVariance(dirName)
+                    # Open a new process of the graph/grphs.
                     command = 'py'
                     args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
                     process = subprocess.Popen([command] + args)
@@ -317,23 +327,27 @@ while True:
                 else:
                     shutil.rmtree(dirName)
                 window['Start Test'].update(disabled=False)
-            else:
-                flag_endText = True
-                window['section_endText'].update(visible=True)
-    
+            window['test_errorText'].update()
+
     elif event == "-LOAD_SAMPLE-":
-        dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
-        command = 'py'
-        args = ['Interactive_Graph.py', '--csv_name', dirName]
-        process = subprocess.Popen([command] + args)
-        pid = process.pid
-        graphs_pids.append(pid)
+        try:
+            dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+            command = 'py'
+            args = ['Interactive_Graph.py', '--csv_name', dirName]
+            process = subprocess.Popen([command] + args)
+            pid = process.pid
+            graphs_pids.append(pid)
+        except:
+            continue
 
     elif event == '-DELETE_SAMPLE-':
         tempEvent = sg.popup_ok_cancel("Are you sure you  want to delete this sample?")
         if ( tempEvent.upper() == "OK" ):
-            dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
-            shutil.rmtree(dirName)
+            try:
+                dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+                shutil.rmtree(dirName)
+            except:
+                continue
             updateResults(window)
             #window['-SAMPLE_TO_PLOT-'].Update()
 
@@ -355,20 +369,16 @@ while True:
     #     pid = process.pid
     #     graphs_pids.append(pid)
 
-    # elif event == "Start laser":
-    #     if isConnected:
-    #         laser.emission(1)
-    # elif event == "Stop laser":
-    #     if isConnected or debugMode:
-    #         laser.emission(0)
-
 # End of File.
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-            # elif (values["testAllanVariance"] and (int(values["allanV1"]) < 0)):
-            #     getTestErrorText = "Error: The first Allan parameter must be bigger than zero."
-            # elif (values["testAllanVariance"] and (int(values["allanV2"]) < 0)):
-            #     getTestErrorText = "Error: The second Allan parameter must be bigger than zero."
-            # elif (values["testAllanVariance"] and (int(values["allanV3"]) < 0)):
-            #     getTestErrorText = "Error: The third Allan parameter must be bigger than zero."
+                # popup_win = popup('Starting Clean Test...')
+                # window.force_focus()
+                #popup_win.close()
+                #popup_win = popup('Starting Substance Test...')
+                #window.force_focus()
+                #popup_win.close()
+                #popup_win = popup('Starting Allan Variance Test...')
+                #window.force_focus()
+                        

@@ -33,7 +33,7 @@ def getNormlizedByRealFreq(dirname, to_norm, real_freq = '1500'):
     divided_df = substance_df.copy()
     divided_df[freqs] = divided_df[freqs].subtract(clean_df[freqs])
     
-    return divided_df
+    return divided_df, clean_df, substance_df
 
 def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     # looking for a frequency closest to the users choice
@@ -42,17 +42,29 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     freqs = [float(element) for element in columns[10:]]
     distance_from_user = [abs(float(Freq)-element) for element in freqs]
     real_freq = str(freqs[np.argmin(distance_from_user)])
-    df = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, to_norm=to_norm)
-    df.to_csv(dirname+'norm.csv', index=False, encoding='utf-8')
+    df_ratio, df_clean, df_substance = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, to_norm=to_norm)
+    df_ratio.to_csv(dirname+'transition.csv', index=False, encoding='utf-8')
+    return df_ratio, df_clean, df_substance
 
+def getAnalyzerTransmition(dirname):
+    # This function will get the dir name
+    # 1) Read 'clean' & 'analyzer' to df
+    # 2) Create clean/empty transmition df
+    # 3) Iterate over analyzer dataframe
+    #     if: 'analyzer' row same as 'clean' row appand to transmition (hilok mainpulation)
+    #     else: update 'clean' row and continue.
+    # 4) Save as transmission_analyzer.csv
+    None
 
-def beerLambertLaw(laserpower=0):
-    concentration = 0
-    #calculateCaptureLightPower()
-    #calculateLaserLightPower(laserpower)
-    #calculateConcentrationOfSubstance()
-    return concentration
+def beerLambert(laserpower=0):
+    # Calculate divation according to time and this plot to graph.
+    None
 
+def allandevation():
+    # The second graph - LOD
+    None
+
+######################################################   To Ignore ########################################################
 def getNormlizedAllanVariance(dirname):
     allan_df = pd.read_csv(dirname+'\\'+'allan.csv')
     allanNorm_df = allan_df.copy()
@@ -80,7 +92,7 @@ def getNormlizedAllanVariance(dirname):
     allanNorm_df.to_csv(dirname+'\\allan_norm.csv', index=False, encoding='utf-8')
     del allan_df
     del allanNorm_df
-
+######################################################   To Ignore ########################################################
 
 if __name__=='__main__':
     now = time.time()

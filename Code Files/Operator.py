@@ -159,10 +159,22 @@ def getTime():
     time = time.replace('.', '_')
     return time
 
-def makedirectory(dirname, cf,span,npoints,speed,sens,res):
-    dir = "../Results/"+getTime()+"___"+dirname+"___CF="+cf+"nm, Span="+span+"nm, NPoints="+npoints+", speed="+speed+", sens="+sens+", res="+res 
+def makedirectory(dirname, cf,span,npoints,speed,sens,res,analyzer):
+    dir = "../Results/"+getTime()+"___"+dirname+"___CF="+cf+"nm, Span="+span+"nm, NPoints="+npoints+", speed="+speed+", sens="+sens+", res="+res+", analyzer="+analyzer
     os.mkdir(dir)
     return dir
+
+def makeSubstaceCSV(csvname, df_original):
+    csvname = csvname[:-12]+'substance.csv'
+    df_substance = pd.DataFrame(columns = df_original.columns.tolist())
+    r = None
+    p = None
+    for idx in range(len(df_original)):
+        if ( (r != df_original["REP_RATE"].iloc[idx] ) or (p != df_original["POWER"].iloc[idx]) ):
+            r = df_original["REP_RATE"].iloc[idx]
+            p = df_original["POWER"].iloc[idx]
+            df_substance.loc[len(df_substance)] = df_original.iloc[idx]
+    df_substance.to_csv(csvname, index=False)
 
 def getSweepResults(laser,osa,values,debug,csvname):
     global debugMode
@@ -191,29 +203,27 @@ def getSweepResults(laser,osa,values,debug,csvname):
     startF = int(values["test_CF"]) - int(values["test_SPAN"])/2
     stopF = startF + int(values["test_SPAN"])
     freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["test_SPAN"])/pts)]
-    allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Start Power (I0)','End Power (I)', 'I/I0 Ratio', 'SAMPLINGS_NUMBER']+freqs_columns)
+    allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Sens','Res', 'Interval', 'SAMPLINGS_NUMBER']+freqs_columns)
     laserPower = True
     capturePower = True
-    # Start the tests:
-    #if (not debugMode):
-    #    laser.emission(0)
     if (not debugMode):
         laser.emission(1)
     for freq in reps:
         for p in powers:
             configureLaser(laser, p, freq)
-            
-            ##################################################### To Change instead of Allan
-            if csvname[-9:-4] == "allan": # Analyze Graph: Beer-Lambert & Allan Variance Mode
+
+            # Starting the test:
+            if csvname[-12:-4] == "analyzer": # Analyze Graph: Beer-Lambert & Allan Variance Mode
                 if (not debugMode):
                     laser.emission(0)
-                    sleep(5)
+                    sleep(8)
                 totalTime = int(values['totalTimeAllanVariance'])
                 intervalTime = int(values['intervalTimeAllanVariance'])
                 startTime = time()
-                lastTime = startTime
                 if (not debugMode):
                     laser.emission(1)
+                    sleep(0.4) # Waiting to laser Turn ON.
+                #
                 while(time() - startTime < totalTime):
                     result = meanMeasure(laser,osa, 1 ,pts)
                     lastTime = time()
@@ -224,26 +234,20 @@ def getSweepResults(laser,osa,values,debug,csvname):
                     new_row.append(values["test_SPAN"])
                     new_row.append(rep_values_MHz[freq])
                     new_row.append(p)
+                    new_row.append(values["test_sens"])
+                    new_row.append(values["test_res"])
                     new_row.append(lastTime-startTime)
-                    new_row.append(laserPower)
-                    new_row.append(capturePower)
-                    new_row.append(capturePower/laserPower)
                     new_row.append(values["numSamplesParameter"])
-                    sleep(intervalTime)
-                if (not debugMode):
-                    laser.emission(0)
-                sleep(5)
-            ###################################################################
-            
+                    new_row = new_row + list(result)
+                    # Append the new row to the dataframe
+                    allResults_df.loc[len(allResults_df)] = new_row
+                    timeleft = intervalTime-(lastTime-startTime)
+                    if timeleft > 0:
+                        sleep(timeleft)
+            #---------------------------------------------------------------------------------------------------------------
             else: # Regular Mode
-                #if (not debugMode):
-                #    laser.emission(1)
-                # sleep(0.5)
                 sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
                 result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
-                #if (not debugMode):
-                #    laser.emission(0)    
-                # Preparing new row for allResults
                 new_row = []
                 new_row.append(getTime())
                 new_row.append(values["TEST1_COMMENT"])
@@ -251,13 +255,19 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 new_row.append(values["test_SPAN"])
                 new_row.append(rep_values_MHz[freq])
                 new_row.append(p)
-                new_row.append(laserPower)
-                new_row.append(capturePower)
-                new_row.append(capturePower/laserPower)
+                new_row.append(values["test_sens"])
+                new_row.append(values["test_res"])
+                new_row.append("")
                 new_row.append(values["numSamplesParameter"])
                 new_row = new_row + list(result)
                 # Append the new row to the dataframe
                 allResults_df.loc[len(allResults_df)] = new_row
+    # End of measurments
+
+    # Save a substance csv
+    if csvname[-12:-4] == "analyzer":
+        makeSubstaceCSV(csvname, allResults_df)
+    # Turn off the laser
     if (not debugMode):
         laser.emission(0) # Turn off the laser after the measurments sweep. 
     allResults_df.to_csv(csvname, index=False)
@@ -312,21 +322,7 @@ def runSample(laser,osa, isConnected,debugMode, values):
 
 if __name__ == '__main__':
     print("this is operator.py")
-
-
+    csvname = 'C:\\BGUProject\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\analyzer.csv'
+    allResults_df = pd.read_csv(csvname)
+    makeSubstaceCSV(csvname, allResults_df)
 #---------------------------------------------------------------------------------------------------------------------------
-# Comments to delete after all the work:
-
-
-# This function responsibles for Beer-Lambert Law:
-
-# def calculateCaptureLightPower():
-#     return True # OSA - Power of capture light
-
-# def calculateLaserLightPower(power,frequency):
-#     return True
-# def calculateConcentrationOfSubstance():
-#     return True
-
-# # laserPower = calculateLaserLightPower(p,freq)
-#             # capturePower = calculateCaptureLightPower()
