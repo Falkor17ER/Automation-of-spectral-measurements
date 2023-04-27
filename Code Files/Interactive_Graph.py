@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.colors as mcolors
-from Analyzer import getNormlizedByCustomFreq
+from Analyzer import getConcentration
 import argparse
 import os
 

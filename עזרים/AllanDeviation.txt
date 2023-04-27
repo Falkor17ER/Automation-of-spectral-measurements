@@ -1,0 +1,15 @@
+import numpy as np
+import allantools
+
+# Compute the fractional frequency data
+freq_data = ppm_data / 1e6 + 1
+
+# Compute the Allan deviation
+tau, adev, _, _ = allantools.oadev(freq_data, rate=1, taus='decade')
+
+# Plot the Allan deviation
+import matplotlib.pyplot as plt
+plt.loglog(tau, adev)
+plt.xlabel('Time (s)')
+plt.ylabel('Allan deviation')
+plt.show()

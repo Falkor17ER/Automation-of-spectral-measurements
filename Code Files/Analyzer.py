@@ -47,6 +47,7 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     return df_ratio, df_clean, df_substance
 
 def getAnalyzerTransmition(dirname):
+    # Analyzer - Clean.###################### Main Idea.
     # This function will get the dir name
     # 1) Read 'clean' & 'analyzer' to df
     # 2) Create clean/empty transmition df
@@ -54,17 +55,33 @@ def getAnalyzerTransmition(dirname):
     #     if: 'analyzer' row same as 'clean' row appand to transmition (hilok mainpulation)
     #     else: update 'clean' row and continue.
     # 4) Save as transmission_analyzer.csv
+    # This function result is I/I0.
     None
 
-def beerLambert(laserpower=0):
-    # Calculate divation according to time and this plot to graph.
+def beerLambert(dirname, databaseFilePath, wavelength,l):
+    # This function calculate c (Concentration).
+    # A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
+    # The df is 
+
+    df = getAnalyzerTransmition(dirname) # = -E
+
+    # To make E minus every result, every rublica. 
     None
 
 def allandevation():
+    # Calculate divation according to time and this plot to graph.
     # The second graph - LOD
     None
 
-######################################################   To Ignore ########################################################
+def finalCSVFile():
+    # This function create a new csv file that contain additional one column of the concentrations and one column of the chosen waveguide. 
+    None
+
+def getConcentration(databaseFilePath,l,wavelength):
+    None
+
+
+######################################################  To Ignore  ########################################################
 def getNormlizedAllanVariance(dirname):
     allan_df = pd.read_csv(dirname+'\\'+'allan.csv')
     allanNorm_df = allan_df.copy()
