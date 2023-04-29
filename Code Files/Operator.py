@@ -204,8 +204,8 @@ def getSweepResults(laser,osa,values,debug,csvname):
     stopF = startF + int(values["test_SPAN"])
     freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["test_SPAN"])/pts)]
     allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Sens','Res', 'Interval', 'SAMPLINGS_NUMBER']+freqs_columns)
-    laserPower = True
-    capturePower = True
+    # laserPower = True
+    # capturePower = True
     if (not debugMode):
         laser.emission(1)
     for freq in reps:

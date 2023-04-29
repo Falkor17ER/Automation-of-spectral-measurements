@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import time
+import allantools
 
 # Helper function
 def normalize(x, y):
@@ -46,40 +48,143 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     df_ratio.to_csv(dirname+'transition.csv', index=False, encoding='utf-8')
     return df_ratio, df_clean, df_substance
 
-def getAnalyzerTransmition(dirname):
-    # Analyzer - Clean.###################### Main Idea.
-    # This function will get the dir name
-    # 1) Read 'clean' & 'analyzer' to df
-    # 2) Create clean/empty transmition df
-    # 3) Iterate over analyzer dataframe
-    #     if: 'analyzer' row same as 'clean' row appand to transmition (hilok mainpulation)
-    #     else: update 'clean' row and continue.
-    # 4) Save as transmission_analyzer.csv
-    # This function result is I/I0.
-    None
+def getAnalyzerTransmition(dirname, v=1):
+    try:
+        df_clean = pd.read_csv(dirname+'\\'+'clean.csv')
+        df_analyzer = pd.read_csv(dirname+'\\analyzer.csv')
+    except:
+        return False
+    
+    if (v == 1):
+        # Version 1:
+        df_columns = df_clean.columns.to_list()
+        freqs = [element for element in df_columns[10:]]
+        REP_list = df_clean['REP_RATE'].unique().tolist()
+        POWER_list = df_clean['POWER'].unique().tolist()
+        r = ''
+        p = ''
+        df_transmittance = pd.DataFrame(columns=df_columns)
+        for row in range(df_analyzer.shape[0]):
+            new_row = []
+            for idx in range(10):
+                new_row.append(df_analyzer.iloc[row][idx])
+            if ( df_analyzer.iloc[row]['REP_RATE'] != r or df_analyzer.iloc[row]['POWER'] != p ):
+                r = df_analyzer.iloc[row]['REP_RATE']
+                p = df_analyzer.iloc[row]['POWER']
+                clean_row = df_clean.loc[(df_clean['REP_RATE'] == r) & (df_clean['POWER'] == p)]
+            for f in freqs:
+                new_row.append( df_analyzer.iloc[row][f] - clean_row.iloc[0][f] )
+            df_transmittance.loc[len(df_transmittance)] = new_row
+        df_analyzer.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
+        return df_analyzer
+
+    if (v == 2):
+        # Version 2:
+        columns = df_clean.columns.to_list()
+        freqs = [element for element in columns[10:]]
+        REP_list = df_clean['REP_RATE'].unique().tolist()
+        POWER_list = df_clean['POWER'].unique().tolist()
+        df_transmittance = pd.DataFrame(columns)
+        df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
+        for r in REP_list:
+            for p in POWER_list:
+                clean_row = df_clean.loc[(df_clean['REP_RATE'] == r) & (df_clean['POWER'] == p)].iloc[0]
+                analyzer_rows = df_analyzer.loc[(df_analyzer['REP_RATE'] == r) & (df_analyzer['POWER'] == p)]
+                for row in range(analyzer_rows.shape[0]):
+                    new_row = analyzer_rows.iloc[row]
+                    for f in freqs:
+                        new_row.loc[f] = new_row.loc[f] - clean_row.loc[f]
+                    df_transmittance = df_transmittance.append(pd.Series(new_row, index = columns), ignore_index=True)
+        df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
+        return df_transmittance
 
 def beerLambert(dirname, databaseFilePath, wavelength,l):
-    # This function calculate c (Concentration).
-    # A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
-    # The df is 
+    # This function calculate C (Concentration).
+    # k = The wavenumber, A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
+    # E is minus every result, every rublica. 
+    
+    # Loading the dataframe of transmittance.csv:
+    try:
+        df_transmittance = pd.read_csv(dirname+'\\'+'transmittance.csv')
+    except:
+        return False
 
-    df = getAnalyzerTransmition(dirname) # = -E
+    # Getting the wavenumber from waveguide:
+    k = 10000000/wavelength # In unit of cm^(-1)
+    
+    # Finding the relevant Absorption from the txt file:
+    df_A = pd.read_csv(databaseFilePath, delimiter = "\t") # databaseFilePath=dirname+filename.txt
+    wavenumberList = df_A['Wavenumber'].tolist()
+    AbsorptionList = df_A['Absorption'].tolist()
+    index = -1
+    for element in wavenumberList:
+        if (element < k):
+            index = wavenumberList.index(element)
+            if ( abs(k-wavenumberList[index]) > abs(k-wavenumberList[index-1]) ):
+                index = index - 1
+            break
+    A = AbsorptionList[index]
+    
+    # Creating a new df_C & Calculating the concetration:
+    columnsList = df_transmittance.columns.to_list()[:10]
+    columnsList.append('Concetration')
+    columnsList.append('Concetration (ppm)')
+    columnsList.append('Wavelength')
+    df_C = pd.DataFrame(columns=columnsList)
+    #
+    for row in range(df_transmittance.shape[0]):
+        new_row = []
+        for idx in range(10):
+            new_row.append(df_transmittance.iloc[row][idx])
+        E = - df_transmittance.iloc[row][wavelength]
+        C = A/l/E
+        new_row.append(C)
+        new_row.append(C*(1e6))
+        new_row.append(wavelength)
+        df_C.loc[len(df_C)] = new_row
 
-    # To make E minus every result, every rublica. 
-    None
+    # Saving the df_C to Concetration.csv
+    df_C.to_csv(dirname+'\\Concetration (Wavelength-'+str(wavelength)+'nm).csv', index=False, encoding='utf-8')
+    return df_C
 
-def allandevation():
-    # Calculate divation according to time and this plot to graph.
-    # The second graph - LOD
-    None
+def allandevation(dirname, wavelength):
+    # Calculate divation according to time and this plot to graph - The second graph - LOD
+    
+    # Compute the fractional frequency data
+    df_C = pd.read_csv(dirname+'\Concetration (Wavelength-'+wavelength+'nm)')
+    ppm_data = df_C['Concetration (ppm)'].tolist()
+    freq_data = ppm_data / 1e6 + 1
 
-def finalCSVFile():
-    # This function create a new csv file that contain additional one column of the concentrations and one column of the chosen waveguide. 
-    None
+    # Compute the Allan deviation
+    tau, adev, _, _ = allantools.oadev(freq_data, rate=1, taus='decade')
 
-def getConcentration(databaseFilePath,l,wavelength):
-    None
+    # Plot the Allan deviation
+    plt.loglog(tau, adev)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Allan deviation')
+    plt.show()
 
+
+#--------------------------------------------------------------------------------------------------------------------------------------------------------------
+def getConcentration(dirname,databaseFile,wavelength,l):
+    startTime = time.time()
+    # getAnalyzerTransmition(dirname)
+    # df_C = beerLambert(dirname,databaseFile,wavelength,l)
+    allandevation(dirname, wavelength)
+    totalTime = time.time() - startTime
+    print("The total time it take was: ", totalTime)
+
+
+if __name__=='__main__':
+    now = time.time()
+    dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Analyzer_Test"
+    databaseFile = "C:\BGUProject\Automation-of-spectral-measurements\Databases\CH4_25T.TXT"
+    wavelength = 1550
+    l = 1
+    getConcentration(dirname, databaseFile, wavelength, l)
+    print("Everything worked fine!")
+
+# Delete -------------------------------------------------------------------------------------------------------------------
 
 ######################################################  To Ignore  ########################################################
 def getNormlizedAllanVariance(dirname):
@@ -111,10 +216,60 @@ def getNormlizedAllanVariance(dirname):
     del allanNorm_df
 ######################################################   To Ignore ########################################################
 
-if __name__=='__main__':
-    now = time.time()
-    dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\AllanVariance"
-    #getNormlizedByCustomFreq("..\\Results\\2023_03_23_15_29_25_116512_Eyal & Alex\\", '1475')
-    getNormlizedAllanVariance(dirname)
-    print("normalize and divide time: {:.2f}".format(time.time()-now))
+    # getNormlizedByCustomFreq("..\\Results\\2023_03_23_15_29_25_116512_Eyal & Alex\\", '1475')
+    # getNormlizedAllanVariance(dirname)
+    # print("normalize and divide time: {:.2f}".format(time.time()-now))
 
+
+# def getAnalyzerTransmition(dirname):
+    # Analyzer - Clean.###################### Main Idea.
+    # This function will get the dir name
+    # 1) Read 'clean' & 'analyzer' to df - OK
+    # 2) Create clean/empty transmition df
+    # 3) Iterate over analyzer dataframe
+    #     if: 'analyzer' row same as 'clean' row appand to transmition (hilok mainpulation)
+    #     else: update 'clean' row and continue.
+    # 4) Save as transmission_analyzer.csv
+    # This function result is I/I0.
+    # clean_row.to_csv(dirname+'\\clean_row.csv', index=False, encoding='utf-8')
+    # analyzer_rows.to_csv(dirname+'\\analyzer_rows.csv', index=False, encoding='utf-8')
+    # analyzer_rowsNumber = analyzer_rows.shape[0] # The nuber of the rows of the dataframe.
+    # a = analyzer_rows.loc[row,f]
+    # b = clean_row.loc[0,f]
+    # c = new_row.loc[f]
+
+        # columns = df_A.columns.to_list()
+    # if index != -1: # It will take the correspond value from the list.
+    #     A = AbsorptionList[index]
+    # else: # It will take the last possible value.
+    #     A = AbsorptionList[-1]
+
+
+                #clean_val = (clean_row.loc[0]).to_numpy()
+            # print(df_analyzer.iloc[row,10:15])
+            # for idx in range(10,len(clean_val)):
+                # a = clean_val[idx]
+                # df_analyzer.iloc[row,idx] = df_analyzer.iloc[row,idx].apply(lambda val : val - clean_val[idx])
+                # df_analyzer[row][idx] = df_analyzer.iloc[row][idx] - clean_val[idx]
+                # print(df_analyzer.iloc[row,10:15])     
+                # for f in freqs:
+                #     a = df_analyzer.iloc[row][f]
+                #     b = clean_row.iloc[0][f]
+                #     c = a - b
+                #df_analyzer[row, df_analyzer.columns.get_loc(f)] = (df_analyzer.iloc[row][f] - clean_row.iloc[0][f])
+                # df_analyzer[row][f] = df_analyzer.iloc[row][f] - clean_row.iloc[0][f]
+                #print("df_analyzer[row][f]=",df_analyzer.iloc[row][f]," and c=",c)
+            #df_analyzer.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
+
+            # clean_row.to_csv(dirname+'\\clean_row.csv', index=False, encoding='utf-8')       
+                # clean_val = (clean_row.iloc[0,10:]).to_numpy()
+                #a = df_analyzer.iloc[row][f]
+                #b = clean_row.iloc[0][f]
+                #c = a - b
+                #a = len(new_row)
+            #df_analyzer[row][10:] = new_row
+            
+# def finalCSVFile():
+#     # This function create a new csv file that contain additional one column of the concentrations and one column of the chosen waveguide. 
+#     #allResults_df = pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Sens','Res', 'Interval', 'SAMPLINGS_NUMBER']+freqs_columns)
+#     None
