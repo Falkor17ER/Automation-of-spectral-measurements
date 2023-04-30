@@ -5,14 +5,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.colors as mcolors
-from Analyzer import getNormlizedByCustomFreq, getAnalyzerTransmition, beerLambert, allandevation
+from Analyzer import getConcentration
 import argparse
 import os
 
 GRAPH_SIZE = (1280,1024)
 PLOT_SIZE = (12,7)
-ALLAN_DEVIATION_SIZE = (12,7)
-DATABASE_SIZE = (30,5)
 
 graphStatusText = "Choose graph type"
 
@@ -135,32 +133,6 @@ def getAllanLayout(frequencyList, powerList, numIntervals):
     Layout = [[sg.Column(menu_layout), sg.Column(graph_layout, s=GRAPH_SIZE)]]
     return Layout
 
-def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
-    # xAxis is a list of lists.
-    # inputs must not be empty!
-    database_Layout = [[sg.Text("Select data file")],
-                [sg.Listbox(getDatabases(), select_mode='LISTBOX_SELECT_MODE_SINGLE', key="_DATA_FILE_", enable_events = True, size=DATABASE_SIZE)]]
-    
-    sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Power:"), sg.Push()],
-                          [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxPC_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxPC_'), sg.Push()]]
-    normValue = [[sg.Push(), sg.Checkbox("", key='-Reg_Norm_Val-', enable_events=True), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue",enable_events=True), sg.Text("[nm]"), sg.Push()]]
-    absorbance_layout = [[sg.Push(), sg.Text("Select wavelength to calculate concentration"), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_"), sg.Text("[nm]"), sg.Push()]]
-    menu_layout = [[collapse(normValue, 'section_normValue', True)],
-                  [sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
-                  [collapse(absorbance_layout, 'section_AbsValue', False)],
-                  [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
-                  [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_'), sg.Push()],
-                  [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Push()],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
-                  sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
-    graph_layout = [[sg.Push(),sg.Text("Graph Space"),sg.Push()],
-        [sg.T('Controls:')], [sg.Canvas(key='controls_cv')], [sg.T('Figure:')],
-        [sg.Column(layout=[[sg.Canvas(key='figCanvas',
-                        # it's important that you set this size
-                        size=(400 * 2, 200))]], background_color='#DAE0E6', pad=(0, 0))]]
-    Layout = [[sg.Column(menu_layout), sg.Column(graph_layout , s=GRAPH_SIZE)]]
-    return Layout
-
 # End of Layouts.
 
 #---------------------------------------------------------------------------------------------------------------------------
@@ -185,32 +157,6 @@ def updateRegualrGraph(df_to_plot, ax, fig_agg):
     fig_agg.draw()
     return True
 
-def getDatabases():
-    try:
-        filenames = os.listdir("..\\Databases")
-    except:
-        os.mkdir("..\\Databases")
-        filenames = os.listdir("..\\Databases")
-    filenames.sort()
-    filenames = [name[:-4] for name in filenames]
-    return filenames
-
-def get_minimum(data_file):
-    with open("..\\Databases\\"+data_file, mode='r') as data:
-        data = data.readlines()
-    if len(data) == 0:
-        return False
-    minimum_A = float(data[0].split('\t')[1][:-1])
-    minimum_WN = float(data[0].split('\t')[0])
-    for line in data:
-        A = float(line.split('\t')[1][:-1])
-        WN = float(line.split('\t')[0])
-        if A < minimum_A:
-            minimum_A = A
-            minimum_WN = WN
-    return str(10000000/minimum_WN) # Convertion to [nm]
-
-
 #---------------------------------------------------------------------------------------------------------------------------
 
 # The managment function:
@@ -231,106 +177,9 @@ def interactiveGraph(csvFile):
     if type_of_graph == 'regular':
         regularSweepGraph(csvFile)
     elif type_of_graph == 'allan':
-        timeSweepGraph(csvFile)
-    elif type_of_graph == 'analyzer':
-        analyzerGraph(csvFile)
+        allanVarianceGraph(csvFile)
 
-def analyzerGraph(csvFile):
-    sg.theme('DarkBlue')
-    clean = True
-    analyzer = True
-    transmittance = True
-    try:
-        df_clean = pd.read_csv(csvFile + 'clean.csv')
-        df_analyzer = pd.read_csv(csvFile + 'analyzer.csv')
-        df_transmittance = pd.read_csv(csvFile + 'transmittance.csv')
-    except:
-        sg.popup_ok("There was a problem reading the files.")
-        exit()
-
-    yAxisPowerS_dictionary = {}
-    yAxisRepS_dictionary = {}
-    frequencyList = df_transmittance['REP_RATE'].unique().tolist()
-    powerList = df_transmittance['POWER'].unique().tolist()
-    x = []
-
-    window2 = sg.Window("Allan Deviation", getAllanDeviationLayout(frequencyList, powerList, np.asarray(df_transmittance.columns[10:].tolist(), float)),finalize=True)
-    # Creating the automatic first graph:
-    fig = plt.figure()
-    plt.ion()
-    plt.tight_layout()
-    fig.set_figwidth(ALLAN_DEVIATION_SIZE[0])
-    fig.set_figheight(ALLAN_DEVIATION_SIZE[1])
-    ax_deviation = fig.add_subplot(211)
-    ax_deviation.set_title("Allan Deviation")
-    ax_deviation.grid()
-    ax_conc = fig.add_subplot(212)
-    ax_conc.set_xlabel("time [s]")
-    ax_conc.set_title("Concentration")
-    ax_conc.grid()
-    fig_agg = draw_figure_w_toolbar(window2['figCanvas'].TKCanvas, fig, window2['controls_cv'].TKCanvas)
-   # Set the x-axis
-    start_f = float(df_clean.columns[10])
-    stop_f = float(df_clean.columns[-1])
-    # End of creating the graph.
-    reread = True #if no major change selected, reread stays false
-    
-    while True:
-    
-        event, values = window2.read()
-        # Closing the graph.
-        if ( (event == 'Close Graph') or (event == sg.WIN_CLOSED) ):
-            window2.close()
-            break
-        
-        # Clear the graph and the relevant parametrs.
-        elif event == '-CLEAR_PLOT-':
-            window2['_PowerListBoxPC_'].update(set_to_index=[])
-            window2['_RepetitionListBoxPC_'].update(set_to_index=[])
-            ax_conc.cla()
-            ax_deviation.cla()
-            ax_conc.set_xlabel("time [s]")
-            ax_conc.set_title("Concentration")
-            ax_deviation.set_title("Allan Deviation")
-            ax_conc.grid()
-            ax_deviation.grid()
-        
-        elif event == '_ADD_GRAPH_':
-            if (len(values['_RepetitionListBoxPC_']) > 0) and (len(values['_PowerListBoxPC_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):
-                if reread:
-                    # get concentration
-                    if values['-Reg_Norm_Val-']:
-                        # normalzation of clean and analyzer is required before concentration calculations
-                        df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))
-                    else:
-                        df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))
-                # filter selection
-                df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
-                # df_deviation = manipulation of df plotted
-                # Add to both plots
-                reread = False
-                continue
-            else:
-                sg.popup_ok("Make sure the parameters are chosen correctly")
-            # updateRegualrGraph(df_plotted, ax, fig_agg)
-        
-        elif event == '_DATA_FILE_':
-            if len(values['_DATA_FILE_']) > 0:
-                wavelength = get_minimum(values['_DATA_FILE_'][0]+'.txt')
-                window2['section_AbsValue'].update(visible=True)
-                window2['_ABS_NM_'].update(wavelength)
-            else:
-                window2['section_AbsValue'].update(visible=False)
-            reread = True
-        
-        elif event == '-Reg_Norm_Val-' or event == 'normValue':
-            reread = True
-        
-
-
-
-
-def timeSweepGraph(csvFile):
+def allanVarianceGraph(csvFile):
 
     colors = [name for name, hex in mcolors.CSS4_COLORS.items()
                    if np.mean(mcolors.hex2color(hex)) < 0.7]
@@ -675,8 +524,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        args.csv_name = "C:\\BGUProject\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
-        #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
+        args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements-1\\Results\\2023_04_02_16_50_53_859012_allan\\"
         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
     interactiveGraph(args.csv_name)
     

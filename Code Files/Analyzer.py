@@ -55,6 +55,8 @@ def getAnalyzerTransmition(dirname, v=1):
     except:
         return False
     
+    ###### Here is the normalize
+
     if (v == 1):
         # Version 1:
         df_columns = df_clean.columns.to_list()
@@ -113,7 +115,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
     k = 10000000/wavelength # In unit of cm^(-1)
     
     # Finding the relevant Absorption from the txt file:
-    df_A = pd.read_csv(databaseFilePath, delimiter = "\t") # databaseFilePath=dirname+filename.txt
+    df_A = pd.read_csv(databaseFilePath, delimiter = "\t", names=['Wavenumber', 'Absorption']) # databaseFilePath=dirname+filename.txt
     wavenumberList = df_A['Wavenumber'].tolist()
     AbsorptionList = df_A['Absorption'].tolist()
     index = -1
@@ -125,33 +127,40 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
             break
     A = AbsorptionList[index]
     
+    # Finding the index of the relvant/closest wavelength:
+    columns = df_transmittance.columns.to_list()
+    wavelengthList = [float(element) for element in columns[10:]]
+    distance_from_wavelength = [abs(float(wavelength)-element) for element in wavelengthList]
+    real_wavelength = str(wavelengthList[np.argmin(distance_from_wavelength)])
+
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
     columnsList.append('Concetration')
     columnsList.append('Concetration (ppm)')
     columnsList.append('Wavelength')
     df_C = pd.DataFrame(columns=columnsList)
-    #
+    # 
     for row in range(df_transmittance.shape[0]):
         new_row = []
         for idx in range(10):
             new_row.append(df_transmittance.iloc[row][idx])
-        E = - df_transmittance.iloc[row][wavelength]
+        E = - df_transmittance.iloc[row][real_wavelength]
         C = A/l/E
         new_row.append(C)
         new_row.append(C*(1e6))
-        new_row.append(wavelength)
+        new_row.append(real_wavelength)
         df_C.loc[len(df_C)] = new_row
 
     # Saving the df_C to Concetration.csv
-    df_C.to_csv(dirname+'\\Concetration (Wavelength-'+str(wavelength)+'nm).csv', index=False, encoding='utf-8')
+    df_C.to_csv(dirname+'\\Concetration (Wavelength-'+real_wavelength+'nm).csv', index=False, encoding='utf-8')
     return df_C
 
-def allandevation(dirname, wavelength):
+def allandevation(df_C, wavelength):
     # Calculate divation according to time and this plot to graph - The second graph - LOD
     
     # Compute the fractional frequency data
-    df_C = pd.read_csv(dirname+'\Concetration (Wavelength-'+wavelength+'nm)')
+    # df_C = pd.read_csv(dirname+'\Concetration (Wavelength-'+wavelength+'nm)')
+    
     ppm_data = df_C['Concetration (ppm)'].tolist()
     freq_data = ppm_data / 1e6 + 1
 
@@ -164,15 +173,18 @@ def allandevation(dirname, wavelength):
     plt.ylabel('Allan deviation')
     plt.show()
 
+def normalizeAnalyzer():
+    None
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------
 def getConcentration(dirname,databaseFile,wavelength,l):
     startTime = time.time()
     # getAnalyzerTransmition(dirname)
-    # df_C = beerLambert(dirname,databaseFile,wavelength,l)
-    allandevation(dirname, wavelength)
+    df_C = beerLambert(dirname,databaseFile,wavelength,l)
+    # allandevation(dirname, wavelength)
     totalTime = time.time() - startTime
     print("The total time it take was: ", totalTime)
+    return df_C
 
 
 if __name__=='__main__':

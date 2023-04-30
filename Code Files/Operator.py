@@ -165,7 +165,7 @@ def makedirectory(dirname, cf,span,npoints,speed,sens,res,analyzer):
     return dir
 
 def makeSubstaceCSV(csvname, df_original):
-    csvname = csvname[:-12]+'substance.csv'
+    csvname = csvname[:-12]+'analyzer_substance.csv'
     df_substance = pd.DataFrame(columns = df_original.columns.tolist())
     r = None
     p = None
