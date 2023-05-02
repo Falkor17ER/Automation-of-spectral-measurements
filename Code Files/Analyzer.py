@@ -43,12 +43,16 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     columns = clean_df.columns.to_list()
     freqs = [float(element) for element in columns[10:]]
     distance_from_user = [abs(float(Freq)-element) for element in freqs]
-    real_freq = str(freqs[np.argmin(distance_from_user)])
+    real_freq = freqs[np.argmin(distance_from_user)]
+    if real_freq.is_integer():
+        # convert x to integer
+        real_freq = int(real_freq)
+    real_freq = str(real_freq)
     df_ratio, df_clean, df_substance = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, to_norm=to_norm)
     df_ratio.to_csv(dirname+'transition.csv', index=False, encoding='utf-8')
     return df_ratio, df_clean, df_substance
 
-def getAnalyzerTransmition(dirname, v=1):
+def getAnalyzerTransmition(dirname, v=1, to_norm=False, waveLength = '1550'):
     try:
         df_clean = pd.read_csv(dirname+'\\'+'clean.csv')
         df_analyzer = pd.read_csv(dirname+'\\analyzer.csv')
@@ -56,49 +60,49 @@ def getAnalyzerTransmition(dirname, v=1):
         return False
     
     ###### Here is the normalize
+    columns = df_clean.columns.to_list()
+    
+    if to_norm:
+        wavelengths = [float(element) for element in columns[10:]]
+        distance_from_user = [abs(float(waveLength)-element) for element in wavelengths]
+        real_wavelength_from_user = wavelengths[np.argmin(distance_from_user)]
+        if real_wavelength_from_user.is_integer():
+            # convert x to integer
+            real_wavelength_from_user = int(real_wavelength_from_user)
+        real_wavelength_from_user = str(real_wavelength_from_user)
+        # Getting the elemnts of normalizations:
+        norm_vals_clean = df_clean[real_wavelength_from_user]
+        norm_vals_analyzer = df_analyzer[real_wavelength_from_user]
 
-    if (v == 1):
-        # Version 1:
-        df_columns = df_clean.columns.to_list()
-        freqs = [element for element in df_columns[10:]]
-        REP_list = df_clean['REP_RATE'].unique().tolist()
-        POWER_list = df_clean['POWER'].unique().tolist()
-        r = ''
-        p = ''
-        df_transmittance = pd.DataFrame(columns=df_columns)
-        for row in range(df_analyzer.shape[0]):
-            new_row = []
-            for idx in range(10):
-                new_row.append(df_analyzer.iloc[row][idx])
-            if ( df_analyzer.iloc[row]['REP_RATE'] != r or df_analyzer.iloc[row]['POWER'] != p ):
-                r = df_analyzer.iloc[row]['REP_RATE']
-                p = df_analyzer.iloc[row]['POWER']
-                clean_row = df_clean.loc[(df_clean['REP_RATE'] == r) & (df_clean['POWER'] == p)]
-            for f in freqs:
-                new_row.append( df_analyzer.iloc[row][f] - clean_row.iloc[0][f] )
-            df_transmittance.loc[len(df_transmittance)] = new_row
-        df_analyzer.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
-        return df_analyzer
+        # Normalizing both clean and substance CSVs
+        R, _ = df_analyzer.shape
+        for idx in range(0,R):
+            # Iterating over each row and normlizing
+            df_analyzer.iloc[idx,10:] = df_analyzer.iloc[idx,10:].apply(lambda val : val - norm_vals_analyzer[idx])
+        R, _ = df_clean.shape
+        for idx in range(0,R):
+            # Iterating over each row and normlizing
+            df_clean.iloc[idx,10:] = df_clean.iloc[idx,10:].apply(lambda val : val - norm_vals_clean[idx])
+    
+    ## [dB], [dBm] --> [dB]
 
-    if (v == 2):
-        # Version 2:
-        columns = df_clean.columns.to_list()
-        freqs = [element for element in columns[10:]]
-        REP_list = df_clean['REP_RATE'].unique().tolist()
-        POWER_list = df_clean['POWER'].unique().tolist()
-        df_transmittance = pd.DataFrame(columns)
-        df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
-        for r in REP_list:
-            for p in POWER_list:
-                clean_row = df_clean.loc[(df_clean['REP_RATE'] == r) & (df_clean['POWER'] == p)].iloc[0]
-                analyzer_rows = df_analyzer.loc[(df_analyzer['REP_RATE'] == r) & (df_analyzer['POWER'] == p)]
-                for row in range(analyzer_rows.shape[0]):
-                    new_row = analyzer_rows.iloc[row]
-                    for f in freqs:
-                        new_row.loc[f] = new_row.loc[f] - clean_row.loc[f]
-                    df_transmittance = df_transmittance.append(pd.Series(new_row, index = columns), ignore_index=True)
-        df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
-        return df_transmittance
+    df_columns = columns
+    freqs = [element for element in df_columns[10:]]
+    r = None
+    p = None
+    df_transmittance = df_analyzer
+    df_clean_multipled = pd.DataFrame(columns=df_columns)
+    for idx, row in df_analyzer.iterrows():
+        if ( row['REP_RATE'] != r or row['POWER'] != p ):
+            r = row['REP_RATE']
+            p = row['POWER']
+            clean_row = df_clean.loc[(df_clean['REP_RATE'] == r) & (df_clean['POWER'] == p)]
+        df_clean_multipled = df_clean_multipled.append(clean_row)
+    df_clean_multipled = df_clean_multipled.reset_index(drop=True)
+    df_transmittance[freqs] = df_transmittance[freqs].subtract(df_clean_multipled[freqs])
+    df_transmittance.to_csv(dirname+'transmittance.csv', index=False, encoding='utf-8')
+    return df_transmittance
+
 
 def beerLambert(dirname, databaseFilePath, wavelength,l):
     # This function calculate C (Concentration).
@@ -107,7 +111,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
     
     # Loading the dataframe of transmittance.csv:
     try:
-        df_transmittance = pd.read_csv(dirname+'\\'+'transmittance.csv')
+        df_transmittance = pd.read_csv(dirname+'transmittance.csv')
     except:
         return False
 
@@ -131,8 +135,12 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
     columns = df_transmittance.columns.to_list()
     wavelengthList = [float(element) for element in columns[10:]]
     distance_from_wavelength = [abs(float(wavelength)-element) for element in wavelengthList]
-    real_wavelength = str(wavelengthList[np.argmin(distance_from_wavelength)])
-
+    real_wavelength = wavelengthList[np.argmin(distance_from_wavelength)]
+    if real_wavelength.is_integer():
+        # convert x to integer
+        real_wavelength = int(real_wavelength)
+    real_wavelength = str(real_wavelength)
+    
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
     columnsList.append('Concetration')
@@ -152,7 +160,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
         df_C.loc[len(df_C)] = new_row
 
     # Saving the df_C to Concetration.csv
-    df_C.to_csv(dirname+'\\Concetration (Wavelength-'+real_wavelength+'nm).csv', index=False, encoding='utf-8')
+    df_C.to_csv(dirname+'Concetration (Wavelength-'+real_wavelength.replace('.','_')+'nm).csv', index=False, encoding='utf-8')
     return df_C
 
 def allandevation(df_C, wavelength):
@@ -189,11 +197,13 @@ def getConcentration(dirname,databaseFile,wavelength,l):
 
 if __name__=='__main__':
     now = time.time()
-    dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Analyzer_Test"
+    # dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Analyzer_Test"
+    dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
     databaseFile = "C:\BGUProject\Automation-of-spectral-measurements\Databases\CH4_25T.TXT"
     wavelength = 1550
     l = 1
-    getConcentration(dirname, databaseFile, wavelength, l)
+    getAnalyzerTransmition(dirname,to_norm=False)
+    # getConcentration(dirname, databaseFile, wavelength, l)
     print("Everything worked fine!")
 
 # Delete -------------------------------------------------------------------------------------------------------------------
