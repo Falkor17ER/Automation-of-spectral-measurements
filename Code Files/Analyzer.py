@@ -43,12 +43,16 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     columns = clean_df.columns.to_list()
     freqs = [float(element) for element in columns[10:]]
     distance_from_user = [abs(float(Freq)-element) for element in freqs]
-    real_freq = str(freqs[np.argmin(distance_from_user)])
+    real_freq = freqs[np.argmin(distance_from_user)]
+    if real_freq.is_integer():
+        # convert x to integer
+        real_freq = int(real_freq)
+    real_freq = str(real_freq)
     df_ratio, df_clean, df_substance = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, to_norm=to_norm)
-    df_ratio.to_csv(dirname+'transition.csv', index=False, encoding='utf-8')
+    df_ratio.to_csv(dirname+'\\transition.csv', index=False, encoding='utf-8')
     return df_ratio, df_clean, df_substance
 
-def getAnalyzerTransmition(dirname, v=1, to_norm=False, waveLength = '1550'):
+def getAnalyzerTransmition(dirname, to_norm=False, waveLength = '1550'):
     try:
         df_clean = pd.read_csv(dirname+'\\'+'clean.csv')
         df_analyzer = pd.read_csv(dirname+'\\analyzer.csv')
@@ -61,7 +65,11 @@ def getAnalyzerTransmition(dirname, v=1, to_norm=False, waveLength = '1550'):
     if to_norm:
         wavelengths = [float(element) for element in columns[10:]]
         distance_from_user = [abs(float(waveLength)-element) for element in wavelengths]
-        real_wavelength_from_user = str(wavelengths[np.argmin(distance_from_user)])
+        real_wavelength_from_user = wavelengths[np.argmin(distance_from_user)]
+        if real_wavelength_from_user.is_integer():
+            # convert x to integer
+            real_wavelength_from_user = int(real_wavelength_from_user)
+        real_wavelength_from_user = str(real_wavelength_from_user)
         # Getting the elemnts of normalizations:
         norm_vals_clean = df_clean[real_wavelength_from_user]
         norm_vals_analyzer = df_analyzer[real_wavelength_from_user]
@@ -89,7 +97,8 @@ def getAnalyzerTransmition(dirname, v=1, to_norm=False, waveLength = '1550'):
             r = row['REP_RATE']
             p = row['POWER']
             clean_row = df_clean.loc[(df_clean['REP_RATE'] == r) & (df_clean['POWER'] == p)]
-        df_clean_multipled = df_clean_multipled.append(clean_row)
+            # https://sparkbyexamples.com/pandas/pandas-add-row-to-dataframe/
+        df_clean_multipled = pd.concat([clean_row,df_clean_multipled.loc[:]]).reset_index(drop=True)
     df_clean_multipled = df_clean_multipled.reset_index(drop=True)
     df_transmittance[freqs] = df_transmittance[freqs].subtract(df_clean_multipled[freqs])
     df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
@@ -102,7 +111,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
     
     # Loading the dataframe of transmittance.csv:
     try:
-        df_transmittance = pd.read_csv(dirname+'\\'+'transmittance.csv')
+        df_transmittance = pd.read_csv(dirname+'\\transmittance.csv')
     except:
         return False
 
@@ -121,17 +130,24 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
                 index = index - 1
             break
     A = AbsorptionList[index]
+    # For correct units to calculate:
+    A = A*(1e10) # A is Unitless.
+    #l = l/100 # The real calculation is in cm and hence there is no need to convert it to meter (/100).
     
     # Finding the index of the relvant/closest wavelength:
     columns = df_transmittance.columns.to_list()
     wavelengthList = [float(element) for element in columns[10:]]
     distance_from_wavelength = [abs(float(wavelength)-element) for element in wavelengthList]
-    real_wavelength = str(wavelengthList[np.argmin(distance_from_wavelength)])
-
+    real_wavelength = wavelengthList[np.argmin(distance_from_wavelength)]
+    if real_wavelength.is_integer():
+        # convert x to integer
+        real_wavelength = int(real_wavelength)
+    real_wavelength = str(real_wavelength)
+    
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
-    columnsList.append('Concetration')
-    columnsList.append('Concetration (ppm)')
+    columnsList.append('Concetration [mol/L]=[M]')
+    columnsList.append('Concetration [ppm]')
     columnsList.append('Wavelength')
     df_C = pd.DataFrame(columns=columnsList)
     # 
@@ -139,15 +155,28 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
         new_row = []
         for idx in range(10):
             new_row.append(df_transmittance.iloc[row][idx])
-        E = - df_transmittance.iloc[row][real_wavelength]
-        C = A/l/E
-        new_row.append(C)
-        new_row.append(C*(1e6))
+        
+
+        real_wavelength = str(1524.9500000001818)
+        #E = - df_transmittance.iloc[row][real_wavelength]
+        E = abs(df_transmittance.iloc[row][real_wavelength])
+        #
+        if E == 0:
+            C = 0
+        else:
+            # Site 1: https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/11%3A_Coordination_Chemistry_III_-_Electronic_Spectra/11.01%3A_Absorption_of_Light/11.1.01%3A_Beer-Lambert_Absorption_Law
+            # Site 2: https://www.nexsens.com/knowledge-base/technical-notes/faq/how-do-you-convert-from-molarity-m-to-parts-per-million-ppm-and-mgl.htm
+            C_mol = (A/l)/E # [M] = [mol/L] = Units of mols.
+            C_ppm = C_mol/35000 # Converting from [M] to [ppm]
+        #
+        new_row.append(C_mol)
+        new_row.append(C_ppm)
         new_row.append(real_wavelength)
         df_C.loc[len(df_C)] = new_row
 
     # Saving the df_C to Concetration.csv
-    df_C.to_csv(dirname+'\\Concetration (Wavelength-'+real_wavelength+'nm).csv', index=False, encoding='utf-8')
+    real_wavelength = str("{:.3f}".format(float(real_wavelength)))
+    df_C.to_csv(dirname+'\\Concetration (Wavelength-'+real_wavelength.replace('.','_')+'nm).csv', index=False, encoding='utf-8')
     return df_C
 
 def allandevation(df_C, wavelength):
@@ -171,7 +200,7 @@ def allandevation(df_C, wavelength):
 def getConcentration(dirname,databaseFile,wavelength,l):
     to_norm = True
     startTime = time.time()
-    getAnalyzerTransmition(dirname, to_norm, wavelength, )
+    getAnalyzerTransmition(dirname, to_norm, wavelength)
     df_C = beerLambert(dirname,databaseFile,wavelength,l)
     # allandevation(dirname, wavelength)
     totalTime = time.time() - startTime
@@ -182,8 +211,15 @@ def getConcentration(dirname,databaseFile,wavelength,l):
 if __name__=='__main__':
     now = time.time()
     dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Analyzer_Test"
+    #dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
     databaseFile = "C:\BGUProject\Automation-of-spectral-measurements\Databases\CH4_25T.TXT"
     wavelength = 1550
     l = 1
+    #getAnalyzerTransmition(dirname,to_norm=False)
     getConcentration(dirname, databaseFile, wavelength, l)
     print("Everything worked fine!")
+
+
+### --- To Delete --- ### :
+    #df_clean_multipled = df_clean_multipled.append(clean_row, ignore_index=True)
+    #df_clean_multipled[idx] = clean_row

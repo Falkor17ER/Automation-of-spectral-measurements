@@ -47,13 +47,6 @@ class CursorClass(object):
     # cursor = CursorClass(fig, x, list(df.iloc[[row[0]]].values.tolist())[0][10:])
     # cid = plt.connect('motion_notify_event', cursor.mouse_event)
 
-# def updateLabels(fig, plotedDictionary):
-    # plt.legend()
-    # colorLabels = {}
-    # for key in plotedDictionary.keys():
-    #     c = plotedDictionary[key][0]
-    #     colorLabels[key] = c._color
-
 #############################################################################################################
 
 #---------------------------------------------------------------------------------------------------------------------------
@@ -149,7 +142,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
-                  [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_'), sg.Push()],
+                  [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("cm"), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
                   sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
@@ -178,6 +171,19 @@ def updateRegualrGraph(df_to_plot, ax, fig_agg):
     for i in range(len(df_to_plot)):
         try:
             line1 = ax.plot(np.asarray(df_to_plot.columns[10:], float), df_to_plot.iloc[i,10:], label='{}_Power_{}%'.format(df_to_plot['REP_RATE'].iloc[i], df_to_plot['POWER'].iloc[i]))
+            # Add a legend
+        except:
+            return False
+    ax.legend(loc='upper right')
+    fig_agg.draw()
+    return True
+
+def add_saved_lines(lines, ax, fig_agg):
+    ax.cla()
+    ax.grid()
+    for line in lines:
+        try:
+            ax.plot(line)
             # Add a legend
         except:
             return False
@@ -236,6 +242,16 @@ def interactiveGraph(csvFile):
         analyzerGraph(csvFile)
 
 def analyzerGraph(csvFile):
+
+    def clear_plots(ax1,ax2):
+        ax1.cla()
+        ax2.cla()
+        ax1.set_xlabel("time [s]")
+        ax1.set_title("Concentration [ppm]")
+        ax2.set_title("Allan Deviation")
+        ax1.grid()
+        ax2.grid()
+    
     sg.theme('DarkBlue')
     #clean = True
     #analyzer = True
@@ -266,7 +282,7 @@ def analyzerGraph(csvFile):
     ax_deviation.grid()
     ax_conc = fig.add_subplot(212)
     ax_conc.set_xlabel("time [s]")
-    ax_conc.set_title("Concentration")
+    ax_conc.set_title("Concentration [ppm]")
     ax_conc.grid()
     fig_agg = draw_figure_w_toolbar(window2['figCanvas'].TKCanvas, fig, window2['controls_cv'].TKCanvas)
    # Set the x-axis
@@ -287,26 +303,24 @@ def analyzerGraph(csvFile):
         elif event == '-CLEAR_PLOT-':
             window2['_PowerListBoxPC_'].update(set_to_index=[])
             window2['_RepetitionListBoxPC_'].update(set_to_index=[])
-            ax_conc.cla()
-            ax_deviation.cla()
-            ax_conc.set_xlabel("time [s]")
-            ax_conc.set_title("Concentration")
-            ax_deviation.set_title("Allan Deviation")
-            ax_conc.grid()
-            ax_deviation.grid()
+            clear_plots(ax_conc, ax_deviation)
         
         elif event == '_ADD_GRAPH_':
+            clear_plots(ax_conc, ax_deviation)
+            # add_saved_lines(lines, ax_conc, fig_agg)
             if (len(values['_RepetitionListBoxPC_']) > 0) and (len(values['_PowerListBoxPC_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):
                 if reread:
                     # get concentration
-                    if values['-Reg_Norm_Val-']:
-                        # normalzation of clean and analyzer is required before concentration calculations
-                        df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))
-                    else:
-                        df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))
+                    # normalzation of clean and analyzer is required before concentration calculations
+                    getAnalyzerTransmition(dirname=csvFile, v=1, to_norm=values['-Reg_Norm_Val-'], waveLength=values['normValue'])
+                    df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))  
                 # filter selection
-                # df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
+                df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
                 # df_deviation = manipulation of df plotted
+                ###########################################################################################################
+                new_line = ax_conc.plot(df_plotted['Time Interval'], df_plotted['Concetration (ppm)'])
+                ###########################################################################################################
+                fig_agg.draw()
                 # Add to both plots
                 reread = False
                 continue
@@ -323,7 +337,7 @@ def analyzerGraph(csvFile):
                 window2['section_AbsValue'].update(visible=False)
             reread = True
         
-        elif event == '-Reg_Norm_Val-' or event == 'normValue':
+        elif event == '-Reg_Norm_Val-' or event == 'normValue' or event == '_WAVEGUIDE_LENGTH_':
             reread = True
 
 
@@ -672,7 +686,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        args.csv_name = "C:\\BGUProject\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
+        args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
     interactiveGraph(args.csv_name)
