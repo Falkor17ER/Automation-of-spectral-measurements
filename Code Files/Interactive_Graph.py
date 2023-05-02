@@ -237,22 +237,22 @@ def interactiveGraph(csvFile):
 
 def analyzerGraph(csvFile):
     sg.theme('DarkBlue')
-    clean = True
-    analyzer = True
-    transmittance = True
+    #clean = True
+    #analyzer = True
+    #transmittance = True
     try:
         df_clean = pd.read_csv(csvFile + 'clean.csv')
-        df_analyzer = pd.read_csv(csvFile + 'analyzer.csv')
+        # df_analyzer = pd.read_csv(csvFile + 'analyzer.csv')
         df_transmittance = pd.read_csv(csvFile + 'transmittance.csv')
     except:
         sg.popup_ok("There was a problem reading the files.")
         exit()
 
-    yAxisPowerS_dictionary = {}
-    yAxisRepS_dictionary = {}
+    #yAxisPowerS_dictionary = {}
+    #yAxisRepS_dictionary = {}
     frequencyList = df_transmittance['REP_RATE'].unique().tolist()
     powerList = df_transmittance['POWER'].unique().tolist()
-    x = []
+    # x = []
 
     window2 = sg.Window("Allan Deviation", getAllanDeviationLayout(frequencyList, powerList, np.asarray(df_transmittance.columns[10:].tolist(), float)),finalize=True)
     # Creating the automatic first graph:
@@ -305,7 +305,7 @@ def analyzerGraph(csvFile):
                     else:
                         df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))
                 # filter selection
-                df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
+                # df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
                 # df_deviation = manipulation of df plotted
                 # Add to both plots
                 reread = False
@@ -325,9 +325,6 @@ def analyzerGraph(csvFile):
         
         elif event == '-Reg_Norm_Val-' or event == 'normValue':
             reread = True
-        
-
-
 
 
 def timeSweepGraph(csvFile):
@@ -492,11 +489,11 @@ def regularSweepGraph(csvFile):
     
     df_ratio, df_clean, df_substance = getNormlizedByCustomFreq(csvFile)
 
-    yAxisPowerS_dictionary = {}
-    yAxisRepS_dictionary = {}
+    # yAxisPowerS_dictionary = {}
+    # yAxisRepS_dictionary = {}
     frequencyList = df_ratio['REP_RATE'].unique().tolist()
     powerList = df_ratio['POWER'].unique().tolist()
-    x = []
+    # x = []
 
     window2 = sg.Window("Interactive Graph", getLayout(frequencyList, powerList, np.asarray(df_ratio.columns[10:].tolist(), float)),finalize=True)
     # Creating the automatic first graph:

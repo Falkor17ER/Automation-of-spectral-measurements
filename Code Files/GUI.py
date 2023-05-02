@@ -3,7 +3,7 @@ from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory
 from Interactive_Graph import regularSweepGraph, interactiveGraph
-from Analyzer import getNormlizedAllanVariance
+from Analyzer import getAnalyzerTransmition
 from json import load, dump
 import PySimpleGUI as sg
 import subprocess
