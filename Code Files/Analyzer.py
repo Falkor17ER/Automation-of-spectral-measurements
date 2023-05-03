@@ -129,11 +129,8 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
             if ( abs(k-wavenumberList[index]) > abs(k-wavenumberList[index-1]) ):
                 index = index - 1
             break
-    A = AbsorptionList[index]
-    # For correct units to calculate:
-    A = A*(1e10) # A is Unitless.
-    #l = l/100 # The real calculation is in cm and hence there is no need to convert it to meter (/100).
-    
+    A = abs((AbsorptionList[index])*(1e10))
+    l = l/1000 # Convert from mm to meter (For correct units to calculate).
     # Finding the index of the relvant/closest wavelength:
     columns = df_transmittance.columns.to_list()
     wavelengthList = [float(element) for element in columns[10:]]
@@ -146,8 +143,8 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
     
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
-    columnsList.append('Concentration [mol/L]=[M]')
     columnsList.append('Concentration [ppm]')
+    columnsList.append('Concentration [mol/L]=[M]')
     columnsList.append('Wavelength')
     df_C = pd.DataFrame(columns=columnsList)
     # 
@@ -155,24 +152,17 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
         new_row = []
         for idx in range(10):
             new_row.append(df_transmittance.iloc[row][idx])
-        
-
-        # real_wavelength = str(1524.9500000001818)
-        E = df_transmittance.iloc[row][real_wavelength]
-        #E = - df_transmittance.iloc[row][real_wavelength]
-        #
+        E = - df_transmittance.iloc[row][real_wavelength]
         if E == 0:
             C = 0
         else:
             # Site 1: https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/11%3A_Coordination_Chemistry_III_-_Electronic_Spectra/11.01%3A_Absorption_of_Light/11.1.01%3A_Beer-Lambert_Absorption_Law
             # Site 2: https://www.nexsens.com/knowledge-base/technical-notes/faq/how-do-you-convert-from-molarity-m-to-parts-per-million-ppm-and-mgl.htm
-            C = (A/l)/E # [M]
-            #C = abs(C)
-            #C_mol = (A/l)/E # [M] = [mol/L] = Units of mols.
-        #
+            C = (E/l)/A # [ppm]
         #new_row.append(C)
         new_row.append(C)
-        C = C*35000 # Converting from [M] to [ppm]
+        # From database gama is 1, but here from the measurment of the waveguide the value is the manipulation of the value and Gama.
+        C = C/35000 # Converting from [ppm] to [M]=[L/mol]
         new_row.append(C)
         new_row.append(real_wavelength)
         df_C.loc[len(df_C)] = new_row
@@ -231,3 +221,8 @@ if __name__=='__main__':
 ### --- To Delete --- ### :
     #df_clean_multipled = df_clean_multipled.append(clean_row, ignore_index=True)
     #df_clean_multipled[idx] = clean_row
+#E = - df_transmittance.iloc[row][real_wavelength]
+        # real_wavelength = str(1524.9500000001818)
+        #C = abs(C)
+        #C_mol = (A/l)/E # [M] = [mol/L] = Units of mols.
+        # A = A*(1e10) # A is Unitless.

@@ -142,7 +142,8 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
-                  [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("cm"), sg.Push()],
+                  [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
+                  [sg.Push(), sg.Text("Gama Value"), sg.Input("", s=7, key='_GAMA_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
                   sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
