@@ -98,7 +98,7 @@ def getAnalyzerTransmition(dirname, to_norm=False, waveLength = '1550'):
             p = row['POWER']
             clean_row = df_clean.loc[(df_clean['REP_RATE'] == r) & (df_clean['POWER'] == p)]
             # https://sparkbyexamples.com/pandas/pandas-add-row-to-dataframe/
-        df_clean_multipled = pd.concat([clean_row,df_clean_multipled.loc[:]]).reset_index(drop=True)
+        df_clean_multipled = pd.concat([df_clean_multipled.loc[:],clean_row]).reset_index(drop=True)
     df_clean_multipled = df_clean_multipled.reset_index(drop=True)
     df_transmittance[freqs] = df_transmittance[freqs].subtract(df_clean_multipled[freqs])
     df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
@@ -146,8 +146,8 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
     
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
-    columnsList.append('Concetration [mol/L]=[M]')
-    columnsList.append('Concetration [ppm]')
+    columnsList.append('Concentration [mol/L]=[M]')
+    columnsList.append('Concentration [ppm]')
     columnsList.append('Wavelength')
     df_C = pd.DataFrame(columns=columnsList)
     # 
@@ -157,50 +157,58 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
             new_row.append(df_transmittance.iloc[row][idx])
         
 
-        real_wavelength = str(1524.9500000001818)
+        # real_wavelength = str(1524.9500000001818)
+        E = df_transmittance.iloc[row][real_wavelength]
         #E = - df_transmittance.iloc[row][real_wavelength]
-        E = abs(df_transmittance.iloc[row][real_wavelength])
         #
         if E == 0:
             C = 0
         else:
             # Site 1: https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/11%3A_Coordination_Chemistry_III_-_Electronic_Spectra/11.01%3A_Absorption_of_Light/11.1.01%3A_Beer-Lambert_Absorption_Law
             # Site 2: https://www.nexsens.com/knowledge-base/technical-notes/faq/how-do-you-convert-from-molarity-m-to-parts-per-million-ppm-and-mgl.htm
-            C_mol = (A/l)/E # [M] = [mol/L] = Units of mols.
-            C_ppm = C_mol/35000 # Converting from [M] to [ppm]
+            C = (A/l)/E # [M]
+            #C = abs(C)
+            #C_mol = (A/l)/E # [M] = [mol/L] = Units of mols.
         #
-        new_row.append(C_mol)
-        new_row.append(C_ppm)
+        #new_row.append(C)
+        new_row.append(C)
+        C = C*35000 # Converting from [M] to [ppm]
+        new_row.append(C)
         new_row.append(real_wavelength)
         df_C.loc[len(df_C)] = new_row
 
     # Saving the df_C to Concetration.csv
     real_wavelength = str("{:.3f}".format(float(real_wavelength)))
-    df_C.to_csv(dirname+'\\Concetration (Wavelength-'+real_wavelength.replace('.','_')+'nm).csv', index=False, encoding='utf-8')
+    df_C.to_csv(dirname+'\\Concentration (Wavelength-'+real_wavelength.replace('.','_')+'nm).csv', index=False, encoding='utf-8')
     return df_C
 
-def allandevation(df_C, wavelength):
+def getMeanInterval(timeStamps):
+    sum = 0;
+    for idx in range(len(timeStamps)-1):
+        sum = timeStamps[idx+1]-timeStamps[idx]
+    rate = sum/(len(timeStamps)-1)
+    return rate
+
+def allandevation(df_C):
     # Calculate divation according to time and this plot to graph - The second graph - LOD
     # Compute the fractional frequency data
     # df_C = pd.read_csv(dirname+'\Concetration (Wavelength-'+wavelength+'nm)')
     
-    ppm_data = df_C['Concetration (ppm)'].tolist()
-    freq_data = ppm_data / 1e6 + 1
+    # ppm_data = df_C['Concentration [ppm]'].tolist()
+    ppm_data = df_C['Concentration [ppm]']
+    freq_data = ppm_data # / 1e6 + 1
 
+    rate = getMeanInterval(df_C['Time Interval'].tolist())
+    
     # Compute the Allan deviation
-    tau, adev, _, _ = allantools.oadev(freq_data, rate=1, taus='decade')
-
-    # Plot the Allan deviation
-    plt.loglog(tau, adev)
-    plt.xlabel('Time (s)')
-    plt.ylabel('Allan deviation')
-    plt.show()
+    tau, adev, _, _ = allantools.oadev(freq_data, rate, taus='decade')
+    return tau, adev, _, _
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------
 def getConcentration(dirname,databaseFile,wavelength,l):
-    to_norm = True
+    to_norm = False
     startTime = time.time()
-    getAnalyzerTransmition(dirname, to_norm, wavelength)
+    getAnalyzerTransmition(dirname, to_norm)
     df_C = beerLambert(dirname,databaseFile,wavelength,l)
     # allandevation(dirname, wavelength)
     totalTime = time.time() - startTime
@@ -210,11 +218,11 @@ def getConcentration(dirname,databaseFile,wavelength,l):
 
 if __name__=='__main__':
     now = time.time()
-    dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Analyzer_Test"
+    dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Simulation"
     #dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
     databaseFile = "C:\BGUProject\Automation-of-spectral-measurements\Databases\CH4_25T.TXT"
-    wavelength = 1550
-    l = 1
+    wavelength = 1475.125
+    l = 5
     #getAnalyzerTransmition(dirname,to_norm=False)
     getConcentration(dirname, databaseFile, wavelength, l)
     print("Everything worked fine!")

@@ -143,7 +143,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
                   [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("cm"), sg.Push()],
-                  [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Push()],
+                  [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
                   sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
     graph_layout = [[sg.Push(),sg.Text("Graph Space"),sg.Push()],
@@ -241,6 +241,12 @@ def interactiveGraph(csvFile):
     elif type_of_graph == 'analyzer':
         analyzerGraph(csvFile)
 
+def plotHoldGraphs(ax_concentration,ax_allandeviation,consentrationList, allanDeviationList):
+    for line in consentrationList:
+        ax_concentration.add_line(line)
+    for line in allanDeviationList:
+        ax_allandeviation.add_line(line)
+
 def analyzerGraph(csvFile):
 
     def clear_plots(ax1,ax2):
@@ -285,12 +291,16 @@ def analyzerGraph(csvFile):
     ax_conc.set_title("Concentration [ppm]")
     ax_conc.grid()
     fig_agg = draw_figure_w_toolbar(window2['figCanvas'].TKCanvas, fig, window2['controls_cv'].TKCanvas)
-   # Set the x-axis
+    # Set the x-axis
     start_f = float(df_clean.columns[10])
     stop_f = float(df_clean.columns[-1])
     # End of creating the graph.
     reread = True #if no major change selected, reread stays false
-    
+    new_concentration_line = None
+    new_allandeviation_line = None
+    holdConcentrationList = []
+    holdAllanDeviationList = []
+
     while True:
     
         event, values = window2.read()
@@ -304,30 +314,44 @@ def analyzerGraph(csvFile):
             window2['_PowerListBoxPC_'].update(set_to_index=[])
             window2['_RepetitionListBoxPC_'].update(set_to_index=[])
             clear_plots(ax_conc, ax_deviation)
+            new_concentration_line = None
+            new_allandeviation_line = None
+            holdConcentrationList = []
+            holdAllanDeviationList = []
         
         elif event == '_ADD_GRAPH_':
             clear_plots(ax_conc, ax_deviation)
+            plotHoldGraphs(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList)
             # add_saved_lines(lines, ax_conc, fig_agg)
             if (len(values['_RepetitionListBoxPC_']) > 0) and (len(values['_PowerListBoxPC_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):
                 if reread:
                     # get concentration
                     # normalzation of clean and analyzer is required before concentration calculations
-                    getAnalyzerTransmition(dirname=csvFile, v=1, to_norm=values['-Reg_Norm_Val-'], waveLength=values['normValue'])
+                    getAnalyzerTransmition(dirname=csvFile, to_norm=values['-Reg_Norm_Val-'], waveLength=values['normValue'])
                     df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))  
                 # filter selection
                 df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
                 # df_deviation = manipulation of df plotted
-                ###########################################################################################################
-                new_line = ax_conc.plot(df_plotted['Time Interval'], df_plotted['Concetration (ppm)'])
-                ###########################################################################################################
-                fig_agg.draw()
+                new_concentration_line = ax_conc.plot(df_plotted['Time Interval'], df_plotted['Concentration [ppm]'])
                 # Add to both plots
                 reread = False
+                tau, adev, _, _ = allandevation(df_plotted)            
+                # Plot the Allan deviation
+                new_allandeviation_line = ax_deviation.loglog(tau, adev)
+                #ax_deviation.set_xlabel('Time (s)')
+                #ax_deviation.set_ylabel('Allan deviation')
+                # Show the two Graphs:
+                fig_agg.draw()
                 continue
             else:
                 sg.popup_ok("Make sure the parameters are chosen correctly")
             # updateRegualrGraph(df_plotted, ax, fig_agg)
         
+        elif event == '_HOLD_':
+            if ( (new_concentration_line != None) and (new_allandeviation_line != None) ):
+                holdConcentrationList.append(new_concentration_line[0])
+                holdAllanDeviationList.append(new_allandeviation_line[0])
+
         elif event == '_DATA_FILE_':
             if len(values['_DATA_FILE_']) > 0:
                 wavelength = get_minimum(values['_DATA_FILE_'][0]+'.txt')
@@ -686,7 +710,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
+        dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Simulation\\"
+        args.csv_name = dirname
+        #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
     interactiveGraph(args.csv_name)
