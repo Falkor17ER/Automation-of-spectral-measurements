@@ -11,6 +11,7 @@ import os
 import threading
 import signal
 import shutil
+from time import sleep
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -99,8 +100,7 @@ def getSampleL():
         sampleL = [[sg.Push(), sg.Text("OSA", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Push(), sg.Input("1500",s=15,key="CF"), sg.Text("[nm]")],
                     [sg.Text("Span:"), sg.Push(), sg.Input("50",s=15,key="SPAN"), sg.Text("[nm]")],
-                    [sg.Text("Ponits:"), sg.Push(), sg.Input("Auto (500)",s=15,key="PTS")],
-                    [sg.Text("Speed:"), sg.Push(), sg.Combo(["Normal", "Fast"], default_value='Normal',key="SPD")],
+                    [sg.Text("Ponits: (Auto recommended)"), sg.Push(), sg.Input("Auto",s=15,key="PTS")],
                     [sg.Push(), sg.Text("Laser", font='David 15 bold'), sg.Push()],
                     [sg.Text("Power:"), sg.Push(), sg.Input("6",s=15,key="POWER"), sg.Text("%")],
                     [sg.Text("Repetition Rate:"), sg.Push(), sg.Combo(list(rep_values_MHz.keys()), key="REP", default_value=list(rep_values_MHz.keys())[0])],
@@ -124,18 +124,14 @@ def getDatabases():
 
 def getTests():
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
-    analyzerSection = [[sg.Text("Interaction length: "), sg.Input("10",s=5,key="interactionLength"), sg.Text("mm")], [sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",s=3,key="intervalTime"), sg.Text("seconds")]]
-    manuallResSection = [[sg.Text("Please enter a value: "), sg.Input("2",s=5,key="test_manuallRes"), sg.Text("nm")]]
-    databasefolder = getDatabases()
-    databaseLayout = [[sg.Text("Select Substance info from database:", font='David 12 bold')],
-                [sg.Listbox(databasefolder, select_mode='LISTBOX_SELECT_MODE_SINGLE', key="test_database", size=(SIZE[1],2))]]
+    analyzerSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",s=3,key="intervalTime"), sg.Text("seconds")]]
     if (isConnected or debugMode):
         test_values = [[sg.Push(), sg.Text("Tests - choose the tests you want", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
                     sg.Text("Span:"), sg.Input("50",s=5,key="test_SPAN"), sg.Text("[nm]")],
-                    [sg.Text("Num of Ponits:"), sg.Input("Auto (500)",s=12,key="test_PTS"), sg.Text("Speed:"), sg.Combo(["Normal", "Fast"], default_value='Normal',key="test_SPD"), sg.Text("Sensetivity: "), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="test_sens")], [sg.Text("Resolution: "), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>", "Manuall (Enter a value)"], enable_events=True, default_value="1nm <0.820nm>" ,key="test_res"), collapse(manuallResSection, 'section_manuallRes', False)],
+                    [sg.Text("Number of Ponits: (Auto recommended)"), sg.Input("Auto",s=12,key="test_PTS"), sg.Text("Sensetivity: "), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="test_sens")], [sg.Text("Resolution: "), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>"], enable_events=True, default_value="1nm <0.820nm>" ,key="test_res")],
                     [sg.Text("Start Power Level [%]:"), sg.Input("6",s=3,key="minPL"), sg.Checkbox(text="Sweep?", enable_events=True, key="testPowerLevelSweep"), collapse(powerSweepSection, 'section_powerSweep', False)],
-                    [sg.Text("Number of samples per parameter: "), sg.Input("1",s=2,key="numSamplesParameter"), sg.Text("(max: 100)")],
+                    [sg.Text("Sample Averaging: "), sg.Input("1",s=2,key="numSamplesParameter"), sg.Text("(max: 100)")],
                     [sg.Text("Choose the repetition rates [MHz]:"),sg.Checkbox(text="Select all", enable_events=True, key="selectAllRep")],
                     [sg.Checkbox(text="78.56",font='David 11',key="r1",default=False),sg.Checkbox(text="39.28",font='David 11',key="r2",default=False),sg.Checkbox(text="29.19",font='David 11',key="r3",default=False),sg.Checkbox(text="19.64",font='David 11',key="r4",default=False),sg.Checkbox(text="15.71",font='David 11',key="r5",default=False),sg.Checkbox(text="13.09",font='David 11',key="r6",default=False),sg.Checkbox(text="11.22",font='David 11',key="r7",default=False),sg.Checkbox(text="9.82",font='David 11',key="r8",default=False)],
                     [sg.Checkbox(text="8.729",font='David 11',key="r9",default=False),sg.Checkbox(text="7.856",font='David 11',key="r10",default=False),sg.Checkbox(text="6.547",font='David 11',key="r12",default=False),sg.Checkbox(text="5.612",font='David 11',key="r14",default=False),sg.Checkbox(text="4.910",font='David 11',key="r16",default=False),sg.Checkbox(text="4.365",font='David 11',key="r18",default=False),sg.Checkbox(text="3.928",font='David 11',key="r20",default=False),sg.Checkbox(text="3.571",font='David 11',key="r22",default=False)],
@@ -143,7 +139,6 @@ def getTests():
                     [],[],
                     [sg.Text("Output name:"), sg.Input("Test_sample1", s=15, key="test_name"), sg.Push(), sg.Text("Comments:"),sg.Input("",s=30,key="TEST1_COMMENT")], [],
                     [sg.Checkbox(text="Analyzer (Beer-Lambert & Allan Variance) ?",enable_events=True,key="test_analyzer")], [collapse(analyzerSection, 'section_analyzer', False)],
-                    [collapse(databaseLayout, 'section_database', False)],
                     [sg.Push(), sg.Button("Start Test"), sg.Push()],
                     [sg.Push(),sg.Text(str(getTestErrorText), key="test_errorText"),sg.Push()]]
     else:
@@ -189,8 +184,12 @@ def checkStartConditions(values):
         getTestErrorText = "Error: The 'Center Frequency' can only be between 700nm to 1600nm."
     elif (int(values["test_SPAN"]) > 250):
         getTestErrorText = "Error: The 'Span' value can only be between XXX to YYY."
-    elif ( (values["test_PTS"] != "Auto (500)") and int(values["test_PTS"]) > 2000):
-        getTestErrorText = "Error: The max Number of Points per sample is XXX points."
+    elif (values["test_PTS"] != "Auto"):
+        try:
+            if (int(values["test_PTS"]) > 2000) or (int(values["test_PTS"]) < 101):
+                getTestErrorText = "Error: The max Number of Points per sample is XXX points."
+        except:
+                getTestErrorText = "Error: The max Number of Points per sample is XXX points."
     elif ( (values["test_res"] == "Manuall (Enter a value)") and ((float(values["test_manuallRes"]) < 0) or (float(values["test_manuallRes"]) > 4) )):################################################
         getTestErrorText = "Error: The resolution you enter is not good value."
     elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
@@ -199,14 +198,12 @@ def checkStartConditions(values):
         getTestErrorText = "Error: The end power of the laser must be btween 6 to 100"
     elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["maxPL"])) ):
         getTestErrorText = "Error: The start power must be smaller than the end power"
-    elif (int(values["numSamplesParameter"]) > 100 or int(values["numSamplesParameter"]) <= 0):
-        getTestErrorText = "Error: The number of samples must be between 1 to 3."
+    elif int(values["numSamplesParameter"]) <= 0:
+        getTestErrorText = "Error: The number of samples must be higher than 0"
     elif (not values["r1"] and not values["r2"] and not values["r3"] and not values["r4"] and not values["r5"] and not values["r6"] and not values["r7"] and not values["r8"] and not values["r9"] and not values["r10"] and not values["r12"] and not values["r14"] and not values["r16"] and not values["r18"] and not values["r20"] and not values["r22"] and not values["r25"] and not values["r27"] and not values["r29"] and not values["r32"] and not values["r34"] and not values["r37"] and not values["r40"]):
         getTestErrorText = "Error: No repetition value was chosen"
     elif (values["test_name"] == ""): # Not a must.
         getTestErrorText = "Error: No name for 'Output name'."
-    elif (values["test_analyzer"] and ( (int(values["interactionLength"]) < 0) or (int(values["interactionLength"]) > 1000) )):
-        getTestErrorText = "Error: (Analyzer) The 'Interaction Length' must be bigger than zero and smaller than 1000 [mm]."
     elif (values["test_analyzer"] and ( (int(values["totalSampleTime"]) < 0) or (int(values["totalSampleTime"]) > 3600) )):
         getTestErrorText = "Error: (Analyzer) The 'Total time sample' must be bigger than zero. Max: 1 Hour."
     elif (values["test_analyzer"] and ( (int(values["intervalTime"]) < 0.5) or (int(values["intervalTime"]) > int(values["totalSampleTime"])) )):
@@ -277,19 +274,12 @@ while True:
             window[i].update(values["selectAllRep"])
         print(values)
 
-    elif event == "test_res":
-        if values["test_res"] == "Manuall (Enter a value)":
-            window['section_manuallRes'].update(visible=True)
-        else:
-            window['section_manuallRes'].update(visible=False)
 
     elif event == "test_analyzer":
         if (values["test_analyzer"] == True):
             window['section_analyzer'].update(visible=True)
-            window['section_database'].update(visible=True)
         else:
             window['section_analyzer'].update(visible=False)
-            window['section_database'].update(visible=False)
 
     elif event == "Start Test":
         if (isConnected or debugMode):
@@ -303,7 +293,7 @@ while True:
                 window['Start Test'].update(disabled=True)
                 window_message = sg.Window("",[[sg.Text("Executing Clean Test...")]])
                 
-                dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_SPD"],values["test_sens"],res,values["test_analyzer"])
+                dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
                 getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
                 window_message.close()
                 # For user
@@ -312,6 +302,9 @@ while True:
                 if (tempEvent.upper()=="OK"):
                     window_message = sg.Window("",[[sg.Text("Executing Substance Test...")]])
                     if (values['test_analyzer']):
+                        if (not debugMode):
+                            laser.emission(0)
+                            sleep(8)
                         getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv") 
                     else:
                         getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")

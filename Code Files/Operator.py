@@ -34,9 +34,9 @@ rep_values_MHz_inverted = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MH
 
 # Sample Managment: ----------------------------------------------------------------------------------------------
 
-def setConfig(laser,osa,cf,span,points,speed,power,rep,sens,res):
+def setConfig(laser,osa,cf,span,points,power,rep,sens,res):
     configureLaser(laser,power,rep)
-    configureOSA(osa,cf,span,points,speed,sens,res)
+    configureOSA(osa,cf,span,points,sens,res)
 
 def configureLaser(laser, power,rep):
     if not debugMode:
@@ -45,7 +45,7 @@ def configureLaser(laser, power,rep):
         sleep(1)
         laser.powerLevel(int(power))
 
-def configureOSA(osa, cf,span,points,speed,sens,res):
+def configureOSA(osa, cf,span,points,sens,res):
     if not debugMode:
         convertDict = {
             "SPEED": {"Normal": "x1", "Fast": "x2"},
@@ -58,18 +58,15 @@ def configureOSA(osa, cf,span,points,speed,sens,res):
         osa.setSpan(span)
         sleep(1)
         # Set number of sampling points
-        if (points == "Auto (500)"):
+        if (points == "Auto"):
             points = "auto on"
         osa.setPoints(points)
-        sleep(1)
-        # Set sampling speed
-        osa.setSpeed(convertDict["SPEED"][speed])
         sleep(1)
         # Set sampling sensetivity
         osa.setSens(convertDict["Sens"][sens])
         sleep(1)
         # Set sampling resolution
-        osa.setRes(res)
+        osa.setRes(res.split(' ')[0][:-2])
         sleep(1)
         
 
@@ -91,37 +88,44 @@ def getReps(values):
             continue
     return reps
 
-def meanMeasure(laser,osa ,numOfSamples,numOfDots):
+def meanMeasure(laser, osa ,numOfSamples, numOfDots):
     try:
         numOfSamples = int(numOfSamples)
     except:
-        numOfSamples=1
+        numOfSamples = 1
     if not debugMode:
-        measuretList = []
-        resultList = []
-        for i in range(0,numOfSamples):
-            sleep(0.2)
-            osa.sweep()
-            data = osa.getCSVFile("noiseMeasurment")
-            data_decoded = data.decode("utf-8")
-            data_decoded = data_decoded.split("\r\n")
-            smpls = data_decoded[39:-2]
-            wavelengths = [float(pair.split(",")[0]) for pair in smpls]
-            measurment = [float(pair.split(",")[1]) for pair in smpls]
-            measuretList.append(measurment)
-        i = 0
-        j = 0
-        if numOfSamples > 1:
-            while (i < numOfDots):
-                sum = 0
-                while (j < numOfSamples):
-                    sum += measuretList[j][i]
-                    j = j+1
-                resultList.append(sum/numOfSamples)
-                j = 0
-                i = i+1
-            return resultList
-        return measuretList[0]
+        # measuretList = []
+        # resultList = []
+        # for i in range(0,numOfSamples):
+        #     sleep(0.2)
+        #     osa.sweep()
+        #     data = osa.getCSVFile("noiseMeasurment")
+        #     data_decoded = data.decode("utf-8")
+        #     data_decoded = data_decoded.split("\r\n")
+        #     smpls = data_decoded[39:-2]
+        #     wavelengths = [float(pair.split(",")[0]) for pair in smpls]
+        #     measurment = [float(pair.split(",")[1]) for pair in smpls]
+        #     measuretList.append(measurment)
+        # i = 0
+        # j = 0
+        # if numOfSamples > 1:
+        #     while (i < numOfDots):
+        #         sum = 0
+        #         while (j < numOfSamples):
+        #             sum += measuretList[j][i]
+        #             j = j+1
+        #         resultList.append(sum/numOfSamples)
+        #         j = 0
+        #         i = i+1
+        #     return resultList
+        # return measuretList[0]
+        osa.setAveraging(str(numOfSamples))
+        osa.sweep()
+        data = osa.getCSVFile("noiseMeasurment")
+        data_decoded = data.decode("utf-8")
+        data_decoded = data_decoded.split("\r\n")
+        smpls = data_decoded[39:-2]
+        return [float(pair.split(",")[1]) for pair in smpls]
     return np.random.rand(numOfDots)*(-100)
 
 def noiseMeasurments(laser,osa, numOfDots,noiseNum=3):
@@ -159,8 +163,12 @@ def getTime():
     time = time.replace('.', '_')
     return time
 
-def makedirectory(dirname, cf,span,npoints,speed,sens,res,analyzer):
-    dir = "../Results/"+getTime()+"___"+dirname+"___CF="+cf+"nm, Span="+span+"nm, NPoints="+npoints+", speed="+speed+", sens="+sens+", res="+res+", analyzer="+analyzer
+def makedirectory(dirname, cf,span,npoints,sens,res,analyzer):
+    dir = "/Results/"+getTime()+"___"+dirname+"___CF="+cf+"nm, Span="+span+"nm, NPoints="+npoints+", sens="+sens+", res="+res+", analyzer="+str(analyzer)
+    dir = dir.replace("<", "(")
+    dir = dir.replace(">", ")")
+    dir = dir.replace(".", "_")
+    dir = '..'+dir
     os.mkdir(dir)
     return dir
 
@@ -182,15 +190,16 @@ def getSweepResults(laser,osa,values,debug,csvname):
     # This function will manage all the test process and call to all the relevant functions.
     # enterSubstanceToMeasure()
     reps = getReps(values)
-    if values["test_PTS"] == "Auto (500)":
-        pts = 500
+    if values["test_PTS"] == "Auto":
+        osa.setPoints('auto on')
     else:
-        pts = int(values["test_PTS"])
+        osa.setPoints(values["test_PTS"])
+    pts = osa.getPoints()
     if values["test_res"] == "Manuall (Enter a value)":
         res = values["test_manuallRes"]
     else:
         res = values["test_res"]
-    setConfig(laser,osa,values["test_CF"],values["test_SPAN"], pts, values['test_SPD'], values["minPL"], reps[0], values['test_sens'], res)
+    setConfig(laser,osa,values["test_CF"],values["test_SPAN"], pts, values["minPL"], reps[0], values['test_sens'], res)
     start = int(values["minPL"])
     if (values["testPowerLevelSweep"]):
         stop = int(values["maxPL"])
@@ -214,11 +223,8 @@ def getSweepResults(laser,osa,values,debug,csvname):
 
             # Starting the test:
             if csvname[-12:-4] == "analyzer": # Analyze Graph: Beer-Lambert & Allan Variance Mode
-                if (not debugMode):
-                    laser.emission(0)
-                    sleep(8)
-                totalTime = int(values['totalTimeAllanVariance'])
-                intervalTime = int(values['intervalTimeAllanVariance'])
+                totalTime = int(values['totalSampleTime'])
+                intervalTime = int(values['intervalTime'])
                 startTime = time()
                 if (not debugMode):
                     laser.emission(1)

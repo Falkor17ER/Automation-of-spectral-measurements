@@ -104,7 +104,7 @@ def getAnalyzerTransmition(dirname, to_norm=False, waveLength = '1550'):
     df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
     return df_transmittance
 
-def beerLambert(dirname, databaseFilePath, wavelength,l):
+def beerLambert(dirname, databaseFilePath, wavelength,l,G):
     # This function calculate C (Concentration).
     # k = The wavenumber, A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
     # E is minus every result, every rublica. 
@@ -158,7 +158,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l):
         else:
             # Site 1: https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/11%3A_Coordination_Chemistry_III_-_Electronic_Spectra/11.01%3A_Absorption_of_Light/11.1.01%3A_Beer-Lambert_Absorption_Law
             # Site 2: https://www.nexsens.com/knowledge-base/technical-notes/faq/how-do-you-convert-from-molarity-m-to-parts-per-million-ppm-and-mgl.htm
-            C = (E/l)/A # [ppm]
+            C = ((E/l)/A)/float(G) # [ppm]
         #new_row.append(C)
         new_row.append(C)
         # From database gama is 1, but here from the measurment of the waveguide the value is the manipulation of the value and Gama.
@@ -188,7 +188,7 @@ def allandevation(df_C):
     ppm_data = df_C['Concentration [ppm]']
     freq_data = ppm_data # / 1e6 + 1
 
-    rate = getMeanInterval(df_C['Time Interval'].tolist())
+    rate = getMeanInterval(df_C['Interval'].tolist())
     
     # Compute the Allan deviation
     tau, adev, _, _ = allantools.oadev(freq_data, rate, taus='decade')
@@ -199,7 +199,7 @@ def getConcentration(dirname,databaseFile,wavelength,l):
     to_norm = False
     startTime = time.time()
     getAnalyzerTransmition(dirname, to_norm)
-    df_C = beerLambert(dirname,databaseFile,wavelength,l)
+    df_C = beerLambert(dirname,databaseFile,wavelength,l,G='1')
     # allandevation(dirname, wavelength)
     totalTime = time.time() - startTime
     print("The total time it take was: ", totalTime)

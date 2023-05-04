@@ -143,7 +143,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
                   [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
-                  [sg.Push(), sg.Text("Gama Value"), sg.Input("", s=7, key='_GAMA_', enable_events=True), sg.Push()],
+                  [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
                   sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
@@ -269,6 +269,7 @@ def analyzerGraph(csvFile):
         fig_agg.draw()
     
     sg.theme('DarkBlue')
+    getAnalyzerTransmition(dirname=csvFile, to_norm=False)
     #clean = True
     #analyzer = True
     #transmittance = True
@@ -328,6 +329,9 @@ def analyzerGraph(csvFile):
             new_allandeviation_line = None
             holdConcentrationList = {}
             holdAllanDeviationList = {}
+            colors = [name for name, hex in mcolors.CSS4_COLORS.items()
+                   if np.mean(mcolors.hex2color(hex)) < 0.7]
+            colors.pop(0)
         
         elif event == '_ADD_GRAPH_':
             clear_plots(ax_conc, ax_deviation)
@@ -338,14 +342,14 @@ def analyzerGraph(csvFile):
                     # get concentration
                     # normalzation of clean and analyzer is required before concentration calculations
                     getAnalyzerTransmition(dirname=csvFile, to_norm=values['-Reg_Norm_Val-'], waveLength=values['normValue'])
-                    df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']))  
+                    df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']), G = values['_GAMA_'])  
                 # filter selection
                 df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
                 # df_deviation = manipulation of df plotted
                 label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(values['_ABS_NM_']))
                 tau, adev, _, _ = allandevation(df_plotted) 
                 # Add to both plots
-                new_concentration_line = ax_conc.plot(df_plotted['Time Interval'], df_plotted['Concentration [ppm]'], label=label, color = color)
+                new_concentration_line = ax_conc.plot(df_plotted['Interval'], df_plotted['Concentration [ppm]'], label=label, color = color)
                 new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
                 ax_deviation.legend(loc='upper right')
                 ax_conc.legend(loc='upper right')
@@ -724,7 +728,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
+        dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
         args.csv_name = dirname
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"

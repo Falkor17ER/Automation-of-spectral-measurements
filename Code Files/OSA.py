@@ -10,7 +10,7 @@ class OSA:
         server_address = (IP, 10001)
         print('connecting to {} port {}'.format(*server_address))
         self.sock.connect(server_address)
-        self.sock.settimeout(20)
+        self.sock.settimeout(120)
         self.Auth()
         self._pts = None
 
@@ -71,12 +71,22 @@ class OSA:
         # The number of points per sweep.
         if points == 'auto on':
             self.sendToOSA(':sens:sweep:points:{}'.format(points))
-            self._pts = 500
         else:
             self.sendToOSA(':sens:sweep:points:auto off')
             self.sendToOSA(':sens:sweep:points {}'.format(points))
-            self._pts = int(points)
+            
+        
+        self.sendToOSA(':sens:sweep:points?')
+
+        self._pts = int(self.receiveFromOSA())
         return True
+    
+    def getPoints(self):
+        return self._pts
+    
+    def setAveraging(self, times):
+        # from documantation :SENSE:AVERAGE:COUNT 100
+        self.sendToOSA(':SENSE:AVERAGE:COUNT {}'.format(times))
 
     def setSpeed(self, speed):
         # Changing the speed of the sweep
@@ -92,7 +102,7 @@ class OSA:
     def setRes(self, res):
     # Changing the resolution of the device measurment
         # self.sendToOSA(':SENSe:BANDwidth|:BWIDth[:RESolution]<wsp><NRf>[M|Hz]'.format(res))
-        self.sendToOSA(':SENSe:BANDwidth|:BWIDth[:RESolution] {}[M|Hz]'.format(res))
+        self.sendToOSA(':SENSE:BANDWIDTH:RESOLUTION {:.3f}NM'.format(float(res)))
         #self.sendToOSA(''.format(res))
         return True
 
@@ -138,9 +148,8 @@ class OSA:
                     if ans == '1':
                         sweep_completed = True
                         break
-                    if time() - start > 5:
-                        break
-                                
+                    if time() - start > 30:
+                        break             
                 
             mode = mode - 1
     
@@ -186,3 +195,8 @@ class OSA:
         if len_smpls == self._pts:
             return True
         return False
+
+
+if __name__ == '__main__':
+    osa = OSA(IP = '10.0.0.101')
+    osa.setAveraging('2')
