@@ -242,13 +242,13 @@ def interactiveGraph(csvFile):
     elif type_of_graph == 'analyzer':
         analyzerGraph(csvFile)
 
-def plotHoldGraphs(ax_concentration,ax_allandeviation,consentrationList, allanDeviationList):
-    for line in consentrationList:
-        ax_concentration.add_line(line)
-    for line in allanDeviationList:
-        ax_allandeviation.add_line(line)
 
 def analyzerGraph(csvFile):
+
+    colors = [name for name, hex in mcolors.CSS4_COLORS.items()
+                   if np.mean(mcolors.hex2color(hex)) < 0.7]
+    colors.pop(0)
+    color = colors[0]
 
     def clear_plots(ax1,ax2):
         ax1.cla()
@@ -258,6 +258,15 @@ def analyzerGraph(csvFile):
         ax2.set_title("Allan Deviation")
         ax1.grid()
         ax2.grid()
+
+    def add_allan_history(ax_conc, ax_deviation, hold_lines_conc, hold_lines_dev, fig_agg):
+        for line1 in hold_lines_conc.values():
+            ax_conc.add_line(line1)
+        ax_conc.legend(loc='upper right')
+        for line1 in hold_lines_dev.values():
+            ax_deviation.add_line(line1)
+        ax_deviation.legend(loc='upper right')
+        fig_agg.draw()
     
     sg.theme('DarkBlue')
     #clean = True
@@ -299,8 +308,8 @@ def analyzerGraph(csvFile):
     reread = True #if no major change selected, reread stays false
     new_concentration_line = None
     new_allandeviation_line = None
-    holdConcentrationList = []
-    holdAllanDeviationList = []
+    holdConcentrationList = {}
+    holdAllanDeviationList = {}
 
     while True:
     
@@ -317,12 +326,12 @@ def analyzerGraph(csvFile):
             clear_plots(ax_conc, ax_deviation)
             new_concentration_line = None
             new_allandeviation_line = None
-            holdConcentrationList = []
-            holdAllanDeviationList = []
+            holdConcentrationList = {}
+            holdAllanDeviationList = {}
         
         elif event == '_ADD_GRAPH_':
             clear_plots(ax_conc, ax_deviation)
-            plotHoldGraphs(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList)
+            add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
             # add_saved_lines(lines, ax_conc, fig_agg)
             if (len(values['_RepetitionListBoxPC_']) > 0) and (len(values['_PowerListBoxPC_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):
                 if reread:
@@ -333,16 +342,18 @@ def analyzerGraph(csvFile):
                 # filter selection
                 df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
                 # df_deviation = manipulation of df plotted
-                new_concentration_line = ax_conc.plot(df_plotted['Time Interval'], df_plotted['Concentration [ppm]'])
+                label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(values['_ABS_NM_']))
+                tau, adev, _, _ = allandevation(df_plotted) 
                 # Add to both plots
-                reread = False
-                tau, adev, _, _ = allandevation(df_plotted)            
-                # Plot the Allan deviation
-                new_allandeviation_line = ax_deviation.loglog(tau, adev)
-                #ax_deviation.set_xlabel('Time (s)')
-                #ax_deviation.set_ylabel('Allan deviation')
+                new_concentration_line = ax_conc.plot(df_plotted['Time Interval'], df_plotted['Concentration [ppm]'], label=label, color = color)
+                new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
+                ax_deviation.legend(loc='upper right')
+                ax_conc.legend(loc='upper right')
+                new_concentration_line = new_concentration_line[0]
+                new_allandeviation_line = new_allandeviation_line[0]
                 # Show the two Graphs:
                 fig_agg.draw()
+                reread = False
                 continue
             else:
                 sg.popup_ok("Make sure the parameters are chosen correctly")
@@ -350,8 +361,10 @@ def analyzerGraph(csvFile):
         
         elif event == '_HOLD_':
             if ( (new_concentration_line != None) and (new_allandeviation_line != None) ):
-                holdConcentrationList.append(new_concentration_line[0])
-                holdAllanDeviationList.append(new_allandeviation_line[0])
+                holdConcentrationList[new_concentration_line._label] = new_concentration_line
+                holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
+                colors.remove(color)
+                color = colors[0]
 
         elif event == '_DATA_FILE_':
             if len(values['_DATA_FILE_']) > 0:
@@ -711,7 +724,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Simulation\\"
+        dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         args.csv_name = dirname
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
