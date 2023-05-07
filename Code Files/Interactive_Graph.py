@@ -137,7 +137,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Power:"), sg.Push()],
                           [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxPC_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxPC_'), sg.Push()]]
     normValue = [[sg.Push(), sg.Checkbox("", key='-Reg_Norm_Val-', enable_events=True), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue",enable_events=True), sg.Text("[nm]"), sg.Push()]]
-    absorbance_layout = [[sg.Push(), sg.Text("Select wavelength to calculate concentration"), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_"), sg.Text("[nm]"), sg.Push()]]
+    absorbance_layout = [[sg.Text("Select wavelength to calculate concentration:")],[sg.Push(), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_",enable_events=True), sg.Text("[nm]"), sg.Push()]]
     menu_layout = [[collapse(normValue, 'section_normValue', True)],
                   [sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
@@ -145,7 +145,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
                   [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
+                  [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=""), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
                   sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
     graph_layout = [[sg.Push(),sg.Text("Graph Space"),sg.Push()],
         [sg.T('Controls:')], [sg.Canvas(key='controls_cv')], [sg.T('Figure:')],
@@ -257,7 +257,7 @@ def analyzerGraph(csvFile):
         ax1.set_title("Concentration [ppm]")
         ax2.set_title("Allan Deviation")
         ax1.grid()
-        ax2.grid()
+        ax2.grid(markevery=1)
 
     def add_allan_history(ax_conc, ax_deviation, hold_lines_conc, hold_lines_dev, fig_agg):
         for line1 in hold_lines_conc.values():
@@ -296,7 +296,7 @@ def analyzerGraph(csvFile):
     fig.set_figheight(ALLAN_DEVIATION_SIZE[1])
     ax_deviation = fig.add_subplot(211)
     ax_deviation.set_title("Allan Deviation")
-    ax_deviation.grid()
+    ax_deviation.grid(markevery=1)
     ax_conc = fig.add_subplot(212)
     ax_conc.set_xlabel("time [s]")
     ax_conc.set_title("Concentration [ppm]")
@@ -311,6 +311,7 @@ def analyzerGraph(csvFile):
     new_allandeviation_line = None
     holdConcentrationList = {}
     holdAllanDeviationList = {}
+    lastNormValue = None
 
     while True:
     
@@ -341,18 +342,31 @@ def analyzerGraph(csvFile):
                 if reread:
                     # get concentration
                     # normalzation of clean and analyzer is required before concentration calculations
-                    getAnalyzerTransmition(dirname=csvFile, to_norm=values['-Reg_Norm_Val-'], waveLength=values['normValue'])
-                    df_concentration = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']), G = values['_GAMA_'])  
+                    if ( values['-Reg_Norm_Val-'] == True):
+                        if (lastNormValue != values['normValue']):
+                            getAnalyzerTransmition(dirname=csvFile, to_norm=values['-Reg_Norm_Val-'], waveLength=values['normValue'])
+                            lastNormValue = values['normValue']
+                    else:
+                        getAnalyzerTransmition(dirname=csvFile, to_norm=False)
+                    df_concentration, realWavelength = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']), G = values['_GAMA_'])  
                 # filter selection
                 df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
                 # df_deviation = manipulation of df plotted
-                label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(values['_ABS_NM_']))
+                label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(realWavelength))
+                if values['-Reg_Norm_Val-'] == True:
+                    label = label + '_norm' + values['normValue']
                 tau, adev, _, _ = allandevation(df_plotted) 
                 # Add to both plots
                 new_concentration_line = ax_conc.plot(df_plotted['Interval'], df_plotted['Concentration [ppm]'], label=label, color = color)
                 new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
                 ax_deviation.legend(loc='upper right')
                 ax_conc.legend(loc='upper right')
+                # Legend Location
+                ax_conc.xaxis.set_label_coords(1.0, -0.1)
+                ax_conc.yaxis.set_label_coords(-0.1, 1.05)
+                #ax_allandeviation.xaxes.set.label.cords()
+                #ax_allandeviation.yaxes.set.label.cords()
+                #
                 new_concentration_line = new_concentration_line[0]
                 new_allandeviation_line = new_allandeviation_line[0]
                 # Show the two Graphs:
@@ -370,6 +384,9 @@ def analyzerGraph(csvFile):
                 colors.remove(color)
                 color = colors[0]
 
+        elif event == '_CSV_':
+            None
+
         elif event == '_DATA_FILE_':
             if len(values['_DATA_FILE_']) > 0:
                 wavelength = get_minimum(values['_DATA_FILE_'][0]+'.txt')
@@ -379,8 +396,9 @@ def analyzerGraph(csvFile):
                 window2['section_AbsValue'].update(visible=False)
             reread = True
         
-        elif event == '-Reg_Norm_Val-' or event == 'normValue' or event == '_WAVEGUIDE_LENGTH_':
+        elif event == '-Reg_Norm_Val-' or event == 'normValue' or event == '_WAVEGUIDE_LENGTH_' or event == '_ABS_NM_':
             reread = True
+
 
 
 def timeSweepGraph(csvFile):
@@ -728,7 +746,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
+        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
+        # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
         args.csv_name = dirname
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"

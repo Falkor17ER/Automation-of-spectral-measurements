@@ -66,9 +66,9 @@ def getAnalyzerTransmition(dirname, to_norm=False, waveLength = '1550'):
         wavelengths = [float(element) for element in columns[10:]]
         distance_from_user = [abs(float(waveLength)-element) for element in wavelengths]
         real_wavelength_from_user = wavelengths[np.argmin(distance_from_user)]
-        if real_wavelength_from_user.is_integer():
+        #if real_wavelength_from_user.is_integer():
             # convert x to integer
-            real_wavelength_from_user = int(real_wavelength_from_user)
+            #real_wavelength_from_user = int(real_wavelength_from_user)
         real_wavelength_from_user = str(real_wavelength_from_user)
         # Getting the elemnts of normalizations:
         norm_vals_clean = df_clean[real_wavelength_from_user]
@@ -136,9 +136,9 @@ def beerLambert(dirname, databaseFilePath, wavelength,l,G):
     wavelengthList = [float(element) for element in columns[10:]]
     distance_from_wavelength = [abs(float(wavelength)-element) for element in wavelengthList]
     real_wavelength = wavelengthList[np.argmin(distance_from_wavelength)]
-    if real_wavelength.is_integer():
+    #if real_wavelength.is_integer():
         # convert x to integer
-        real_wavelength = int(real_wavelength)
+    #    real_wavelength = int(real_wavelength)
     real_wavelength = str(real_wavelength)
     
     # Creating a new df_C & Calculating the concetration:
@@ -170,7 +170,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l,G):
     # Saving the df_C to Concetration.csv
     real_wavelength = str("{:.3f}".format(float(real_wavelength)))
     df_C.to_csv(dirname+'\\Concentration (Wavelength-'+real_wavelength.replace('.','_')+'nm).csv', index=False, encoding='utf-8')
-    return df_C
+    return df_C, real_wavelength
 
 def getMeanInterval(timeStamps):
     sum = 0;
