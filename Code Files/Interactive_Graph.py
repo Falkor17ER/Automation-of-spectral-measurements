@@ -8,6 +8,7 @@ import matplotlib.colors as mcolors
 from Analyzer import getNormlizedByCustomFreq, getAnalyzerTransmition, beerLambert, allandevation
 import argparse
 import os
+from Operator import getTime
 
 GRAPH_SIZE = (1280,1024)
 PLOT_SIZE = (12,7)
@@ -15,6 +16,7 @@ ALLAN_DEVIATION_SIZE = (12,7)
 DATABASE_SIZE = (30,5)
 
 graphStatusText = "Choose graph type"
+
 #---------------------------------------------------------------------------------------------------------------------------
 
 ###############################################Class of Mouse################################################
@@ -216,23 +218,43 @@ def get_minimum(data_file):
             minimum_WN = WN
     return str(10000000/minimum_WN) # Convertion to [nm]
 
+def saveAllanPlots(holdAllanDeviationList, holdConcentrationList, new_allandeviation_line, new_concentration_line, csvFileName):
+    holdConcentrationList[new_concentration_line._label] = new_concentration_line
+    holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
+    folder_name = "..\\Saved Graphs\\"+getTime()+"_"+csvFileName
+    os.mkdir(folder_name)
+    # label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(realWavelength))
+    # Save deviation csv
+    new_df = pd.DataFrame(columns=['Rep Rate', 'Power', 'Database file name', 'conentration wavelength [nm]', 'Time interval', 'Value'])
+    for line in holdAllanDeviationList.values():
+        interval = line.get_xdata()
+        value = line.get_ydata()
+        label = line._label.split('_')
+        rr = label[1][2:]
+        p = label[0][1:]
+        c = label[2][1:]
+        wl = label[3][2:]
+        
+
+
 
 #---------------------------------------------------------------------------------------------------------------------------
 
 # The managment function:
 
-def interactiveGraph(csvFile):
+def interactiveGraph(csvFile, analyzer_substance = False):
     filesList = os.listdir(csvFile)
-    for file in filesList:
-        if file[:-4] == 'substance':
+    filesList = [name[:-4] for name in filesList]
+    if 'analyzer' in filesList:
+        if analyzer_substance:
             type_of_graph = 'regular'
-            break
-        elif file[:-4] == 'allan':
-            type_of_graph = 'allan'
-            break
-        elif file[:-4] == 'analyzer':
+        else:
             type_of_graph = 'analyzer'
-            break
+    elif 'substance' in filesList:
+        type_of_graph = 'regular'
+    else:
+        type_of_graph = 'allan'
+
 
     if type_of_graph == 'regular':
         regularSweepGraph(csvFile)
@@ -328,7 +350,7 @@ def analyzerGraph(csvFile):
         
         # Clear the graph and the relevant parametrs.
         elif event == '-CLEAR_PLOT-':
-            window2['_CLEAR_PLOT_'].update(disabled=True)
+            window2['-CLEAR_PLOT-'].update(disabled=True)
             window2['_PowerListBoxPC_'].update(set_to_index=[])
             window2['_RepetitionListBoxPC_'].update(set_to_index=[])
             clear_plots(ax_conc, ax_deviation)
@@ -339,13 +361,13 @@ def analyzerGraph(csvFile):
             colors = [name for name, hex in mcolors.CSS4_COLORS.items()
                    if np.mean(mcolors.hex2color(hex)) < 0.7]
             colors.pop(0)
-            window2['_CLEAR_PLOT_'].update(disabled=False)
+            window2['-CLEAR_PLOT-'].update(disabled=False)
         
         elif event == '_ADD_GRAPH_':
             window2['_ADD_GRAPH_'].update(disabled=True)
             window2['_HOLD_'].update(disabled=True)
             window2['_CSV_'].update(disabled=True)
-            window2['_CLEAR_PLOT_'].update(disabled=True)
+            window2['-CLEAR_PLOT-'].update(disabled=True)
             window2['Close Graph'].update(disabled=True)
             clear_plots(ax_conc, ax_deviation)
             add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
@@ -427,7 +449,7 @@ def analyzerGraph(csvFile):
                 window2['_ADD_GRAPH_'].update(disabled=False)
                 window2['_HOLD_'].update(disabled=False)
                 window2['_CSV_'].update(disabled=False)
-                window2['_CLEAR_PLOT_'].update(disabled=False)
+                window2['-CLEAR_PLOT-'].update(disabled=False)
                 window2['Close Graph'].update(disabled=False)
                 continue
             else:
@@ -448,6 +470,7 @@ def analyzerGraph(csvFile):
         elif event == '_CSV_':
             window2['_CSV_'].update(disabled=True)
             # df_TOSAVE.to_csv(dirname + '\\' + values['csvFileName'] + '.csv', index=False, encoding='utf-8')
+            saveAllanPlots(holdAllanDeviationList, holdConcentrationList, new_allandeviation_line, new_concentration_line, values['csvFileName'])
             csvFileWasSaved = '\'' + values['csvFileName'] + '.csv\' file was saved'
             window2['csvFileName'].update("csv file name")
             sg.popup_auto_close(csvFileWasSaved, title="CSV File Saved", auto_close_duration=2)
@@ -807,6 +830,7 @@ if __name__ == '__main__':
 
     # Add arguments
     parser.add_argument('--csv_name', type=str)
+    parser.add_argument('--analyzer_substance', type=bool)
 
     # Parse the arguments
     args = parser.parse_args()
@@ -815,18 +839,8 @@ if __name__ == '__main__':
         dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
         # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
         args.csv_name = dirname
+        args.analyzer_substance = True
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
-    interactiveGraph(args.csv_name)
-    
-#---------------------------------------------------------------- Delete ---------------------------------------------------------------------------------------------
-    #ax_conc.legend(loc='upper right')
-                # ----------
-                # Legend Location
-                #ax_conc.xaxis.set_label_coords(1.0, -0.1)
-                #ax_conc.yaxis.set_label_coords(-0.1, 1.05)
-                #ax_allandeviation.xaxes.set.label.cords()
-                #ax_allandeviation.yaxes.set.label.cords()
-                # ----------
-                
+    interactiveGraph(args.csv_name, analyzer_substance=args.analyzer_substance)

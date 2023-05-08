@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 # import PySimpleGUI as sg
 import allantools # Documentation: https://pypi.org/project/AllanTools/
+# from Allan_Variance import allan_variance, params_from_avar # Documentation: https://github.com/nmayorov/allan-variance
 # from OSA import OSA
 # from LASER import Laser
 # import threading
@@ -163,7 +164,7 @@ def getTime():
     return time
 
 def makedirectory(dirname, cf,span,npoints,sens,res,analyzer):
-    dir = "/Results/"+getTime()+"_"+dirname+"_CF="+cf+"_Span="+span+"_analyzer="+str(analyzer)
+    dir = "/Results/"+getTime()+"___"+dirname+"___CF="+cf+"nm, Span="+span+"nm, NPoints="+npoints+", sens="+sens+", res="+res+", analyzer="+str(analyzer)
     dir = dir.replace("<", "(")
     dir = dir.replace(">", ")")
     dir = dir.replace(".", "_")
@@ -172,7 +173,7 @@ def makedirectory(dirname, cf,span,npoints,sens,res,analyzer):
     return dir
 
 def makeSubstaceCSV(csvname, df_original):
-    csvname = csvname[:-12]+'substance.csv'
+    csvname = csvname[:-12]+'analyzer_substance.csv'
     df_substance = pd.DataFrame(columns = df_original.columns.tolist())
     r = None
     p = None
@@ -189,14 +190,11 @@ def getSweepResults(laser,osa,values,debug,csvname):
     # This function will manage all the test process and call to all the relevant functions.
     # enterSubstanceToMeasure()
     reps = getReps(values)
-    if (not debugMode):
-        if values["test_PTS"] == "Auto":
-            osa.setPoints('auto on')
-        else:
-            osa.setPoints(values["test_PTS"])
-        pts = osa.getPoints()
+    if values["test_PTS"] == "Auto":
+        osa.setPoints('auto on')
     else:
-        pts = 501
+        osa.setPoints(values["test_PTS"])
+    pts = osa.getPoints()
     if values["test_res"] == "Manuall (Enter a value)":
         res = values["test_manuallRes"]
     else:
