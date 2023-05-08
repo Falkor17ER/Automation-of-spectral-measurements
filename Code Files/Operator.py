@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 # import PySimpleGUI as sg
 import allantools # Documentation: https://pypi.org/project/AllanTools/
-from Allan_Variance import allan_variance, params_from_avar # Documentation: https://github.com/nmayorov/allan-variance
+# from Allan_Variance import allan_variance, params_from_avar # Documentation: https://github.com/nmayorov/allan-variance
 # from OSA import OSA
 # from LASER import Laser
 # import threading

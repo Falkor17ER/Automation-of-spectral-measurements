@@ -15,7 +15,6 @@ ALLAN_DEVIATION_SIZE = (12,7)
 DATABASE_SIZE = (30,5)
 
 graphStatusText = "Choose graph type"
-
 #---------------------------------------------------------------------------------------------------------------------------
 
 ###############################################Class of Mouse################################################
@@ -145,8 +144,8 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
                   [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
-                  [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=""), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
-                  sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
+                  [sg.Push(), sg.Input("csv file name", s=15, key='csvFileName'), sg.Button("Save to csv file", key='_CSV_', enable_events=""), sg.Push()],
+                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True), sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()],[sg.Text("")],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()]]
     graph_layout = [[sg.Push(),sg.Text("Graph Space"),sg.Push()],
         [sg.T('Controls:')], [sg.Canvas(key='controls_cv')], [sg.T('Figure:')],
         [sg.Column(layout=[[sg.Canvas(key='figCanvas',
@@ -312,6 +311,12 @@ def analyzerGraph(csvFile):
     holdConcentrationList = {}
     holdAllanDeviationList = {}
     lastNormValue = None
+    max_x_conc = 0
+    min_y_conc = 0
+    max_y_conc = 0
+    max_x_deviation = 0
+    min_y_deviation = 0
+    max_y_deviation = 0
 
     while True:
     
@@ -323,6 +328,7 @@ def analyzerGraph(csvFile):
         
         # Clear the graph and the relevant parametrs.
         elif event == '-CLEAR_PLOT-':
+            window2['_CLEAR_PLOT_'].update(disabled=True)
             window2['_PowerListBoxPC_'].update(set_to_index=[])
             window2['_RepetitionListBoxPC_'].update(set_to_index=[])
             clear_plots(ax_conc, ax_deviation)
@@ -333,11 +339,22 @@ def analyzerGraph(csvFile):
             colors = [name for name, hex in mcolors.CSS4_COLORS.items()
                    if np.mean(mcolors.hex2color(hex)) < 0.7]
             colors.pop(0)
+            window2['_CLEAR_PLOT_'].update(disabled=False)
         
         elif event == '_ADD_GRAPH_':
+            window2['_ADD_GRAPH_'].update(disabled=True)
+            window2['_HOLD_'].update(disabled=True)
+            window2['_CSV_'].update(disabled=True)
+            window2['_CLEAR_PLOT_'].update(disabled=True)
+            window2['Close Graph'].update(disabled=True)
             clear_plots(ax_conc, ax_deviation)
             add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
             # add_saved_lines(lines, ax_conc, fig_agg)
+
+
+
+            #sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=100)
+            #sg.Window("",[[sg.Text("Calculating...")]])
             if (len(values['_RepetitionListBoxPC_']) > 0) and (len(values['_PowerListBoxPC_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):
                 if reread:
                     # get concentration
@@ -356,36 +373,85 @@ def analyzerGraph(csvFile):
                 if values['-Reg_Norm_Val-'] == True:
                     label = label + '_norm' + values['normValue']
                 tau, adev, _, _ = allandevation(df_plotted) 
-                # Add to both plots
+                
+                
+                
+                # Grid:
+                # ax_conc - Major ticks every 20, minor ticks every 5:
+                if (df_plotted['Interval'].tolist())[-1] > max_x_conc:
+                    max_x_conc = (df_plotted['Interval'].tolist())[-1]
+                if min(df_plotted['Concentration [ppm]'].tolist()) < min_y_conc:
+                    min_y_conc = min(df_plotted['Concentration [ppm]'].tolist())
+                if max(df_plotted['Concentration [ppm]'].tolist()) > max_y_conc:
+                    max_y_conc = max(df_plotted['Concentration [ppm]'].tolist())
+                major_ticks = np.arange(0, max_x_conc, 20)
+                minor_ticks = np.arange(0, max_x_conc, 5)
+                ax_conc.set_xticks(major_ticks)
+                ax_conc.set_xticks(minor_ticks, minor=True)
+                grid_y_range = max(df_plotted['Concentration [ppm]'].tolist())
+                major_ticks = np.arange(min_y_conc, max_y_conc, grid_y_range/5)
+                minor_ticks = np.arange(min_y_conc, max_y_conc, grid_y_range/20)
+                ax_conc.set_yticks(major_ticks)
+                ax_conc.set_yticks(minor_ticks, minor=True)
                 new_concentration_line = ax_conc.plot(df_plotted['Interval'], df_plotted['Concentration [ppm]'], label=label, color = color)
+                ax_conc.grid(which='minor', alpha=0.2)
+                ax_conc.grid(which='major', alpha=1)
+                # ax_deviation - Major ticks every 20, minor ticks every 5:
+                if np.log10(tau[-1]) > max_x_deviation:
+                    max_x_deviation = np.log10(tau[-1])
+                if np.log10(min(adev)) < min_y_deviation:
+                    min_y_deviation = np.log10(min(adev))
+                if np.log10(max(adev)) > max_y_deviation:
+                    max_y_deviation = np.log10(max(adev))
+                major_ticks = np.logspace(0, max_x_deviation, num=10, base=10.0)
+                minor_ticks = np.logspace(0, max_x_deviation, num=10, base=10.0)
+                ax_deviation.set_xticks(major_ticks)
+                ax_deviation.set_xticks(minor_ticks, minor=True)
+                major_ticks = np.logspace(min_y_deviation, max_y_deviation, num=10, base=10.0)
+                minor_ticks = np.logspace(min_y_deviation, max_y_deviation, num=10, base=10.0)
+                ax_deviation.set_yticks(major_ticks)
+                ax_deviation.set_yticks(minor_ticks, minor=True)
                 new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
+                ax_deviation.grid(which='minor', alpha=0.2, linestyle='--')
+                ax_deviation.grid(which='major', alpha=1, linestyle='-')
+                # Add to both plots
                 ax_deviation.legend(loc='upper right')
-                ax_conc.legend(loc='upper right')
-                # Legend Location
-                ax_conc.xaxis.set_label_coords(1.0, -0.1)
-                ax_conc.yaxis.set_label_coords(-0.1, 1.05)
-                #ax_allandeviation.xaxes.set.label.cords()
-                #ax_allandeviation.yaxes.set.label.cords()
-                #
+                #timeIntervalT = "The avarage Time Interval\nbetween the samples in the\nallan deviation is:\n"+str("{:.3f}".format(float(tau[0])))+" seconds."
+                timeIntervalT = "The avarage Time Interval is: "+str("{:.3f}".format(float(tau[0])))+" seconds."
+                window2['timeIntervalText'].update(timeIntervalT)
                 new_concentration_line = new_concentration_line[0]
                 new_allandeviation_line = new_allandeviation_line[0]
                 # Show the two Graphs:
                 fig_agg.draw()
                 reread = False
+                window2['_ADD_GRAPH_'].update(disabled=False)
+                window2['_HOLD_'].update(disabled=False)
+                window2['_CSV_'].update(disabled=False)
+                window2['_CLEAR_PLOT_'].update(disabled=False)
+                window2['Close Graph'].update(disabled=False)
                 continue
             else:
                 sg.popup_ok("Make sure the parameters are chosen correctly")
             # updateRegualrGraph(df_plotted, ax, fig_agg)
         
         elif event == '_HOLD_':
+            window2['_HOLD_'].update(disabled=True)
             if ( (new_concentration_line != None) and (new_allandeviation_line != None) ):
                 holdConcentrationList[new_concentration_line._label] = new_concentration_line
                 holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
                 colors.remove(color)
                 color = colors[0]
+                # Site link: https://www.tutorialspoint.com/pysimplegui/pysimplegui_popup_windows.htm
+                sg.popup_auto_close("The selected graph was added.", title="Graph was added", auto_close_duration=1)
+            window2['_HOLD_'].update(disabled=False)
 
         elif event == '_CSV_':
-            None
+            window2['_CSV_'].update(disabled=True)
+            # df_TOSAVE.to_csv(dirname + '\\' + values['csvFileName'] + '.csv', index=False, encoding='utf-8')
+            csvFileWasSaved = '\'' + values['csvFileName'] + '.csv\' file was saved'
+            window2['csvFileName'].update("csv file name")
+            sg.popup_auto_close(csvFileWasSaved, title="CSV File Saved", auto_close_duration=2)
+            window2['_CSV_'].update(disabled=False)
 
         elif event == '_DATA_FILE_':
             if len(values['_DATA_FILE_']) > 0:
@@ -754,3 +820,13 @@ if __name__ == '__main__':
         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
     interactiveGraph(args.csv_name)
     
+#---------------------------------------------------------------- Delete ---------------------------------------------------------------------------------------------
+    #ax_conc.legend(loc='upper right')
+                # ----------
+                # Legend Location
+                #ax_conc.xaxis.set_label_coords(1.0, -0.1)
+                #ax_conc.yaxis.set_label_coords(-0.1, 1.05)
+                #ax_allandeviation.xaxes.set.label.cords()
+                #ax_allandeviation.yaxes.set.label.cords()
+                # ----------
+                
