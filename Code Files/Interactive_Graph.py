@@ -290,9 +290,20 @@ def analyzerGraph(csvFile):
             ax_deviation.add_line(line1)
         ax_deviation.legend(loc='upper right')
         fig_agg.draw()
-    
     sg.theme('DarkBlue')
-    getAnalyzerTransmition([csvFile, False, '1550'])
+    
+    # Animation while loading the database to GUI:
+    animation = time.time()
+    sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+    while True:
+        if (time.time() - animation > 0.05):
+            sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+            animation = time.time()
+        future = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, False, '1550'])
+        if ( future._state != 'RUNNING' ):
+            sg.PopupAnimated(None)
+            future = None
+            break
     #clean = True
     #analyzer = True
     #transmittance = True
@@ -414,7 +425,7 @@ def analyzerGraph(csvFile):
                     #
                     if ( (future2 != None) and (time.time()-start_time>0.1) ):
                         if (future2._state != 'RUNNING'):
-                            future2 = future2.result()
+                            future2 = future2.result() # Take to much time!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                             df_concentration = future2[0]
                             realWavelength = future2[1]
                             df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
@@ -498,15 +509,18 @@ def analyzerGraph(csvFile):
         
         elif event == '_HOLD_':
             window2['_HOLD_'].update(disabled=True)
-            if ( (new_concentration_line != None) and (new_allandeviation_line != None) ):
-                holdConcentrationList[new_concentration_line._label] = new_concentration_line
-                holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
-                colors.remove(color)
-                color = colors[0]
-                new_concentration_line = None
-                new_allandeviation_line = None
-                # Site link: https://www.tutorialspoint.com/pysimplegui/pysimplegui_popup_windows.htm
-                sg.popup_auto_close("The selected graph was added.", title="Graph was added", auto_close_duration=1)
+            if (new_concentration_line != None) and (new_allandeviation_line != None):
+                if ((new_concentration_line._label in holdConcentrationList) or (new_allandeviation_line._label in holdAllanDeviationList) ):
+                    sg.popup_auto_close("The graph already exist in database.", title="Graph Exist", auto_close_duration=2)
+                else:
+                    holdConcentrationList[new_concentration_line._label] = new_concentration_line
+                    holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
+                    colors.remove(color)
+                    color = colors[0]
+                    new_concentration_line = None
+                    new_allandeviation_line = None
+                    # Site link: https://www.tutorialspoint.com/pysimplegui/pysimplegui_popup_windows.htm
+                    sg.popup_auto_close("The selected graph was added.", title="Graph was added", auto_close_duration=1)
             else:
                 sg.popup_auto_close("The selected graph was already added.", title="Already added", auto_close_duration=2)
             window2['_HOLD_'].update(disabled=False)
