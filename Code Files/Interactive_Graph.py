@@ -1,6 +1,8 @@
 # Interactive Graph GUI:
 import pandas as pd
 import PySimpleGUI as sg
+import time
+import concurrent.futures
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -146,8 +148,8 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
                   [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
-                  [sg.Push(), sg.Input("csv file name", s=15, key='csvFileName'), sg.Button("Save to csv file", key='_CSV_', enable_events=""), sg.Push()],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True), sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()],[sg.Text("")],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()]]
+                  [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=True), sg.Input("csv file name", s=15, key='csvFileName'), sg.Push()], [sg.Text("")],
+                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True), sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()],[sg.Text("")],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()], [sg.Text("")], [sg.Push(), sg.Button("ppm", key='_ppm_', enable_events=True), sg.Button("%", key='_Precents_', enable_events=True), sg.Push()]]
     graph_layout = [[sg.Push(),sg.Text("Graph Space"),sg.Push()],
         [sg.T('Controls:')], [sg.Canvas(key='controls_cv')], [sg.T('Figure:')],
         [sg.Column(layout=[[sg.Canvas(key='figCanvas',
@@ -290,7 +292,7 @@ def analyzerGraph(csvFile):
         fig_agg.draw()
     
     sg.theme('DarkBlue')
-    getAnalyzerTransmition(dirname=csvFile, to_norm=False)
+    getAnalyzerTransmition([csvFile, False, '1550'])
     #clean = True
     #analyzer = True
     #transmittance = True
@@ -330,9 +332,11 @@ def analyzerGraph(csvFile):
     reread = True #if no major change selected, reread stays false
     new_concentration_line = None
     new_allandeviation_line = None
+    realWavelength = None
+    df_concentration = None
+    lastNormValue = None
     holdConcentrationList = {}
     holdAllanDeviationList = {}
-    lastNormValue = None
     max_x_conc = 0
     min_y_conc = 0
     max_y_conc = 0
@@ -364,40 +368,73 @@ def analyzerGraph(csvFile):
             window2['-CLEAR_PLOT-'].update(disabled=False)
         
         elif event == '_ADD_GRAPH_':
-            window2['_ADD_GRAPH_'].update(disabled=True)
-            window2['_HOLD_'].update(disabled=True)
-            window2['_CSV_'].update(disabled=True)
-            window2['-CLEAR_PLOT-'].update(disabled=True)
-            window2['Close Graph'].update(disabled=True)
-            clear_plots(ax_conc, ax_deviation)
-            add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
             # add_saved_lines(lines, ax_conc, fig_agg)
-
-
-
             #sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=100)
             #sg.Window("",[[sg.Text("Calculating...")]])
             if (len(values['_RepetitionListBoxPC_']) > 0) and (len(values['_PowerListBoxPC_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):
-                if reread:
-                    # get concentration
-                    # normalzation of clean and analyzer is required before concentration calculations
-                    if ( values['-Reg_Norm_Val-'] == True):
-                        if (lastNormValue != values['normValue']):
-                            getAnalyzerTransmition(dirname=csvFile, to_norm=values['-Reg_Norm_Val-'], waveLength=values['normValue'])
-                            lastNormValue = values['normValue']
-                    else:
-                        getAnalyzerTransmition(dirname=csvFile, to_norm=False)
-                    df_concentration, realWavelength = beerLambert(dirname=csvFile, databaseFilePath="..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', wavelength=float(values['_ABS_NM_']), l = float(values['_WAVEGUIDE_LENGTH_']), G = values['_GAMA_'])  
-                # filter selection
-                df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
-                # df_deviation = manipulation of df plotted
-                label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(realWavelength))
-                if values['-Reg_Norm_Val-'] == True:
-                    label = label + '_norm' + values['normValue']
-                tau, adev, _, _ = allandevation(df_plotted) 
-                
-                
-                
+                # All the logic of working Animation is starting:
+                window2['_ADD_GRAPH_'].update(disabled=True)
+                window2['_HOLD_'].update(disabled=True)
+                window2['_CSV_'].update(disabled=True)
+                window2['-CLEAR_PLOT-'].update(disabled=True)
+                window2['Close Graph'].update(disabled=True)
+                window2['_ppm_'].update(disabled=True)
+                window2['_Precents_'].update(disabled=True)
+                future1 = None
+                future2 = None
+                future3 = None
+                startOperation = True
+                SecondaryOperation = True
+                animation = time.time()
+                start_time = time.time()
+                sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+                while True:
+                    if (time.time() - animation > 0.05):
+                        sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+                        animation = time.time()
+                    #
+                    if reread and startOperation:
+                        # get concentration
+                        # normalzation of clean and analyzer is required before concentration calculations
+                        if ( values['-Reg_Norm_Val-'] == True):
+                            if (lastNormValue != values['normValue']):
+                                future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, values['-Reg_Norm_Val-'], values['normValue']])
+                                lastNormValue = values['normValue']
+                        else:
+                            future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, False, values['normValue']])
+                        startOperation = False
+                        SecondaryOperation = False
+                    #
+                    if ( (SecondaryOperation or future1 != None) and (time.time()-start_time>0.1) ):
+                        if ( SecondaryOperation or future1._state != 'RUNNING' ):
+                            # filter selection
+                            future2 = concurrent.futures.ThreadPoolExecutor().submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(values['_ABS_NM_']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_']])
+                            SecondaryOperation = False
+                            future1 = None
+                    #
+                    if ( (future2 != None) and (time.time()-start_time>0.1) ):
+                        if (future2._state != 'RUNNING'):
+                            future2 = future2.result()
+                            df_concentration = future2[0]
+                            realWavelength = future2[1]
+                            df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_concentration['POWER'].isin(values['_PowerListBoxPC_'])]
+                            label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(realWavelength))
+                            if values['-Reg_Norm_Val-'] == True:
+                                label = label + '_norm' + values['normValue']
+                            future3 = concurrent.futures.ThreadPoolExecutor().submit(allandevation, df_plotted)
+                            future2 = None
+                    #
+                    if ( (future3 != None) and (time.time()-start_time>0.1) ):
+                        if ( future3._state != 'RUNNING'):
+                            sg.PopupAnimated(None)
+                        break
+                future3 = future3.result()
+                tau = future3[0] # Everytime is calculating.
+                adev = future3[1] # Everytime is calculating.
+                # End of the logic of working Animation.
+                #
+                clear_plots(ax_conc, ax_deviation)
+                add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
                 # Grid:
                 # ax_conc - Major ticks every 20, minor ticks every 5:
                 if (df_plotted['Interval'].tolist())[-1] > max_x_conc:
@@ -438,6 +475,7 @@ def analyzerGraph(csvFile):
                 ax_deviation.grid(which='major', alpha=1, linestyle='-')
                 # Add to both plots
                 ax_deviation.legend(loc='upper right')
+                ax_conc.legend('', frameon=False)
                 #timeIntervalT = "The avarage Time Interval\nbetween the samples in the\nallan deviation is:\n"+str("{:.3f}".format(float(tau[0])))+" seconds."
                 timeIntervalT = "The avarage Time Interval is: "+str("{:.3f}".format(float(tau[0])))+" seconds."
                 window2['timeIntervalText'].update(timeIntervalT)
@@ -451,6 +489,8 @@ def analyzerGraph(csvFile):
                 window2['_CSV_'].update(disabled=False)
                 window2['-CLEAR_PLOT-'].update(disabled=False)
                 window2['Close Graph'].update(disabled=False)
+                window2['_ppm_'].update(disabled=False)
+                window2['_Precents_'].update(disabled=False)
                 continue
             else:
                 sg.popup_ok("Make sure the parameters are chosen correctly")
@@ -463,8 +503,12 @@ def analyzerGraph(csvFile):
                 holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
                 colors.remove(color)
                 color = colors[0]
+                new_concentration_line = None
+                new_allandeviation_line = None
                 # Site link: https://www.tutorialspoint.com/pysimplegui/pysimplegui_popup_windows.htm
                 sg.popup_auto_close("The selected graph was added.", title="Graph was added", auto_close_duration=1)
+            else:
+                sg.popup_auto_close("The selected graph was already added.", title="Already added", auto_close_duration=2)
             window2['_HOLD_'].update(disabled=False)
 
         elif event == '_CSV_':
@@ -823,14 +867,12 @@ def regularSweepGraph(csvFile):
         plt.ylabel(scale)
         plt.xlabel("Wavelength [nm]")
 ####################################################
-
 if __name__ == '__main__':
     # Create the argument parser
     parser = argparse.ArgumentParser(description='Plot graphs')
 
     # Add arguments
     parser.add_argument('--csv_name', type=str)
-    parser.add_argument('--analyzer_substance', type=bool)
 
     # Parse the arguments
     args = parser.parse_args()
@@ -839,8 +881,29 @@ if __name__ == '__main__':
         dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
         # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
         args.csv_name = dirname
-        args.analyzer_substance = True
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
-    interactiveGraph(args.csv_name, analyzer_substance=args.analyzer_substance)
+    interactiveGraph(args.csv_name)
+
+###########################################
+# if __name__ == '__main__':
+#     # Create the argument parser
+#     parser = argparse.ArgumentParser(description='Plot graphs')
+
+#     # Add arguments
+#     parser.add_argument('--csv_name', type=str)
+#     parser.add_argument('--analyzer_substance', type=bool)
+
+#     # Parse the arguments
+#     args = parser.parse_args()
+
+#     if args.csv_name == None:
+#         dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
+#         # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
+#         args.csv_name = dirname
+#         args.analyzer_substance = True
+#         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
+#         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
+#         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
+#     interactiveGraph(args.csv_name, analyzer_substance=args.analyzer_substance)

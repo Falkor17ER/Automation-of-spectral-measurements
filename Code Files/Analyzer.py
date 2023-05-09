@@ -52,7 +52,11 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
     df_ratio.to_csv(dirname+'\\transition.csv', index=False, encoding='utf-8')
     return df_ratio, df_clean, df_substance
 
-def getAnalyzerTransmition(dirname, to_norm=False, waveLength = '1550'):
+def getAnalyzerTransmition(val_list):
+    dirname = val_list[0]
+    to_norm = val_list[1]
+    waveLength = val_list[2]
+    #
     try:
         df_clean = pd.read_csv(dirname+'\\'+'clean.csv')
         df_analyzer = pd.read_csv(dirname+'\\analyzer.csv')
@@ -104,7 +108,13 @@ def getAnalyzerTransmition(dirname, to_norm=False, waveLength = '1550'):
     df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
     return df_transmittance
 
-def beerLambert(dirname, databaseFilePath, wavelength,l,G):
+def beerLambert(val_list):
+    dirname = val_list[0]
+    databaseFilePath = val_list[1]
+    wavelength = val_list[2]
+    l = val_list[3]
+    G = val_list[4]
+    #
     # This function calculate C (Concentration).
     # k = The wavenumber, A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
     # E is minus every result, every rublica. 
@@ -144,6 +154,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l,G):
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
     columnsList.append('Concentration [ppm]')
+    columnsList.append('Concentration [%]')
     columnsList.append('Concentration [mol/L]=[M]')
     columnsList.append('Wavelength')
     df_C = pd.DataFrame(columns=columnsList)
@@ -161,6 +172,7 @@ def beerLambert(dirname, databaseFilePath, wavelength,l,G):
             C = ((E/l)/A)/float(G) # [ppm]
         #new_row.append(C)
         new_row.append(C)
+        new_row.append(C*10000) #   '1%' = 10,000ppm 
         # From database gama is 1, but here from the measurment of the waveguide the value is the manipulation of the value and Gama.
         C = C/35000 # Converting from [ppm] to [M]=[L/mol]
         new_row.append(C)
@@ -183,7 +195,6 @@ def allandevation(df_C):
     # Calculate divation according to time and this plot to graph - The second graph - LOD
     # Compute the fractional frequency data
     # df_C = pd.read_csv(dirname+'\Concetration (Wavelength-'+wavelength+'nm)')
-    
     # ppm_data = df_C['Concentration [ppm]'].tolist()
     ppm_data = df_C['Concentration [ppm]']
     freq_data = ppm_data # / 1e6 + 1
