@@ -2,13 +2,10 @@
 from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory
-from Interactive_Graph import regularSweepGraph, interactiveGraph
-from Analyzer import getAnalyzerTransmition
 from json import load, dump
 import PySimpleGUI as sg
 import subprocess
 import os
-import threading
 import signal
 import shutil
 from time import sleep
@@ -166,6 +163,26 @@ def updateResults(window):
 
 #---------------------------------------------------------------------------------------------------------------------------
 
+def open_Interactive_Graphs(dirName, analyzer_substance = False):
+    try:
+        command = 'py'
+        if analyzer_substance:
+            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
+        else:
+            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
+        process = subprocess.Popen([command] + args)
+        pid = process.pid
+        return pid
+    except:
+        command = 'Interactive_Graph.exe'
+        if analyzer_substance:
+            args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
+        else:
+            args = ['--csv_name', dirName+"\\"]
+        process = subprocess.Popen([command] + args)
+        pid = process.pid
+        return pid
+
 def updateJsonFileBeforeEnd(values):
     # This funciton save default connection parameters.
     with open(cwd+"\\connections.json", 'r') as f:
@@ -206,7 +223,7 @@ def checkStartConditions(values):
         getTestErrorText = "Error: No name for 'Output name'."
     elif (values["test_analyzer"] and ( (int(values["totalSampleTime"]) < 0) or (int(values["totalSampleTime"]) > 3600) )):
         getTestErrorText = "Error: (Analyzer) The 'Total time sample' must be bigger than zero. Max: 1 Hour."
-    elif (values["test_analyzer"] and ( (int(values["intervalTime"]) < 0.5) or (int(values["intervalTime"]) > int(values["totalSampleTime"])) )):
+    elif (values["test_analyzer"] and ( (float(values["intervalTime"]) < 0.1) or (float(values["intervalTime"]) > int(values["totalSampleTime"])) )):
         getTestErrorText = "Error: (Analyzer) The interval time must be bigger than 0.5 seconds and smaller from the Total time."
     return getTestErrorText
 
@@ -312,16 +329,9 @@ while True:
                     # Adding to Results tab.
                     updateResults(window)
                     # Open a new process of the graph/grphs.
-                    command = 'py'
                     if (values['test_analyzer']):
-                        args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
-                        process = subprocess.Popen([command] + args)
-                        pid = process.pid
-                        graphs_pids.append(pid)
-                    args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
-                    process = subprocess.Popen([command] + args)
-                    pid = process.pid
-                    graphs_pids.append(pid)
+                        graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+                    graphs_pids.append(open_Interactive_Graphs(dirName))
                 else:
                     shutil.rmtree(dirName)
                 window['Start Test'].update(disabled=False)
@@ -334,15 +344,8 @@ while True:
             filesList = os.listdir(dirName)
             filesList = [name[:-4] for name in filesList]
             if 'analyzer' in filesList:
-                args = ['Interactive_Graph.py', '--csv_name', dirName, '--analyzer_substance', '1']
-                process = subprocess.Popen([command] + args)
-                pid = process.pid
-                graphs_pids.append(pid)
-            
-            args = ['Interactive_Graph.py', '--csv_name', dirName]
-            process = subprocess.Popen([command] + args)
-            pid = process.pid
-            graphs_pids.append(pid)
+                graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+            graphs_pids.append(open_Interactive_Graphs(dirName))
         except:
             continue
 

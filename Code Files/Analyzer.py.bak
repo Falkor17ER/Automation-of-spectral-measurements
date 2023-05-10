@@ -202,8 +202,8 @@ def allandevation(df_C):
     rate = getMeanInterval(df_C['Interval'].tolist())
     
     # Compute the Allan deviation
-    tau, adev, _, _ = allantools.oadev(freq_data, 1/rate, taus='decade')
-    return tau, adev, rate
+    tau, adev, _, _ = allantools.oadev(freq_data, rate, taus='decade')
+    return tau, adev, _, _
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------
 def getConcentration(dirname,databaseFile,wavelength,l):

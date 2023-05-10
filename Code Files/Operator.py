@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 # import PySimpleGUI as sg
-import allantools # Documentation: https://pypi.org/project/AllanTools/
 # from OSA import OSA
 # from LASER import Laser
 # import threading
@@ -206,10 +205,9 @@ def getSweepResults(laser,osa,values,debug,csvname):
     if (values["testPowerLevelSweep"]):
         stop = int(values["maxPL"])
         step = int(values["stepPL"])
+        powers = range(start,stop+1,step)
     else:
-        stop = start + 1
-        step = 1
-    powers = range(start,stop+1,step)
+        powers = [start]
     # Making the CSV File
     startF = int(values["test_CF"]) - int(values["test_SPAN"])/2
     stopF = startF + int(values["test_SPAN"])
@@ -226,15 +224,15 @@ def getSweepResults(laser,osa,values,debug,csvname):
             # Starting the test:
             if csvname[-12:-4] == "analyzer": # Analyze Graph: Beer-Lambert & Allan Variance Mode
                 totalTime = int(values['totalSampleTime'])
-                intervalTime = int(values['intervalTime'])
+                intervalTime = float(values['intervalTime'])
                 startTime = time()
                 if (not debugMode):
                     laser.emission(1)
                     sleep(0.4) # Waiting to laser Turn ON.
                 #
                 while(time() - startTime < totalTime):
-                    result = meanMeasure(laser,osa, 1 ,pts)
                     lastTime = time()
+                    result = meanMeasure(laser,osa, 1 ,pts)
                     new_row = []
                     new_row.append(getTime())
                     new_row.append(values["TEST1_COMMENT"])
@@ -249,7 +247,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
                     new_row = new_row + list(result)
                     # Append the new row to the dataframe
                     allResults_df.loc[len(allResults_df)] = new_row
-                    timeleft = intervalTime-(lastTime-startTime)
+                    timeleft = intervalTime-(time()-lastTime)
                     if timeleft > 0:
                         sleep(timeleft)
             #---------------------------------------------------------------------------------------------------------------

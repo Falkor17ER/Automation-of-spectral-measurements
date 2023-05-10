@@ -313,6 +313,11 @@ while True:
                     updateResults(window)
                     # Open a new process of the graph/grphs.
                     command = 'py'
+                    if (values['test_analyzer']):
+                        args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
+                        process = subprocess.Popen([command] + args)
+                        pid = process.pid
+                        graphs_pids.append(pid)
                     args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
                     process = subprocess.Popen([command] + args)
                     pid = process.pid
@@ -324,8 +329,16 @@ while True:
 
     elif event == "-LOAD_SAMPLE-":
         try:
-            dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
             command = 'py'
+            dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+            filesList = os.listdir(dirName)
+            filesList = [name[:-4] for name in filesList]
+            if 'analyzer' in filesList:
+                args = ['Interactive_Graph.py', '--csv_name', dirName, '--analyzer_substance', '1']
+                process = subprocess.Popen([command] + args)
+                pid = process.pid
+                graphs_pids.append(pid)
+            
             args = ['Interactive_Graph.py', '--csv_name', dirName]
             process = subprocess.Popen([command] + args)
             pid = process.pid
