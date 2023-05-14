@@ -3,12 +3,14 @@ from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory
 from json import load, dump
+from time import sleep
+from Interactive_Graph import interactiveGraph
 import PySimpleGUI as sg
-import subprocess
 import os
 import signal
 import shutil
-from time import sleep
+import concurrent.futures
+#import subprocess
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -121,7 +123,9 @@ def getDatabases():
 
 def getTests():
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
-    analyzerSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",s=3,key="intervalTime"), sg.Text("seconds")]]
+    analyzerSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",
+    s=3,key="intervalTime"), sg.Text("seconds")]]
+    stopTestSection = [[sg.Push(), sg.Button("Stop Test"), sg.Push()]]
     if (isConnected or debugMode):
         test_values = [[sg.Push(), sg.Text("Tests - choose the tests you want", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
@@ -136,7 +140,7 @@ def getTests():
                     [],[],
                     [sg.Text("Output name:"), sg.Input("Test_sample1", s=15, key="test_name"), sg.Push(), sg.Text("Comments:"),sg.Input("",s=30,key="TEST1_COMMENT")], [],
                     [sg.Checkbox(text="Analyzer (Beer-Lambert & Allan Variance) ?",enable_events=True,key="test_analyzer")], [collapse(analyzerSection, 'section_analyzer', False)],
-                    [sg.Push(), sg.Button("Start Test"), sg.Push()],
+                    [sg.Push(), sg.Button("Start Test"), sg.Push()],[collapse(stopTestSection, 'section_stopTest', False)],
                     [sg.Push(),sg.Text(str(getTestErrorText), key="test_errorText"),sg.Push()]]
     else:
         test_values = [[sg.Push(), sg.Text("Connect to devices first or run in 'Debug Mode'"), sg.Push()]]
@@ -163,25 +167,27 @@ def updateResults(window):
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-def open_Interactive_Graphs(dirName, analyzer_substance = False):
-    try:
-        command = 'py'
-        if analyzer_substance:
-            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
-        else:
-            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
-        process = subprocess.Popen([command] + args)
-        pid = process.pid
-        return pid
-    except:
-        command = 'Interactive_Graph.exe'
-        if analyzer_substance:
-            args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
-        else:
-            args = ['--csv_name', dirName+"\\"]
-        process = subprocess.Popen([command] + args)
-        pid = process.pid
-        return pid
+# def open_Interactive_Graphs(val_list):
+#     dirName = val_list[0]
+#     analyzer_substance = val_list[1]
+#     try:
+#         command = 'py'
+#         if analyzer_substance:
+#             args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
+#         else:
+#             args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
+#         process = subprocess.Popen([command] + args)
+#         pid = process.pid
+#         return pid
+#     except:
+#         command = 'Interactive_Graph.exe'
+#         if analyzer_substance:
+#             args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
+#         else:
+#             args = ['--csv_name', dirName+"\\"]
+#         process = subprocess.Popen([command] + args)
+#         pid = process.pid
+#         return pid
 
 def updateJsonFileBeforeEnd(values):
     # This funciton save default connection parameters.
@@ -308,6 +314,7 @@ while True:
                 else:
                     res = values["test_res"]
                 window['Start Test'].update(disabled=True)
+                window['section_stopTest'].update(visible=True)
                 window_message = sg.Window("",[[sg.Text("Executing Clean Test...")]])
                 
                 dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
@@ -330,12 +337,23 @@ while True:
                     updateResults(window)
                     # Open a new process of the graph/grphs.
                     if (values['test_analyzer']):
-                        graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-                    graphs_pids.append(open_Interactive_Graphs(dirName))
+                        #graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+                        interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
+                    #graphs_pids.append(open_Interactive_Graphs(dirName)) # Threads
+                    interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
                 else:
                     shutil.rmtree(dirName)
                 window['Start Test'].update(disabled=False)
-            window['test_errorText'].update()
+                window['section_stopTest'].update(visible=False)
+                window['test_errorText'].update("Now Testing...")
+            else:
+                window['test_errorText'].update(getTestErrorText)
+            getTestErrorText = ""
+
+    elif event == "Stop Test":
+        window['section_stopTest'].update(visible=False)
+        window['Start Test'].update(disabled=False)
+        
 
     elif event == "-LOAD_SAMPLE-":
         try:
@@ -344,8 +362,10 @@ while True:
             filesList = os.listdir(dirName)
             filesList = [name[:-4] for name in filesList]
             if 'analyzer' in filesList:
-                graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-            graphs_pids.append(open_Interactive_Graphs(dirName))
+                #graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+                interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
+            #graphs_pids.append(open_Interactive_Graphs(dirName))
+            interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
         except:
             continue
 

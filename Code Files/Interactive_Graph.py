@@ -149,7 +149,9 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=True), sg.Input("csv file name", s=15, key='csvFileName'), sg.Push()], [sg.Text("")],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True), sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()],[sg.Text("")],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()], [sg.Text("")], [sg.Push(), sg.Button("ppm", key='_ppm_', enable_events=True), sg.Button("%", key='_Precents_', enable_events=True), sg.Push()]]
+                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True), sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()],[sg.Text("")],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()], [sg.Text("")],
+                  [sg.Push(), sg.Text("ppm", font='David 10'), sg.Slider(range=(0,1), orientation='h', key='-SLIDER-', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("%", font='David 10'), sg.Push()]] 
+                  #[sg.Push(), sg.Button("ppm", key='_ppm_', enable_events=True), sg.Button("%", key='_Precents_', enable_events=True), sg.Push()]]
     graph_layout = [[sg.Push(),sg.Text("Graph Space"),sg.Push()],
         [sg.T('Controls:')], [sg.Canvas(key='controls_cv')], [sg.T('Figure:')],
         [sg.Column(layout=[[sg.Canvas(key='figCanvas',
@@ -262,7 +264,9 @@ def saveAllanPlots(holdAllanDeviationList, new_allandeviation_line, csvFileName,
 
 # The managment function:
 
-def interactiveGraph(csvFile, analyzer_substance = False):
+def interactiveGraph(val_list):
+    csvFile = val_list[0]
+    analyzer_substance = val_list[1]
     filesList = os.listdir(csvFile)
     filesList = [name[:-4] for name in filesList]
     if 'analyzer' in filesList:
@@ -291,12 +295,15 @@ def analyzerGraph(csvFile):
     colors.pop(0)
     color = colors[0]
 
-    def clear_plots(ax1,ax2):
+    def clear_plots(ax1,ax2,plotType):
         ax1.cla()
         ax2.cla()
         ax1.set_xlabel("Time [s]")
         ax2.set_xlabel("Averaging time [s]")
-        ax1.set_title("Concentration [ppm]")
+        if plotType == 0:
+            ax1.set_title("Concentration [ppm]")
+        else:
+            ax1.set_title("Concentration [%]")
         ax2.set_title("Allan Deviation")
         ax1.grid()
         ax2.grid(markevery=1)
@@ -391,7 +398,7 @@ def analyzerGraph(csvFile):
             window2['-CLEAR_PLOT-'].update(disabled=True)
             window2['_PowerListBoxPC_'].update(set_to_index=[])
             window2['_RepetitionListBoxPC_'].update(set_to_index=[])
-            clear_plots(ax_conc, ax_deviation)
+            clear_plots(ax_conc, ax_deviation, values['-SLIDER-'])
             new_concentration_line = None
             new_allandeviation_line = None
             holdConcentrationList = {}
@@ -465,15 +472,13 @@ def analyzerGraph(csvFile):
                     if ( (future3 != None) and (time.time()-start_time>0.1) ):
                         if ( future3._state != 'RUNNING'):
                             sg.PopupAnimated(None)
-                            break      
+                            break
                 future3 = future3.result()
                 tau = future3[0] # Everytime is calculating.
                 adev = future3[1] # Everytime is calculating.
                 mean_interval = future3[2]
                 # End of the logic of working Animation.
                 #
-                clear_plots(ax_conc, ax_deviation)
-                add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
                 # Grid:
                 # ax_conc - Major ticks every 20, minor ticks every 5:
                 # if (df_plotted['Interval'].tolist())[-1] > max_x_conc:
@@ -527,8 +532,13 @@ def analyzerGraph(csvFile):
                 # ax_deviation.grid(which='major', alpha=1, linestyle='-')
                 # # Add to both plots
                 # ax_deviation.legend(loc='upper right')
+                clear_plots(ax_conc, ax_deviation, values['-SLIDER-'])
+                add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
                 new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
-                new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [ppm]'], float), label=label, color = color)
+                if (values['-SLIDER-'] == 0):
+                    new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [ppm]'], float), label=label, color = color)
+                else:
+                    new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [%]'], float), label=label, color = color)
                 ax_deviation.grid(which='minor', alpha=0.2, linestyle='--')
                 ax_deviation.grid(which='major', alpha=1, linestyle='-')
                 ax_conc.grid(which='minor', alpha=0.2)
@@ -593,7 +603,10 @@ def analyzerGraph(csvFile):
         elif event == '-Reg_Norm_Val-' or event == 'normValue' or event == '_WAVEGUIDE_LENGTH_' or event == '_ABS_NM_':
             reread = True
 
-
+        elif event == '-SLIDER-':
+            print(values['-SLIDER-'])
+            None
+    # End of interactive.
 
 def timeSweepGraph(csvFile):
 
@@ -940,7 +953,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
+        # dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
+        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\Real_Measurments\\'
         # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
         args.csv_name = dirname
         args.analyzer_substance = False

@@ -114,6 +114,7 @@ def beerLambert(val_list):
     wavelength = val_list[2]
     l = val_list[3]
     G = val_list[4]
+    G = float(G)
     #
     # This function calculate C (Concentration).
     # k = The wavenumber, A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
@@ -169,12 +170,13 @@ def beerLambert(val_list):
         else:
             # Site 1: https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/11%3A_Coordination_Chemistry_III_-_Electronic_Spectra/11.01%3A_Absorption_of_Light/11.1.01%3A_Beer-Lambert_Absorption_Law
             # Site 2: https://www.nexsens.com/knowledge-base/technical-notes/faq/how-do-you-convert-from-molarity-m-to-parts-per-million-ppm-and-mgl.htm
-            C = ((E/l)/A)/float(G) # [ppm]
+            C = (E/(l*A*G)) # [ppm]
+            # C = ((E/l)/A)/float(G) # [ppm]
         #new_row.append(C)
         new_row.append(C)
-        new_row.append(C*10000) #   '1%' = 10,000ppm 
+        new_row.append(C/10000) #   '1%' = 10,000ppm 
         # From database gama is 1, but here from the measurment of the waveguide the value is the manipulation of the value and Gama.
-        C = C/35000 # Converting from [ppm] to [M]=[L/mol]
+        C = C/35500 # Converting from [ppm] to [M]=[L/mol]
         new_row.append(C)
         new_row.append(real_wavelength)
         df_C.loc[len(df_C)] = new_row
