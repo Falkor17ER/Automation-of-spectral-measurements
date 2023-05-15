@@ -127,7 +127,7 @@ def getTests():
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
     analyzerSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",
     s=3,key="intervalTime"), sg.Text("seconds")]]
-    stopTestSection = [[sg.Push(), sg.Button("Stop Test"), sg.Push()]]
+    stopTestSection = [[sg.Button("Stop Test")]]
     if (isConnected or debugMode):
         test_values = [[sg.Push(), sg.Text("Tests - choose the tests you want", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
@@ -144,7 +144,7 @@ def getTests():
                     [],[],
                     [sg.Text("Output name:"), sg.Input("Test_sample1", s=15, key="test_name"), sg.Push(), sg.Text("Comments:"),sg.Input("",s=30,key="TEST1_COMMENT")], [],
                     [sg.Checkbox(text="Analyzer (Beer-Lambert & Allan Variance) ?",enable_events=True,key="test_analyzer")], [collapse(analyzerSection, 'section_analyzer', False)],
-                    [sg.Push(), sg.Button("Start Test"), sg.Push()],[collapse(stopTestSection, 'section_stopTest', False)],
+                    [sg.Push(), sg.Button("Start Test"), sg.Push()],[sg.Push(), collapse(stopTestSection, 'section_stopTest', False), sg.Push()],
                     [sg.Push(),sg.Text(str(getTestErrorText), key="test_errorText"),sg.Push()]]
     else:
         test_values = [[sg.Push(), sg.Text("Connect to devices first or run in 'Debug Mode'"), sg.Push()]]

@@ -17,7 +17,7 @@ def substractWatt(x_dBm, y_dBm):
     x_dBm = 10*(np.log10(res/0.001))
     return x_dBm
 
-def minusDark(df_clean, df_substance, mode):
+def minusDark(dirname,df_clean, df_substance, mode):
     try:
         df_dark = pd.read_csv(dirname+'\\'+'dark.csv')
     except:
@@ -44,8 +44,7 @@ def minusDark(df_clean, df_substance, mode):
     # Return:
     return df_clean, df_substance, True
 
-def getNormlizedByRealFreq(dirname, to_norm, darkMinus, real_freq = '1500'):
-    darkStatus = False
+def getNormlizedByRealFreq(dirname, darkMinus, to_norm, real_freq = '1500'):
     try:
         # Load clean and substance csvs
         clean_df = pd.read_csv(dirname+'\\'+'clean.csv')
@@ -57,8 +56,11 @@ def getNormlizedByRealFreq(dirname, to_norm, darkMinus, real_freq = '1500'):
         try:
             clean_df = pd.read_csv(dirname+'\\'+'clean_minusDark.csv')
             substance_df = pd.read_csv(dirname+'\\'+'substance_minusDark.csv')
+            darkStatus = True
         except:
-            clean_df, substance_df, darkStatus = minusDark(clean_df, substance_df, "sweepGraph")
+            clean_df, substance_df, darkStatus = minusDark(dirname,clean_df, substance_df, "sweepGraph")
+    else:
+        darkStatus = False
     columns = substance_df.columns.to_list()
     freqs = [element for element in columns[10:]]
     R, _ = substance_df.shape
@@ -79,7 +81,7 @@ def getNormlizedByRealFreq(dirname, to_norm, darkMinus, real_freq = '1500'):
     
     return divided_df, clean_df, substance_df, darkStatus
 
-def getNormlizedByCustomFreq(dirname, Freq = '1500', darkMinus=True ,to_norm = False):
+def getNormlizedByCustomFreq(dirname, darkMinus, Freq = '1500' ,to_norm = False):
     # looking for a frequency closest to the users choice
     clean_df = pd.read_csv(dirname+'\\'+'clean.csv', nrows=1)
     columns = clean_df.columns.to_list()
@@ -90,7 +92,7 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', darkMinus=True ,to_norm = F
         # convert x to integer
         real_freq = int(real_freq)
     real_freq = str(real_freq)
-    df_ratio, df_clean_minusDark, df_substance_minusDark, darkStatus = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, darkMinus=True, to_norm=to_norm)
+    df_ratio, df_clean_minusDark, df_substance_minusDark, darkStatus = getNormlizedByRealFreq(dirname, darkMinus, real_freq=real_freq, to_norm=to_norm)
     df_ratio.to_csv(dirname+'\\transition.csv', index=False, encoding='utf-8')
     return df_ratio, df_clean_minusDark, df_substance_minusDark, darkStatus
 
@@ -99,7 +101,6 @@ def getAnalyzerTransmition(val_list):
     to_norm = val_list[1]
     waveLength = val_list[2]
     darkMinus = val_list[3]
-    darkStatus = False
     #
     try:
         # Load clean and substance csvs
@@ -112,9 +113,12 @@ def getAnalyzerTransmition(val_list):
         try:
             df_clean = pd.read_csv(dirname+'\\'+'clean_minusDark.csv')
             df_analyzer = pd.read_csv(dirname+'\\'+'analyzer_minusDark.csv')
+            darkStatus = True
         except:
-            df_clean, df_analyzer, darkStatus = minusDark(df_clean, df_analyzer, mode="allan")
+            df_clean, df_analyzer, darkStatus = minusDark(dirname,df_clean, df_analyzer, mode="allan")
     ###### Here is the normalize
+    else:
+        darkStatus = False
     columns = df_clean.columns.to_list()
     
     if to_norm:
@@ -216,6 +220,7 @@ def beerLambert(val_list):
         for idx in range(10):
             new_row.append(df_transmittance.iloc[row][idx])
         E = - df_transmittance.iloc[row][real_wavelength]
+        E = E/10
         if E == 0:
             C = 0
         else:

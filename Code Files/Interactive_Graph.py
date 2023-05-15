@@ -87,6 +87,7 @@ def getLayout(frequencyList, powerList, norm_freq_list):
     normValue = [[sg.Push(), sg.Checkbox("", key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue"), sg.Text("[nm]"), sg.Button("Refresh", key="-Refresh-", enable_events=True), sg.Push()]]
     menu_layout = [[collapse(normValue, 'section_normValue', True)],
                   [sg.Push(), sg.Checkbox("Minus Dark", default=True, enable_events=True, key="-MINUS_DARK-"), sg.Checkbox("Logarithmic Scale", default=True, enable_events=True, key="-REG_LOG_SCALE-"), sg.Push()],
+                  [sg.Push(), sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push()],
                   [sg.Push(),sg.Checkbox(text="Transition\ngraph",font='David 11',key="normCheckBox", enable_events=True, default=True), sg.Checkbox(text="Clean\nsample",font='David 11',key="cleanCheckBox",enable_events=True, default=False), sg.Checkbox(text="Substance\nsample",font='David 11',key="substanceCheckBox", enable_events=True, default=False), sg.Push()],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
@@ -790,7 +791,7 @@ def regularSweepGraph(csvFile):
         sg.popup_ok("There was a problem reading the files.")
         exit()
     
-    df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile)
+    df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile, True)
 
     # yAxisPowerS_dictionary = {}
     # yAxisRepS_dictionary = {}
@@ -828,6 +829,11 @@ def regularSweepGraph(csvFile):
     }
     scales = scales_dict["LOG"]
     scale = "[dB]"
+    if darkStatus:
+        window2['darkStatus'].update("OK")
+    else:
+        window2['darkStatus'].update("'dark.csv' not Found")
+    #
     while True:
     
         event, values = window2.read()
@@ -844,7 +850,7 @@ def regularSweepGraph(csvFile):
 
         elif ( (event == '-Refresh-') or (event == '-MINUS_DARK-') ):
             window3 = sg.Window("Processing...", [[sg.Text("Renormalzing results, please wait...")]], finalize=True)
-            df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile, values["normValue"], values['-MINUS_DARK-'], to_norm=values['-Reg_Norm_Val-'])
+            df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile, values['-MINUS_DARK-'], values["normValue"], to_norm=values['-Reg_Norm_Val-'])
             if values['cleanCheckBox']:
                 df_plotted_full = df_clean
             elif values['substanceCheckBox']:
@@ -860,6 +866,14 @@ def regularSweepGraph(csvFile):
                 continue
             updateRegualrGraph(df_plotted, ax, fig_agg)
             window3.close()
+            if values['-MINUS_DARK-'] and darkStatus:
+                window2['darkStatus'].update("OK")
+            elif values['-MINUS_DARK-'] and (darkStatus == False):
+                window2['darkStatus'].update("'dark.csv' not Found")
+            elif values['-MINUS_DARK-']==False and (darkStatus == False):
+                window2['darkStatus'].update("Calculation ignoring dark measurment")
+            elif values['-MINUS_DARK-']==False and (darkStatus == True):
+                window2['darkStatus'].update("No way! No sense")
         
         elif (event == '_RepetitionListBoxPC_') or (event == '_PowerListBoxPC_'):
             df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxPC_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxPC_'])]
@@ -973,7 +987,7 @@ if __name__ == '__main__':
 
     if args.csv_name == None:
         # dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
+        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_15_19_12_36_782780_Test_sample1_CF=1500_Span=50_analyzer=False\\'
         # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
         args.csv_name = dirname
         args.analyzer_substance = False
