@@ -56,9 +56,9 @@ def configureOSA(osa, cf,span,points,sens,res):
         osa.setSpan(span)
         sleep(1)
         # Set number of sampling points
-        if (points == "Auto"):
-            points = "auto on"
-        osa.setPoints(points)
+        # if (points == "Auto"):
+        #     points = "auto on"
+        # osa.setPoints(points)
         sleep(1)
         # Set sampling sensetivity
         osa.setSens(convertDict["Sens"][sens])
@@ -86,7 +86,7 @@ def getReps(values):
             continue
     return reps
 
-def meanMeasure(laser, osa ,numOfSamples, numOfDots):
+def meanMeasure(laser, osa ,numOfSamples, numOfDots, debugMode):
     try:
         numOfSamples = int(numOfSamples)
     except:
@@ -126,32 +126,61 @@ def meanMeasure(laser, osa ,numOfSamples, numOfDots):
         return [float(pair.split(",")[1]) for pair in smpls]
     return np.random.rand(numOfDots)*(-100)
 
-def noiseMeasurments(laser,osa, numOfDots,noiseNum=3):
+def noiseMeasurments(laser, osa ,values, debugMode, csvName): # Dark Measurmennts
     # Here we are taking in mind that the laser and the OSA are already configed.
-    laser.emission(0)
     print("Noise measurment, please wait...")
     sleep(0.5)
-    darkMeasurment = meanMeasure(laser,osa ,noiseNum,numOfDots)
-    return darkMeasurment
+    if (not debugMode):
+        laser.emission(0)
+        if values["test_PTS"] == "Auto":
+            osa.setPoints('auto on')
+        else:
+            osa.setPoints(values["test_PTS"])
+        pts = osa.getPoints()
+        configureOSA(osa,values['test_CF'],values['test_SPAN'],pts,values['test_sens'],values['test_res'])
+    else:
+        pts = 501
+    darkMeasurment = meanMeasure(laser, osa ,values['darkNumSamplesParameter'], pts, debugMode)
+    startF = int(values["test_CF"]) - int(values["test_SPAN"])/2
+    stopF = startF + int(values["test_SPAN"])
+    freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["test_SPAN"])/pts)]
+    allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Sens','Res', 'Interval', 'SAMPLINGS_NUMBER']+freqs_columns)
+    new_row = []
+    new_row.append(getTime())
+    new_row.append(values["TEST1_COMMENT"])
+    new_row.append(values["test_CF"])
+    new_row.append(values["test_SPAN"])
+    new_row.append("NULL") # Repetition.
+    new_row.append("NULL") # Power.
+    new_row.append(values["test_sens"])
+    new_row.append(values["test_res"])
+    new_row.append("")
+    new_row.append(values['darkNumSamplesParameter'])
+    new_row = new_row + list(darkMeasurment)
+    # Append the new row to the dataframe
+    allResults_df.loc[len(allResults_df)] = new_row
+    # End of measurments
+    allResults_df.to_csv(csvName, index=False)
+    sleep(0.2)
 
-def emptyMeasurments(laser,osa, numOfDots,emptyNum=3):
-    # Here we are taking in mind that the laser and the OSA are already configed.
-    laser.emission(1)
-    print("Empty measurment, please wait...")
-    sleep(0.5)
-    emptyMeasurment = meanMeasure(laser,osa ,emptyNum,numOfDots)
-    return emptyMeasurment
+# def emptyMeasurments(laser,osa, numOfDots,emptyNum=3):
+#     # Here we are taking in mind that the laser and the OSA are already configed.
+#     laser.emission(1)
+#     print("Empty measurment, please wait...")
+#     sleep(0.5)
+#     emptyMeasurment = meanMeasure(laser,osa ,emptyNum,numOfDots, debugMode)
+#     return emptyMeasurment
 
-def laserMeasurment(laser,osa, numOfSamples,numOfDots,darkMeasurment=0,emptyMeasurment=0):
-    laser.emission(1)
-    sleep(0.5)
-    # print("Starting measurment, please wait...")
-    measurment = meanMeasure(laser,osa ,numOfSamples,numOfDots)
-    if (darkMeasurment != 0):
-        measurment -= darkMeasurment
-    if (emptyMeasurment != 0):
-        measurment -= emptyMeasurment
-    return measurment
+# def laserMeasurment(laser,osa, numOfSamples,numOfDots,darkMeasurment=0,emptyMeasurment=0):
+#     laser.emission(1)
+#     sleep(0.5)
+#     # print("Starting measurment, please wait...")
+#     measurment = meanMeasure(laser,osa ,numOfSamples,numOfDots, debugMode)
+#     if (darkMeasurment != 0):
+#         measurment -= darkMeasurment
+#     if (emptyMeasurment != 0):
+#         measurment -= emptyMeasurment
+#     return measurment
 
 def getTime():
     time = str(datetime.today())
@@ -232,7 +261,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 #
                 while(time() - startTime < totalTime):
                     lastTime = time()
-                    result = meanMeasure(laser,osa, 1 ,pts)
+                    result = meanMeasure(laser,osa, 1 ,pts, debugMode)
                     new_row = []
                     new_row.append(getTime())
                     new_row.append(values["TEST1_COMMENT"])
@@ -243,7 +272,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
                     new_row.append(values["test_sens"])
                     new_row.append(values["test_res"])
                     new_row.append(lastTime-startTime)
-                    new_row.append(values["numSamplesParameter"])
+                    new_row.append(values["substanceNumSamplesParameter"])
                     new_row = new_row + list(result)
                     # Append the new row to the dataframe
                     allResults_df.loc[len(allResults_df)] = new_row
@@ -253,7 +282,11 @@ def getSweepResults(laser,osa,values,debug,csvname):
             #---------------------------------------------------------------------------------------------------------------
             else: # Regular Mode
                 sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
-                result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
+                if csvname[-9:-4] == "clean":
+                    numOfSamples = values['cleanNumSamplesParameter']
+                if csvname[-13:-4] == "substance":
+                    numOfSamples = values['substanceNumSamplesParameter']
+                result = meanMeasure(laser,osa,numOfSamples,pts, debugMode)
                 new_row = []
                 new_row.append(getTime())
                 new_row.append(values["TEST1_COMMENT"])
@@ -264,7 +297,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 new_row.append(values["test_sens"])
                 new_row.append(values["test_res"])
                 new_row.append("")
-                new_row.append(values["numSamplesParameter"])
+                new_row.append(numOfSamples)
                 new_row = new_row + list(result)
                 # Append the new row to the dataframe
                 allResults_df.loc[len(allResults_df)] = new_row

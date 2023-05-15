@@ -1,7 +1,7 @@
 # This file contains the Graphical user interface and delivers the requests from the user to devices
 from OSA import OSA
 from LASER import Laser
-from Operator import getSweepResults, runSample, setConfig, makedirectory
+from Operator import getSweepResults, runSample, setConfig, makedirectory, noiseMeasurments
 from json import load, dump
 from time import sleep
 from Interactive_Graph import interactiveGraph
@@ -9,8 +9,10 @@ import PySimpleGUI as sg
 import os
 import signal
 import shutil
+import subprocess
+import thread
+import tkthread
 import concurrent.futures
-#import subprocess
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -132,7 +134,9 @@ def getTests():
                     sg.Text("Span:"), sg.Input("50",s=5,key="test_SPAN"), sg.Text("[nm]")],
                     [sg.Text("Number of Ponits: (Auto recommended)"), sg.Input("Auto",s=12,key="test_PTS"), sg.Text("Sensetivity: "), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="test_sens")], [sg.Text("Resolution: "), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>"], enable_events=True, default_value="1nm <0.820nm>" ,key="test_res")],
                     [sg.Text("Start Power Level [%]:"), sg.Input("6",s=3,key="minPL"), sg.Checkbox(text="Sweep?", enable_events=True, key="testPowerLevelSweep"), collapse(powerSweepSection, 'section_powerSweep', False)],
-                    [sg.Text("Sample Averaging: "), sg.Input("1",s=2,key="numSamplesParameter"), sg.Text("(max: 100)")],
+                    [sg.Text("Sample Averaging (Dark Measurments): "), sg.Input("5",s=2,key="darkNumSamplesParameter"), sg.Text("(max: 100)")],
+                    [sg.Text("Sample Averaging (Clean/Empty Measurments): "), sg.Input("5",s=2,key="cleanNumSamplesParameter"), sg.Text("(max: 100)")],
+                    [sg.Text("Sample Averaging (Substance): "), sg.Input("1",s=2,key="substanceNumSamplesParameter"), sg.Text("(max: 100)")],
                     [sg.Text("Choose the repetition rates [MHz]:"),sg.Checkbox(text="Select all", enable_events=True, key="selectAllRep")],
                     [sg.Checkbox(text="78.56",font='David 11',key="r1",default=False),sg.Checkbox(text="39.28",font='David 11',key="r2",default=False),sg.Checkbox(text="29.19",font='David 11',key="r3",default=False),sg.Checkbox(text="19.64",font='David 11',key="r4",default=False),sg.Checkbox(text="15.71",font='David 11',key="r5",default=False),sg.Checkbox(text="13.09",font='David 11',key="r6",default=False),sg.Checkbox(text="11.22",font='David 11',key="r7",default=False),sg.Checkbox(text="9.82",font='David 11',key="r8",default=False)],
                     [sg.Checkbox(text="8.729",font='David 11',key="r9",default=False),sg.Checkbox(text="7.856",font='David 11',key="r10",default=False),sg.Checkbox(text="6.547",font='David 11',key="r12",default=False),sg.Checkbox(text="5.612",font='David 11',key="r14",default=False),sg.Checkbox(text="4.910",font='David 11',key="r16",default=False),sg.Checkbox(text="4.365",font='David 11',key="r18",default=False),sg.Checkbox(text="3.928",font='David 11',key="r20",default=False),sg.Checkbox(text="3.571",font='David 11',key="r22",default=False)],
@@ -167,27 +171,27 @@ def updateResults(window):
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-# def open_Interactive_Graphs(val_list):
-#     dirName = val_list[0]
-#     analyzer_substance = val_list[1]
-#     try:
-#         command = 'py'
-#         if analyzer_substance:
-#             args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
-#         else:
-#             args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
-#         process = subprocess.Popen([command] + args)
-#         pid = process.pid
-#         return pid
-#     except:
-#         command = 'Interactive_Graph.exe'
-#         if analyzer_substance:
-#             args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
-#         else:
-#             args = ['--csv_name', dirName+"\\"]
-#         process = subprocess.Popen([command] + args)
-#         pid = process.pid
-#         return pid
+def open_Interactive_Graphs(dirName, analyzer_substance=False):
+    #dirName = val_list[0]
+    #analyzer_substance = val_list[1]
+    try:
+        command = 'py'
+        if analyzer_substance:
+            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
+        else:
+            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
+        process = subprocess.Popen([command] + args)
+        pid = process.pid
+        return pid
+    except:
+        command = 'Interactive_Graph.exe'
+        if analyzer_substance:
+            args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
+        else:
+            args = ['--csv_name', dirName+"\\"]
+        process = subprocess.Popen([command] + args)
+        pid = process.pid
+        return pid
 
 def updateJsonFileBeforeEnd(values):
     # This funciton save default connection parameters.
@@ -213,7 +217,7 @@ def checkStartConditions(values):
                 getTestErrorText = "Error: The max Number of Points per sample is XXX points."
         except:
                 getTestErrorText = "Error: The max Number of Points per sample is XXX points."
-    elif ( (values["test_res"] == "Manuall (Enter a value)") and ((float(values["test_manuallRes"]) < 0) or (float(values["test_manuallRes"]) > 4) )):################################################
+    elif ((values["test_res"]=="Manuall (Enter a value)") and ((float(values["test_manuallRes"])<0) or (float(values["test_manuallRes"])>4) )):
         getTestErrorText = "Error: The resolution you enter is not good value."
     elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
         getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
@@ -221,8 +225,12 @@ def checkStartConditions(values):
         getTestErrorText = "Error: The end power of the laser must be btween 6 to 100"
     elif ( values["testPowerLevelSweep"] and (int(values["minPL"]) > int(values["maxPL"])) ):
         getTestErrorText = "Error: The start power must be smaller than the end power"
-    elif int(values["numSamplesParameter"]) <= 0:
-        getTestErrorText = "Error: The number of samples must be higher than 0"
+    elif int(values["darkNumSamplesParameter"]) <= 0:
+        getTestErrorText = "Error: The number of samples (Dark) must be higher than 0"
+    elif int(values["cleanNumSamplesParameter"]) <= 0:
+        getTestErrorText = "Error: The number of samples (Clean) must be higher than 0"
+    elif int(values["substanceNumSamplesParameter"]) <= 0:
+        getTestErrorText = "Error: The number of samples (Substannce) must be higher than 0"
     elif (not values["r1"] and not values["r2"] and not values["r3"] and not values["r4"] and not values["r5"] and not values["r6"] and not values["r7"] and not values["r8"] and not values["r9"] and not values["r10"] and not values["r12"] and not values["r14"] and not values["r16"] and not values["r18"] and not values["r20"] and not values["r22"] and not values["r25"] and not values["r27"] and not values["r29"] and not values["r32"] and not values["r34"] and not values["r37"] and not values["r40"]):
         getTestErrorText = "Error: No repetition value was chosen"
     elif (values["test_name"] == ""): # Not a must.
@@ -236,9 +244,8 @@ def checkStartConditions(values):
 #---------------------------------------------------------------------------------------------------------------------------
 
 def reopenMainL(window = None):
-    # This function start the GUI window.
+    # This function start the GUI window:
     mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0]+30,SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status)]]
-    # mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Button("Debug Graph"), sg.Push(), sg.Text(status)]]
     try:
         window.close()
         window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE)
@@ -297,7 +304,6 @@ while True:
             window[i].update(values["selectAllRep"])
         print(values)
 
-
     elif event == "test_analyzer":
         if (values["test_analyzer"] == True):
             window['section_analyzer'].update(visible=True)
@@ -315,15 +321,18 @@ while True:
                     res = values["test_res"]
                 window['Start Test'].update(disabled=True)
                 window['section_stopTest'].update(visible=True)
-                window_message = sg.Window("",[[sg.Text("Executing Clean Test...")]])
-                
+                window['test_errorText'].update("Executing Clean Test...")
                 dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
+                window_message = sg.Window("",[[sg.Text("Executing 'Dark' Test...")]])
+                noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
+                window['test_errorText'].update("Executing 'Clean/Empty' Test...")
                 getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
                 window_message.close()
                 # For user
                 tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
                 # OK was chosen
                 if (tempEvent.upper()=="OK"):
+                    window['test_errorText'].update("Executing 'Substance' Test...")
                     window_message = sg.Window("",[[sg.Text("Executing Substance Test...")]])
                     if (values['test_analyzer']):
                         if (not debugMode):
@@ -337,15 +346,15 @@ while True:
                     updateResults(window)
                     # Open a new process of the graph/grphs.
                     if (values['test_analyzer']):
-                        #graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-                        interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
-                    #graphs_pids.append(open_Interactive_Graphs(dirName)) # Threads
-                    interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
+                        graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+                        #interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
+                    graphs_pids.append(open_Interactive_Graphs(dirName)) # Threads
+                    #interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
                 else:
                     shutil.rmtree(dirName)
                 window['Start Test'].update(disabled=False)
                 window['section_stopTest'].update(visible=False)
-                window['test_errorText'].update("Now Testing...")
+                window['test_errorText'].update("Finish Testing.")
             else:
                 window['test_errorText'].update(getTestErrorText)
             getTestErrorText = ""
@@ -362,10 +371,13 @@ while True:
             filesList = os.listdir(dirName)
             filesList = [name[:-4] for name in filesList]
             if 'analyzer' in filesList:
-                #graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-                interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
-            #graphs_pids.append(open_Interactive_Graphs(dirName))
-            interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
+                None
+                graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+                #thread1 = thread.start_new_thread( print_time, ("Thread-1", 2, ) )
+                #interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
+            graphs_pids.append(open_Interactive_Graphs(dirName))
+            #thread1 = thread.start_new_thread(interactiveGraph, ([dirName, False],) )
+            #interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
         except:
             continue
 
@@ -390,24 +402,6 @@ while True:
                 print(f"Error killing process with PID {pid}: {e}")
         break
 
-    # elif event == 'Debug Graph':
-    #     csvFile = "..\\Results\\2023_03_23_15_29_25_116512_Eyal & Alex\\"
-    #     command = 'py'
-    #     args = ['Interactive_Graph.py', '--csv_name', csvFile]
-    #     process = subprocess.Popen([command] + args)
-    #     pid = process.pid
-    #     graphs_pids.append(pid)
+# End of GUI
 
-# End of File.
-
-#---------------------------------------------------------------------------------------------------------------------------
-
-                # popup_win = popup('Starting Clean Test...')
-                # window.force_focus()
-                #popup_win.close()
-                #popup_win = popup('Starting Substance Test...')
-                #window.force_focus()
-                #popup_win.close()
-                #popup_win = popup('Starting Allan Variance Test...')
-                #window.force_focus()
-                        
+    # mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Button("Debug Graph"), sg.Push(), sg.Text(status)]]

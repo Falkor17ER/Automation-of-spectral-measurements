@@ -9,14 +9,51 @@ def normalize(x, y):
     x_new = x/y
     return x_new
 
-def getNormlizedByRealFreq(dirname, to_norm, real_freq = '1500'):
+def substractWatt(x_dBm, y_dBm):
+    # y is the dark.
+    x_watt = 10**((x_dBm-30)/10)
+    y_watt = 10**((y_dBm-30)/10)
+    res = x_watt - y_watt
+    x_dBm = 10*(np.log10(res/0.001))
+    return x_dBm
+
+def minusDark(df_clean, df_substance):
+    try:
+        df_dark = pd.read_csv(dirname+'\\'+'dark.csv')
+    except:
+        return df_clean, df_substance
+    # clean minus dark:
+    R, C = df_clean.shape
+    for idi in range(0,R):
+        for idj in range(10,C):
+            # Iterating over each row and normlizing
+            df_clean.iloc[idi,idj] = substractWatt(df_clean.iloc[idi,idj], df_dark.iloc[0,idj])
+    # substance minus dark:
+    R, C = df_substance.shape
+    for idi in range(0,R):
+        for idj in range(10,C):
+            # Iterating over each row and normlizing
+            df_substance.iloc[idi,idj] = substractWatt(df_substance.iloc[idi,idj], df_dark.iloc[0,idj])
+    # Save the dataframes:
+    df_clean.to_csv(dirname+'\\clean_minusDark.csv', index=False, encoding='utf-8')
+    df_substance.to_csv(dirname+'\\substance_minusDark.csv', index=False, encoding='utf-8')
+    # Return:
+    return df_clean, df_substance
+
+def getNormlizedByRealFreq(dirname, to_norm, darkMinus, real_freq = '1500'):
     try:
         # Load clean and substance csvs
         clean_df = pd.read_csv(dirname+'\\'+'clean.csv')
         substance_df = pd.read_csv(dirname+'\\'+'substance.csv')
     except:
         return False
-
+    #
+    if darkMinus:
+        try:
+            clean_df = pd.read_csv(dirname+'\\'+'clean_minusDark.csv')
+            substance_df = pd.read_csv(dirname+'\\'+'substance_minusDark.csv')
+        except:
+            clean_df, substance_df = minusDark(clean_df, substance_df)
     columns = substance_df.columns.to_list()
     freqs = [element for element in columns[10:]]
     R, _ = substance_df.shape
@@ -37,7 +74,7 @@ def getNormlizedByRealFreq(dirname, to_norm, real_freq = '1500'):
     
     return divided_df, clean_df, substance_df
 
-def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
+def getNormlizedByCustomFreq(dirname, Freq = '1500', darkMinus=True ,to_norm = False):
     # looking for a frequency closest to the users choice
     clean_df = pd.read_csv(dirname+'\\'+'clean.csv', nrows=1)
     columns = clean_df.columns.to_list()
@@ -48,9 +85,9 @@ def getNormlizedByCustomFreq(dirname, Freq = '1500', to_norm = False):
         # convert x to integer
         real_freq = int(real_freq)
     real_freq = str(real_freq)
-    df_ratio, df_clean, df_substance = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, to_norm=to_norm)
+    df_ratio, df_clean_minusDark, df_substance_minusDark = getNormlizedByRealFreq(dirname=dirname, real_freq=real_freq, darkMinus=True, to_norm=to_norm)
     df_ratio.to_csv(dirname+'\\transition.csv', index=False, encoding='utf-8')
-    return df_ratio, df_clean, df_substance
+    return df_ratio, df_clean_minusDark, df_substance_minusDark
 
 def getAnalyzerTransmition(val_list):
     dirname = val_list[0]

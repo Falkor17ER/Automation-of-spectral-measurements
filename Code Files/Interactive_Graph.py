@@ -5,6 +5,7 @@ import time
 import concurrent.futures
 import matplotlib.pyplot as plt
 import numpy as np
+import tkthread
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.colors as mcolors
 from Analyzer import getNormlizedByCustomFreq, getAnalyzerTransmition, beerLambert, allandevation
@@ -85,7 +86,7 @@ def getLayout(frequencyList, powerList, norm_freq_list):
                           [sg.Push(), sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='multiple', key='_RepetitionListBoxPC_'),sg.Listbox(powerList, size=(14,10), enable_events=True, bind_return_key=True, select_mode='multiple', key='_PowerListBoxPC_'), sg.Push()]]
     normValue = [[sg.Push(), sg.Checkbox("", key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue"), sg.Text("[nm]"), sg.Button("Refresh", key="-Refresh-", enable_events=True), sg.Push()]]
     menu_layout = [[collapse(normValue, 'section_normValue', True)],
-                  [sg.Push(), sg.Checkbox("Logarithmic Scale", default=True, enable_events=True, key="-REG_LOG_SCALE-"), sg.Push()],
+                  [sg.Push(), sg.Checkbox("Minus Dark", default=True, enable_events=True, key="-MINUS_DARK-"), sg.Checkbox("Logarithmic Scale", default=True, enable_events=True, key="-REG_LOG_SCALE-"), sg.Push()],
                   [sg.Push(),sg.Checkbox(text="Transition\ngraph",font='David 11',key="normCheckBox", enable_events=True, default=True), sg.Checkbox(text="Clean\nsample",font='David 11',key="cleanCheckBox",enable_events=True, default=False), sg.Checkbox(text="Substance\nsample",font='David 11',key="substanceCheckBox", enable_events=True, default=False), sg.Push()],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True),
@@ -150,7 +151,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=True), sg.Input("csv file name", s=15, key='csvFileName'), sg.Push()], [sg.Text("")],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_PLOT-', enable_events=True), sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()],[sg.Text("")],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()], [sg.Text("")],
-                  [sg.Push(), sg.Text("ppm", font='David 10'), sg.Slider(range=(0,1), orientation='h', key='-SLIDER-', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("%", font='David 10'), sg.Push()]] 
+                  [sg.Push(), sg.Text("ppm", font='David 10'), sg.Slider(range=(0,1), orientation='h', key='-SLIDER-', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("%", font='David 10'), sg.Push()]]
                   #[sg.Push(), sg.Button("ppm", key='_ppm_', enable_events=True), sg.Button("%", key='_Precents_', enable_events=True), sg.Push()]]
     graph_layout = [[sg.Push(),sg.Text("Graph Space"),sg.Push()],
         [sg.T('Controls:')], [sg.Canvas(key='controls_cv')], [sg.T('Figure:')],
@@ -264,9 +265,9 @@ def saveAllanPlots(holdAllanDeviationList, new_allandeviation_line, csvFileName,
 
 # The managment function:
 
-def interactiveGraph(val_list):
-    csvFile = val_list[0]
-    analyzer_substance = val_list[1]
+def interactiveGraph(csvFile, analyzer_substance=False):
+    #csvFile = val_list[0]
+    #analyzer_substance = val_list[1]
     filesList = os.listdir(csvFile)
     filesList = [name[:-4] for name in filesList]
     if 'analyzer' in filesList:
@@ -286,6 +287,7 @@ def interactiveGraph(val_list):
         timeSweepGraph(csvFile)
     elif type_of_graph == 'analyzer':
         analyzerGraph(csvFile)
+        #tkthread.call_nosync(analyzerGraph(csvFile))
 
 
 def analyzerGraph(csvFile):
@@ -323,9 +325,11 @@ def analyzerGraph(csvFile):
     animation = time.time()
     future = None
     sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+    #tkthread.call_nosync(sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50))
     while True:
         if (time.time() - animation > 0.05):
             sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+            #tkthread.call_nosync(sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50))
             animation = time.time()
         if future == None:
             future = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, False, '1550'])
@@ -419,8 +423,9 @@ def analyzerGraph(csvFile):
                 window2['_CSV_'].update(disabled=True)
                 window2['-CLEAR_PLOT-'].update(disabled=True)
                 window2['Close Graph'].update(disabled=True)
-                window2['_ppm_'].update(disabled=True)
-                window2['_Precents_'].update(disabled=True)
+                #window2['-SLIDER-'].update(disable=True)
+                #window2['_ppm_'].update(disabled=True)
+                #window2['_Precents_'].update(disabled=True)
                 future1 = None
                 future2 = None
                 future3 = None
@@ -560,8 +565,9 @@ def analyzerGraph(csvFile):
             window2['_CSV_'].update(disabled=False)
             window2['-CLEAR_PLOT-'].update(disabled=False)
             window2['Close Graph'].update(disabled=False)
-            window2['_ppm_'].update(disabled=False)
-            window2['_Precents_'].update(disabled=False)
+            #window2['-SLIDER-'].update(disable=False)
+            #window2['_ppm_'].update(disabled=False)
+            #window2['_Precents_'].update(disabled=False)
             # updateRegualrGraph(df_plotted, ax, fig_agg)
         
         elif event == '_HOLD_':
@@ -820,12 +826,9 @@ def regularSweepGraph(csvFile):
             window2['_RepetitionListBoxPC_'].update(set_to_index=[])
             ax.cla()
 
-        elif (event == '-Refresh-'):
+        elif ( (event == '-Refresh-') or (event == '-MINUS_DARK-') ):
             window3 = sg.Window("Processing...", [[sg.Text("Renormalzing results, please wait...")]], finalize=True)
-            if values['-Reg_Norm_Val-']:
-                df_ratio, df_clean, df_substance = getNormlizedByCustomFreq(csvFile, values["normValue"], to_norm=True)
-            else:
-                df_ratio, df_clean, df_substance = getNormlizedByCustomFreq(csvFile, values["normValue"], to_norm=False)
+            df_ratio, df_clean, df_substance = getNormlizedByCustomFreq(csvFile, values["normValue"], values['-MINUS_DARK-'], to_norm=values['-Reg_Norm_Val-'])
             if values['cleanCheckBox']:
                 df_plotted_full = df_clean
             elif values['substanceCheckBox']:
@@ -886,7 +889,7 @@ def regularSweepGraph(csvFile):
                     df_plotted_full.iloc[:,10:] = df_plotted_full.iloc[:,10:].apply(lambda val : (10**(-3))*10**(val/10))
             updateRegualrGraph(df_plotted,ax,fig_agg)
             window3.close()
-        
+
         elif (event == 'cleanCheckBox'):
             ax.cla()
             ax.grid()
