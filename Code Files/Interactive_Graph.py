@@ -142,7 +142,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                           [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxPC_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxPC_'), sg.Push()]]
     normValue = [[sg.Push(), sg.Checkbox("", key='-Reg_Norm_Val-', enable_events=True), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue",enable_events=True), sg.Text("[nm]"), sg.Push()]]
     absorbance_layout = [[sg.Text("Select wavelength to calculate concentration:")],[sg.Push(), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_",enable_events=True), sg.Text("[nm]"), sg.Push()]]
-    menu_layout = [[collapse(normValue, 'section_normValue', True)],
+    menu_layout = [[collapse(normValue, 'section_normValue', True)],[sg.Checkbox("Minus Dark", default=True, enable_events=True, key="-MINUSDARK-"), sg.Text("", key="darkStatusText")],
                   [sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
@@ -332,8 +332,9 @@ def analyzerGraph(csvFile):
             #tkthread.call_nosync(sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50))
             animation = time.time()
         if future == None:
-            future = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, False, '1550'])
+            future = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, False, '1550', True])
         if ( future._state != 'RUNNING' ):
+            darkStatus = (future.result())[1]
             sg.PopupAnimated(None)
             future = None
             break
@@ -445,16 +446,20 @@ def analyzerGraph(csvFile):
                         if ( values['-Reg_Norm_Val-'] == True):
                             if (lastNormValue != values['normValue']):
                                 if future1 == None:
-                                    future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, values['-Reg_Norm_Val-'], values['normValue']])
+                                    future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, values['-Reg_Norm_Val-'], values['normValue'],values['-MINUSDARK-']])
                                 lastNormValue = values['normValue']
                         else:
                             if future1 == None:
-                                future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, False, values['normValue']])
+                                future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, False, values['normValue'], values['-MINUSDARK-']])
                         startOperation = False
                         SecondaryOperation = False
                     #
                     if ( (SecondaryOperation or future1 != None) and (time.time()-start_time>0.1) ):
                         if ( SecondaryOperation or future1._state != 'RUNNING' ):
+                            try:
+                                darkStatus = (future1.result())[1]
+                            except:
+                                None
                             # filter selection
                             if future2 == None:
                                 future2 = concurrent.futures.ThreadPoolExecutor().submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(values['_ABS_NM_']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_']])
@@ -470,6 +475,8 @@ def analyzerGraph(csvFile):
                             label = 'p{}_rr{}_c{}_wl{:.2f}_wgl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0].replace('_','-'), float(realWavelength), float(values['_WAVEGUIDE_LENGTH_']))
                             if values['-Reg_Norm_Val-'] == True:
                                 label = label + '_norm' + values['normValue']
+                            if values['-MINUSDARK-'] and darkStatus == True:
+                                label = label + '_minudark'
                             if future3 == None:
                                 future3 = concurrent.futures.ThreadPoolExecutor().submit(allandevation, df_plotted)
                             future2 = None
@@ -565,6 +572,11 @@ def analyzerGraph(csvFile):
             window2['_CSV_'].update(disabled=False)
             window2['-CLEAR_PLOT-'].update(disabled=False)
             window2['Close Graph'].update(disabled=False)
+            window2['-MINUSDARK-'].update(darkStatus)
+            if darkStatus:
+                window2['darkStatusText'].update("OK")
+            else:
+                window2['darkStatusText'].update("'dark.csv' not Found")
             #window2['-SLIDER-'].update(disable=False)
             #window2['_ppm_'].update(disabled=False)
             #window2['_Precents_'].update(disabled=False)
@@ -606,12 +618,16 @@ def analyzerGraph(csvFile):
                 window2['section_AbsValue'].update(visible=False)
             reread = True
         
-        elif event == '-Reg_Norm_Val-' or event == 'normValue' or event == '_WAVEGUIDE_LENGTH_' or event == '_ABS_NM_':
+        elif event == '-Reg_Norm_Val-' or event == 'normValue' or event == '_WAVEGUIDE_LENGTH_' or event == '_ABS_NM_' or event =="-MINUSDARK-":
             reread = True
 
         elif event == '-SLIDER-':
-            print(values['-SLIDER-'])
-            None
+            #print(values['-SLIDER-'])
+            if values['-SLIDER-'] == 0: # ppm mode
+                None
+            elif values['-SLIDER-'] == 1: # '%'' mode
+                None
+            
     # End of interactive.
 
 def timeSweepGraph(csvFile):
@@ -774,7 +790,7 @@ def regularSweepGraph(csvFile):
         sg.popup_ok("There was a problem reading the files.")
         exit()
     
-    df_ratio, df_clean, df_substance = getNormlizedByCustomFreq(csvFile)
+    df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile)
 
     # yAxisPowerS_dictionary = {}
     # yAxisRepS_dictionary = {}
@@ -828,7 +844,7 @@ def regularSweepGraph(csvFile):
 
         elif ( (event == '-Refresh-') or (event == '-MINUS_DARK-') ):
             window3 = sg.Window("Processing...", [[sg.Text("Renormalzing results, please wait...")]], finalize=True)
-            df_ratio, df_clean, df_substance = getNormlizedByCustomFreq(csvFile, values["normValue"], values['-MINUS_DARK-'], to_norm=values['-Reg_Norm_Val-'])
+            df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile, values["normValue"], values['-MINUS_DARK-'], to_norm=values['-Reg_Norm_Val-'])
             if values['cleanCheckBox']:
                 df_plotted_full = df_clean
             elif values['substanceCheckBox']:
@@ -957,7 +973,7 @@ if __name__ == '__main__':
 
     if args.csv_name == None:
         # dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\Real_Measurments\\'
+        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
         # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
         args.csv_name = dirname
         args.analyzer_substance = False
