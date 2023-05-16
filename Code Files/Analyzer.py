@@ -195,7 +195,7 @@ def beerLambert(val_list):
             if ( abs(k-wavenumberList[index]) > abs(k-wavenumberList[index-1]) ):
                 index = index - 1
             break
-    A = abs((AbsorptionList[index])*(1e10))
+    epsilon = abs((AbsorptionList[index]))
     l = l/1000 # Convert from mm to meter (For correct units to calculate).
     # Finding the index of the relvant/closest wavelength:
     columns = df_transmittance.columns.to_list()
@@ -219,15 +219,15 @@ def beerLambert(val_list):
         new_row = []
         for idx in range(10):
             new_row.append(df_transmittance.iloc[row][idx])
-        E = - df_transmittance.iloc[row][real_wavelength]
-        E = E/10
-        if E == 0:
+        A = - df_transmittance.iloc[row][real_wavelength]
+        A = A/10 # from 10*log(I0/I) [dB] to log(I0/I) (for beer lambert)
+        if A == 0:
             C = 0
         else:
             # Site 1: https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/11%3A_Coordination_Chemistry_III_-_Electronic_Spectra/11.01%3A_Absorption_of_Light/11.1.01%3A_Beer-Lambert_Absorption_Law
             # Site 2: https://www.nexsens.com/knowledge-base/technical-notes/faq/how-do-you-convert-from-molarity-m-to-parts-per-million-ppm-and-mgl.htm
-            C = (E/(l*A*G)) # [ppm]
-            # C = ((E/l)/A)/float(G) # [ppm]
+            # C = ((A/l)/epsilon)/float(G) # [ppm]
+            C = A/(l*epsilon*float(G)) # [ppm]
         #new_row.append(C)
         new_row.append(C)
         new_row.append(C/10000) #   '1%' = 10,000ppm 

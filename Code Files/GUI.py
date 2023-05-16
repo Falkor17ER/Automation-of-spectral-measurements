@@ -4,15 +4,11 @@ from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory, noiseMeasurments
 from json import load, dump
 from time import sleep
-from Interactive_Graph import interactiveGraph
 import PySimpleGUI as sg
 import os
 import signal
 import shutil
 import subprocess
-import thread
-import tkthread
-import concurrent.futures
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -171,9 +167,7 @@ def updateResults(window):
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-def open_Interactive_Graphs(dirName, analyzer_substance=False):
-    #dirName = val_list[0]
-    #analyzer_substance = val_list[1]
+def open_Interactive_Graphs(dirName, analyzer_substance = False):
     try:
         command = 'py'
         if analyzer_substance:
@@ -217,7 +211,7 @@ def checkStartConditions(values):
                 getTestErrorText = "Error: The max Number of Points per sample is XXX points."
         except:
                 getTestErrorText = "Error: The max Number of Points per sample is XXX points."
-    elif ((values["test_res"]=="Manuall (Enter a value)") and ((float(values["test_manuallRes"])<0) or (float(values["test_manuallRes"])>4) )):
+    elif ( (values["test_res"] == "Manuall (Enter a value)") and ((float(values["test_manuallRes"]) < 0) or (float(values["test_manuallRes"]) > 4) )):################################################
         getTestErrorText = "Error: The resolution you enter is not good value."
     elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
         getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
@@ -304,6 +298,7 @@ while True:
             window[i].update(values["selectAllRep"])
         print(values)
 
+
     elif event == "test_analyzer":
         if (values["test_analyzer"] == True):
             window['section_analyzer'].update(visible=True)
@@ -347,9 +342,7 @@ while True:
                     # Open a new process of the graph/grphs.
                     if (values['test_analyzer']):
                         graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-                        #interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
-                    graphs_pids.append(open_Interactive_Graphs(dirName)) # Threads
-                    #interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
+                    graphs_pids.append(open_Interactive_Graphs(dirName))
                 else:
                     shutil.rmtree(dirName)
                 window['Start Test'].update(disabled=False)
@@ -371,13 +364,8 @@ while True:
             filesList = os.listdir(dirName)
             filesList = [name[:-4] for name in filesList]
             if 'analyzer' in filesList:
-                None
                 graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-                #thread1 = thread.start_new_thread( print_time, ("Thread-1", 2, ) )
-                #interactiveGraphThread_AllanDeviation = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, True])
             graphs_pids.append(open_Interactive_Graphs(dirName))
-            #thread1 = thread.start_new_thread(interactiveGraph, ([dirName, False],) )
-            #interactiveGraphThread_Sweep = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(interactiveGraph, [dirName, False])
         except:
             continue
 
@@ -403,5 +391,3 @@ while True:
         break
 
 # End of GUI
-
-    # mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0],SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Button("Debug Graph"), sg.Push(), sg.Text(status)]]

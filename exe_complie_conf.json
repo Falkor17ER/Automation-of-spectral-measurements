@@ -1,0 +1,101 @@
+{
+ "version": "auto-py-to-exe-configuration_v1",
+ "pyinstallerOptions": [
+  {
+   "optionDest": "noconfirm",
+   "value": true
+  },
+  {
+   "optionDest": "filenames",
+   "value": "C:/Users/2lick/OneDrive - post.bgu.ac.il/Documents/Final BSC Project/Code/Automation-of-spectral-measurements/Code Files/GUI.py"
+  },
+  {
+   "optionDest": "onefile",
+   "value": true
+  },
+  {
+   "optionDest": "console",
+   "value": false
+  },
+  {
+   "optionDest": "ascii",
+   "value": false
+  },
+  {
+   "optionDest": "clean_build",
+   "value": false
+  },
+  {
+   "optionDest": "strip",
+   "value": false
+  },
+  {
+   "optionDest": "noupx",
+   "value": false
+  },
+  {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
+   "optionDest": "embed_manifest",
+   "value": true
+  },
+  {
+   "optionDest": "uac_admin",
+   "value": false
+  },
+  {
+   "optionDest": "uac_uiaccess",
+   "value": false
+  },
+  {
+   "optionDest": "win_private_assemblies",
+   "value": false
+  },
+  {
+   "optionDest": "win_no_prefer_redirects",
+   "value": false
+  },
+  {
+   "optionDest": "bootloader_ignore_signals",
+   "value": false
+  },
+  {
+   "optionDest": "argv_emulation",
+   "value": false
+  },
+  {
+   "optionDest": "datas",
+   "value": "./Code Files/Analyzer.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "./Code Files/Interactive_Graph.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "./Code Files/LASER.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "./Code Files/NKTP_DLL.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "./Code Files/NKTPDLL.dll;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "./Code Files/Operator.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "./Code Files/OSA.py;."
+  }
+ ],
+ "nonPyinstallerOptions": {
+  "increaseRecursionLimit": true,
+  "manualArguments": ""
+ }
+}

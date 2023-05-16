@@ -5,7 +5,6 @@ import time
 import concurrent.futures
 import matplotlib.pyplot as plt
 import numpy as np
-import tkthread
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.colors as mcolors
 from Analyzer import getNormlizedByCustomFreq, getAnalyzerTransmition, beerLambert, allandevation
@@ -217,20 +216,20 @@ def getDatabases():
     filenames = [name[:-4] for name in filenames]
     return filenames
 
-def get_minimum(data_file):
+def get_maximum(data_file):
     with open("..\\Databases\\"+data_file, mode='r') as data:
         data = data.readlines()
     if len(data) == 0:
         return False
-    minimum_A = float(data[0].split('\t')[1][:-1])
-    minimum_WN = float(data[0].split('\t')[0])
+    maximum_A = float(data[0].split('\t')[1][:-1])
+    maximum_WN = float(data[0].split('\t')[0])
     for line in data:
         A = float(line.split('\t')[1][:-1])
         WN = float(line.split('\t')[0])
-        if A < minimum_A:
-            minimum_A = A
-            minimum_WN = WN
-    return str(10000000/minimum_WN) # Convertion to [nm]
+        if A > maximum_A:
+            maximum_A = A
+            maximum_WN = WN
+    return str(10000000/maximum_WN) # Convertion to [nm]
 
 def saveAllanPlots(holdAllanDeviationList, new_allandeviation_line, csvFileName, dirname):
     holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
@@ -266,9 +265,8 @@ def saveAllanPlots(holdAllanDeviationList, new_allandeviation_line, csvFileName,
 
 # The managment function:
 
-def interactiveGraph(csvFile, analyzer_substance=False):
-    #csvFile = val_list[0]
-    #analyzer_substance = val_list[1]
+def interactiveGraph(csvFile, analyzer_substance = False):
+
     filesList = os.listdir(csvFile)
     filesList = [name[:-4] for name in filesList]
     if 'analyzer' in filesList:
@@ -288,8 +286,6 @@ def interactiveGraph(csvFile, analyzer_substance=False):
         timeSweepGraph(csvFile)
     elif type_of_graph == 'analyzer':
         analyzerGraph(csvFile)
-        #tkthread.call_nosync(analyzerGraph(csvFile))
-
 
 def analyzerGraph(csvFile):
 
@@ -326,11 +322,9 @@ def analyzerGraph(csvFile):
     animation = time.time()
     future = None
     sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-    #tkthread.call_nosync(sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50))
     while True:
         if (time.time() - animation > 0.05):
             sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-            #tkthread.call_nosync(sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50))
             animation = time.time()
         if future == None:
             future = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, False, '1550', True])
@@ -447,11 +441,11 @@ def analyzerGraph(csvFile):
                         if ( values['-Reg_Norm_Val-'] == True):
                             if (lastNormValue != values['normValue']):
                                 if future1 == None:
-                                    future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, values['-Reg_Norm_Val-'], values['normValue'],values['-MINUSDARK-']])
+                                    future1 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, values['-Reg_Norm_Val-'], values['normValue'],values['-MINUSDARK-']])
                                 lastNormValue = values['normValue']
                         else:
                             if future1 == None:
-                                future1 = concurrent.futures.ThreadPoolExecutor().submit(getAnalyzerTransmition, [csvFile, False, values['normValue'], values['-MINUSDARK-']])
+                                future1 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, False, values['normValue'], values['-MINUSDARK-']])
                         startOperation = False
                         SecondaryOperation = False
                     #
@@ -463,7 +457,7 @@ def analyzerGraph(csvFile):
                                 None
                             # filter selection
                             if future2 == None:
-                                future2 = concurrent.futures.ThreadPoolExecutor().submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(values['_ABS_NM_']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_']])
+                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(values['_ABS_NM_']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_']])
                             SecondaryOperation = False
                             future1 = None
                     #
@@ -479,7 +473,7 @@ def analyzerGraph(csvFile):
                             if values['-MINUSDARK-'] and darkStatus == True:
                                 label = label + '_minudark'
                             if future3 == None:
-                                future3 = concurrent.futures.ThreadPoolExecutor().submit(allandevation, df_plotted)
+                                future3 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(allandevation, df_plotted)
                             future2 = None
                     #
                     if ( (future3 != None) and (time.time()-start_time>0.1) ):
@@ -491,60 +485,6 @@ def analyzerGraph(csvFile):
                 adev = future3[1] # Everytime is calculating.
                 mean_interval = future3[2]
                 # End of the logic of working Animation.
-                #
-                # Grid:
-                # ax_conc - Major ticks every 20, minor ticks every 5:
-                # if (df_plotted['Interval'].tolist())[-1] > max_x_conc:
-                #     max_x_conc = (df_plotted['Interval'].tolist())[-1]
-                # if min(df_plotted['Concentration [ppm]'].tolist()) < min_y_conc:
-                #     min_y_conc = min(df_plotted['Concentration [ppm]'].tolist())
-                # if max(df_plotted['Concentration [ppm]'].tolist()) > max_y_conc:
-                #     max_y_conc = max(df_plotted['Concentration [ppm]'].tolist())
-                # try:
-                #     major_ticks = np.arange(0, max_x_conc, 20)
-                #     minor_ticks = np.arange(0, max_x_conc, 5)
-                #     ax_conc.set_xticks(major_ticks)
-                #     ax_conc.set_xticks(minor_ticks, minor=True)
-                # except:
-                #     None
-                # grid_y_range = max(df_plotted['Concentration [ppm]'].tolist())
-                # try:
-                #     major_ticks = np.arange(min_y_conc, max_y_conc, grid_y_range/5)
-                #     minor_ticks = np.arange(min_y_conc, max_y_conc, grid_y_range/20)
-                #     ax_conc.set_yticks(major_ticks)
-                #     ax_conc.set_yticks(minor_ticks, minor=True)
-                # except:
-                #     None
-                # new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [ppm]'], float), label=label, color = color)
-                # ax_conc.grid(which='minor', alpha=0.2)
-                # ax_conc.grid(which='major', alpha=1)
-                # # ax_deviation - Major ticks every 20, minor ticks every 5:
-                # if np.log10(tau[-1]) > max_x_deviation:
-                #     max_x_deviation = np.log10(tau[-1])
-                # if np.log10(min(adev)) < min_y_deviation:
-                #     min_y_deviation = np.log10(min(adev))
-                # if np.log10(max(adev)) > max_y_deviation:
-                #     max_y_deviation = np.log10(max(adev))
-                # try:
-                #     major_ticks = np.logspace(0, max_x_deviation, num=10, base=10.0)
-                #     minor_ticks = np.logspace(0, max_x_deviation, num=10, base=10.0)
-                #     ax_deviation.set_xticks(major_ticks)
-                #     ax_deviation.set_xticks(minor_ticks, minor=True)
-                # except:
-                #     None
-                # try:
-                #     major_ticks = np.logspace(min_y_deviation, max_y_deviation, num=10, base=10.0)
-                #     minor_ticks = np.logspace(min_y_deviation, max_y_deviation, num=10, base=10.0)
-                #     ax_deviation.set_yticks(major_ticks)
-                #     ax_deviation.set_yticks(minor_ticks, minor=True)
-                # except:
-                #     None
-                # Add to both plots
-                # new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
-                # ax_deviation.grid(which='minor', alpha=0.2, linestyle='--')
-                # ax_deviation.grid(which='major', alpha=1, linestyle='-')
-                # # Add to both plots
-                # ax_deviation.legend(loc='upper right')
                 clear_plots(ax_conc, ax_deviation, values['-SLIDER-'])
                 add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
                 new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
@@ -612,7 +552,7 @@ def analyzerGraph(csvFile):
 
         elif event == '_DATA_FILE_':
             if len(values['_DATA_FILE_']) > 0:
-                wavelength = get_minimum(values['_DATA_FILE_'][0]+'.txt')
+                wavelength = get_maximum(values['_DATA_FILE_'][0]+'.txt')
                 window2['section_AbsValue'].update(visible=True)
                 window2['_ABS_NM_'].update(wavelength)
             else:
@@ -987,33 +927,10 @@ if __name__ == '__main__':
 
     if args.csv_name == None:
         # dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-        dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_15_19_12_36_782780_Test_sample1_CF=1500_Span=50_analyzer=False\\'
-        # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
+        dirname = "..\\Results\\Uzziels_Theoretical_Measurements\\"
         args.csv_name = dirname
         args.analyzer_substance = False
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
     interactiveGraph(args.csv_name, analyzer_substance=args.analyzer_substance)
-
-###########################################
-# if __name__ == '__main__':
-#     # Create the argument parser
-#     parser = argparse.ArgumentParser(description='Plot graphs')
-
-#     # Add arguments
-#     parser.add_argument('--csv_name', type=str)
-#     parser.add_argument('--analyzer_substance', type=bool)
-
-#     # Parse the arguments
-#     args = parser.parse_args()
-
-#     if args.csv_name == None:
-#         dirname = 'C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-#         # dirname = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty___CF=1600nm, Span=50nm, NPoints=Auto, sens=MID, res=2nm (1_643nm), analyzer=True\\"
-#         args.csv_name = dirname
-#         args.analyzer_substance = True
-#         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
-#         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
-#         # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
-#     interactiveGraph(args.csv_name, analyzer_substance=args.analyzer_substance)

@@ -86,37 +86,12 @@ def getReps(values):
             continue
     return reps
 
-def meanMeasure(laser, osa ,numOfSamples, numOfDots, debugMode):
+def meanMeasure(osa ,numOfSamples, numOfDots, debugMode, debug_type):
     try:
         numOfSamples = int(numOfSamples)
     except:
         numOfSamples = 1
     if not debugMode:
-        # measuretList = []
-        # resultList = []
-        # for i in range(0,numOfSamples):
-        #     sleep(0.2)
-        #     osa.sweep()
-        #     data = osa.getCSVFile("noiseMeasurment")
-        #     data_decoded = data.decode("utf-8")
-        #     data_decoded = data_decoded.split("\r\n")
-        #     smpls = data_decoded[39:-2]
-        #     wavelengths = [float(pair.split(",")[0]) for pair in smpls]
-        #     measurment = [float(pair.split(",")[1]) for pair in smpls]
-        #     measuretList.append(measurment)
-        # i = 0
-        # j = 0
-        # if numOfSamples > 1:
-        #     while (i < numOfDots):
-        #         sum = 0
-        #         while (j < numOfSamples):
-        #             sum += measuretList[j][i]
-        #             j = j+1
-        #         resultList.append(sum/numOfSamples)
-        #         j = 0
-        #         i = i+1
-        #     return resultList
-        # return measuretList[0]
         osa.setAveraging(str(numOfSamples))
         osa.sweep()
         data = osa.getCSVFile("noiseMeasurment")
@@ -124,7 +99,15 @@ def meanMeasure(laser, osa ,numOfSamples, numOfDots, debugMode):
         data_decoded = data_decoded.split("\r\n")
         smpls = data_decoded[39:-2]
         return [float(pair.split(",")[1]) for pair in smpls]
-    return np.random.rand(numOfDots)*(-100)
+    if debug_type == 'dark':
+        random_samples = np.random.uniform(-95, -85, size=numOfDots)
+    elif debug_type == 'empty':
+        random_samples = np.random.uniform(-70, -68, size=numOfDots)
+    else: # With substance
+        random_samples = np.random.uniform(-70, -67, size=numOfDots)
+        if numOfDots > 10:
+            random_samples[len(random_samples)//2:(len(random_samples)//2)+5] = random_samples[len(random_samples)//2:(len(random_samples)//2)+5] - [1,3,7,4,2]
+    return random_samples
 
 def noiseMeasurments(laser, osa ,values, debugMode, csvName): # Dark Measurmennts
     # Here we are taking in mind that the laser and the OSA are already configed.
@@ -140,7 +123,7 @@ def noiseMeasurments(laser, osa ,values, debugMode, csvName): # Dark Measurmennt
         configureOSA(osa,values['test_CF'],values['test_SPAN'],pts,values['test_sens'],values['test_res'])
     else:
         pts = 501
-    darkMeasurment = meanMeasure(laser, osa ,values['darkNumSamplesParameter'], pts, debugMode)
+    darkMeasurment = meanMeasure(osa ,values['darkNumSamplesParameter'], pts, debugMode, debug_type='dark')
     startF = int(values["test_CF"]) - int(values["test_SPAN"])/2
     stopF = startF + int(values["test_SPAN"])
     freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["test_SPAN"])/pts)]
@@ -162,25 +145,6 @@ def noiseMeasurments(laser, osa ,values, debugMode, csvName): # Dark Measurmennt
     # End of measurments
     allResults_df.to_csv(csvName, index=False)
     sleep(0.2)
-
-# def emptyMeasurments(laser,osa, numOfDots,emptyNum=3):
-#     # Here we are taking in mind that the laser and the OSA are already configed.
-#     laser.emission(1)
-#     print("Empty measurment, please wait...")
-#     sleep(0.5)
-#     emptyMeasurment = meanMeasure(laser,osa ,emptyNum,numOfDots, debugMode)
-#     return emptyMeasurment
-
-# def laserMeasurment(laser,osa, numOfSamples,numOfDots,darkMeasurment=0,emptyMeasurment=0):
-#     laser.emission(1)
-#     sleep(0.5)
-#     # print("Starting measurment, please wait...")
-#     measurment = meanMeasure(laser,osa ,numOfSamples,numOfDots, debugMode)
-#     if (darkMeasurment != 0):
-#         measurment -= darkMeasurment
-#     if (emptyMeasurment != 0):
-#         measurment -= emptyMeasurment
-#     return measurment
 
 def getTime():
     time = str(datetime.today())
@@ -261,7 +225,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 #
                 while(time() - startTime < totalTime):
                     lastTime = time()
-                    result = meanMeasure(laser,osa, 1 ,pts, debugMode)
+                    result = meanMeasure(osa, 1 ,pts, debugMode, debug_type='substance')
                     new_row = []
                     new_row.append(getTime())
                     new_row.append(values["TEST1_COMMENT"])
@@ -284,9 +248,11 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
                 if csvname[-9:-4] == "clean":
                     numOfSamples = values['cleanNumSamplesParameter']
+                    debug_type = 'empty'
                 if csvname[-13:-4] == "substance":
                     numOfSamples = values['substanceNumSamplesParameter']
-                result = meanMeasure(laser,osa,numOfSamples,pts, debugMode)
+                    debug_type = 'substance'
+                result = meanMeasure(osa,numOfSamples,pts, debugMode, debug_type = debug_type)
                 new_row = []
                 new_row.append(getTime())
                 new_row.append(values["TEST1_COMMENT"])
