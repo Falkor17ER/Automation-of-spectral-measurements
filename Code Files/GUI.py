@@ -9,6 +9,7 @@ import os
 import signal
 import shutil
 import subprocess
+import threading
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -41,6 +42,22 @@ graphs_pids = []
 
 #---------------------------------------------------------------------------------------------------------------------------
 
+# class StoppableThread(threading.Thread):
+#     """Thread class with a stop() method. The thread itself has to check
+#     regularly for the stopped() condition."""
+
+#     def __init__(self,  *args, **kwargs):
+#         super(StoppableThread, self).__init__(*args, **kwargs)
+#         self._stop_event = threading.Event()
+
+#     def stop(self):
+#         self._stop_event.set()
+
+#     def stopped(self):
+#         return self._stop_event.is_set()
+
+#---------------------------------------------------------------------------------------------------------------------------
+
 # Initial reads
 # The Currently working directory - where this .py file can be found.
 cwd = os.getcwd()
@@ -53,7 +70,7 @@ rep_values_MHz = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MHz': 4, '1
 # The size of the GUI window (Width, Length).
 SIZE = (600,600)
 #sg.theme('DarkBlue')
-
+sg.theme('Default')
 #---------------------------------------------------------------------------------------------------------------------------
 
 # Functions:
@@ -254,13 +271,41 @@ def reopenMainL(window = None):
     return window
 
 def popup(message):
-    sg.theme('DarkGrey')
+    #sg.theme('DarkGrey')
+    sg.theme('Default')
     layout = [[sg.Text(message)]]
     window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
     return window
 
-def theTestThread():################################################################################################# To copy here the steps from 'Start Test' event.
-    None
+def theTestThread(window):
+    window['test_errorText'].update("Executing 'Dark' Test...")
+    noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
+    window['test_errorText'].update("Executing 'Clean/Empty' Tests...")
+    getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
+    # For user
+    tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
+    # OK was chosen
+    if (tempEvent.upper()=="OK"):
+        window['test_errorText'].update("Executing 'Substance' Test...")
+        if (values['test_analyzer']):
+            if (not debugMode):
+                laser.emission(0)
+                sleep(8)
+            getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv") 
+        else:
+            getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
+        # Adding to Results tab.
+        updateResults(window)
+        # Open a new process of the graph/grphs.
+        if (values['test_analyzer']):
+            graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+        graphs_pids.append(open_Interactive_Graphs(dirName))
+    else:
+        shutil.rmtree(dirName)
+    window['Start Test'].update(disabled=False)
+    window['section_stopTest'].update(visible=False)
+    window['test_errorText'].update("Finish Testing.")
+    # End of the test process.
 
 # The checking events - The managment of the GUI:
 window = reopenMainL()
@@ -334,36 +379,9 @@ while True:
                 window['test_errorText'].update("Executing Clean Test...")
                 ############################################################################# From here we start the thred of a function:
                 dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
-                window_message = sg.Window("",[[sg.Text("Executing 'Dark' Test...")]])
-                noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
-                window['test_errorText'].update("Executing 'Clean/Empty' Test...")
-                getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
-                window_message.close()
-                # For user
-                tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
-                # OK was chosen
-                if (tempEvent.upper()=="OK"):
-                    window['test_errorText'].update("Executing 'Substance' Test...")
-                    window_message = sg.Window("",[[sg.Text("Executing Substance Test...")]])
-                    if (values['test_analyzer']):
-                        if (not debugMode):
-                            laser.emission(0)
-                            sleep(8)
-                        getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv") 
-                    else:
-                        getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
-                    window_message.close()
-                    # Adding to Results tab.
-                    updateResults(window)
-                    # Open a new process of the graph/grphs.
-                    if (values['test_analyzer']):
-                        graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-                    graphs_pids.append(open_Interactive_Graphs(dirName))
-                else:
-                    shutil.rmtree(dirName)
-                window['Start Test'].update(disabled=False)
-                window['section_stopTest'].update(visible=False)
-                window['test_errorText'].update("Finish Testing.")
+                testThread = threading.Thread(target=theTestThread, args=(window,))
+                StoppableThread(testThread)
+                testThread.start()
                 ######################################################################################### End of the function to thread.
             else:
                 window['test_errorText'].update(getTestErrorText)
@@ -373,7 +391,9 @@ while True:
         # This function support to stop the test. ######################################### need a work - we can enter all the test process into a thread, if there is a stop we juct cllose  the thred, I don't care if we don't save any result if the test didn't finish. He can make little samples.
         window['section_stopTest'].update(visible=False)
         window['Start Test'].update(disabled=False)
-        ################################################################################################## Thread.close()
+        testThread.stop()
+        # testThread._Thread_stop() # Not working################################################################################################## Thread.close()
+        #testThread.exit() # Not working################################################################################################## Thread.close()
         window['test_errorText'].update("The testing process was stopped.")
         sg.popup_ok("The test process was stopped  by the user!")
         getTestErrorText = ""

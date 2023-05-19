@@ -311,7 +311,7 @@ def analyzerGraph(csvFile):
         ax1.grid()
         ax2.grid(markevery=1)
 
-    def add_allanDeviation_history(ax_conc, ax_deviation, hold_lines_conc, hold_lines_dev, fig_agg):
+    def add_allan_history(ax_conc, ax_deviation, hold_lines_conc, hold_lines_dev, fig_agg):
         for line1 in hold_lines_conc.values():
             ax_conc.add_line(line1)
         ax_conc.legend(loc='upper right')
@@ -546,7 +546,7 @@ def analyzerGraph(csvFile):
                 # # Add to both plots
                 # ax_deviation.legend(loc='upper right')
                 clear_plots(ax_conc, ax_deviation, values['-SLIDER-'])
-                add_allanDeviation_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
+                add_allan_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg)
                 new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
                 if (values['-SLIDER-'] == 0):
                     new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [ppm]'], float), label=label, color = color)
@@ -650,7 +650,7 @@ def timeSweepGraph(csvFile):
         except:
             return False
 
-    def add_allanTime_history(ax, hold_lines, fig_agg):
+    def add_allan_history(ax, hold_lines, fig_agg):
         for line1 in hold_lines.values():
             ax.add_line(line1)
         ax.legend(loc='upper right')
@@ -699,7 +699,7 @@ def timeSweepGraph(csvFile):
             curr_label = '{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i])
             if curr_label not in hold_lines.keys():
                 line1 = update_internal_graph(ax, temp_df, fig_agg, i, color)
-                add_allanTime_history(ax, hold_lines, fig_agg)
+                add_allan_history(ax, hold_lines, fig_agg)
             i = (i+1) % len(interval_list)
 
         if values['-ALLAN_REP-'] and values['-ALLAN_POWER-'] and not test_selected:
@@ -731,7 +731,7 @@ def timeSweepGraph(csvFile):
             curr_label = '{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i])
             if curr_label not in hold_lines.keys():
                 line1 = update_internal_graph(ax, temp_df, fig_agg, i, color)
-                add_allanTime_history(ax, hold_lines, fig_agg)
+                add_allan_history(ax, hold_lines, fig_agg)
 
         if event == '-HOLD_TRACE-':
             if line1 != False:

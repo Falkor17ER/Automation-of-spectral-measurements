@@ -90,3 +90,79 @@
 #     ax.grid()
 #     fig_agg = draw_figure_w_toolbar(window['figCanvas'].TKCanvas, fig, window['controls_cv'].TKCanvas)
 ######################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# After Big Change, but still not working:
+# main_Layout =[
+    #     [sg.Menu(menu, key='MENU', font='22')],
+    #     [sg.Column(sweepGraph, visible=True, key='section_sweepGraph')],
+    #     [sg.Column(allan_and_concentration, visible=False, key='section_Allan_Concentration')],
+    #     [sg.Column(allan_time_analyze, visible=False, key='section_TimeAnalyze')]]
+    
+    #col, col1, col2, col3 = 1, window['section_sweepGraph'], window['section_Allan_Concentration'], window['section_TimeAnalyze']
+    #col = 1
+    #col1 = window['section_sweepGraph']
+    #col2 = window['section_Allan_Concentration']
+    #col3 = window['section_TimeAnalyze']
+    
+    #layout1 = [[sg.Menu(menu, key='MENU', font='22')], [sg.Column(sweepGraph, key='section_sweepGraph', visible=True)]]
+    #layout2 = [[sg.Menu(menu, key='MENU', font='22')], [sg.Column(allan_and_concentration, key='section_Allan_Concentration', visible=True)]]
+    # layout3 = [[sg.Menu(menu, key='MENU', font='22')], [sg.Column(allan_time_analyze, key='section_TimeAnalyze', visible=True)]]
+    #window = sg.Window("Interactive Graph", layout1, finalize=True)
+    #window = sg.Window("Interactive Graph", layout2, finalize=True)
+    #window = sg.Window("Interactive Graph", layout3, finalize=True)
+
+
+        if (event == "Sweep Graph") and (mode != "Sweep Graph"):
+            mode = "Sweep Graph"
+            #window = sg.Window("Interactive Graph", layout1, finalize=True)
+            window[f'section_sweepGraph'].update(visible=True)
+            window[f'section_Allan_Concentration'].update(visible=False)
+            window[f'section_TimeAnalyze'].update(visible=False)
+            # col1.update(visible = True)
+            # col2.update(visible = False)
+            # col3.update(visible = False)
+            #fig1,ax,fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
+        
+        elif (event == "Allan Deviation and Concentration") and (mode != "Allan Deviation and Concentration"):
+            if flag_allan:
+                mode ="Allan Deviation and Concentration"
+                window[f'section_sweepGraph'].update(visible=False)
+                window[f'section_Allan_Concentration'].update(visible=True)
+                window[f'section_TimeAnalyze'].update(visible=False)
+                #window = sg.Window("Interactive Graph", layout2, finalize=True)
+                # col1.update(visible = False)
+                # col2.update(visible = True)
+                # col3.update(visible = False)
+                #fig2, ax_conc, ax_deviation, fig_agg2 = drawAllanDeviationGraph(fig2, ax_conc, ax_deviation, fig_agg2)
+            else:
+                sg.popup_ok("There are no propriate files to show this graph.")
+
+        elif (event == "Allan Time") and (mode != "Allan Time"):
+            if flag_allanTime:
+                mode = "Allan Time"
+                window[f'section_sweepGraph'].update(visible=False)
+                window[f'section_Allan_Concentration'].update(visible=False)
+                window[f'section_TimeAnalyze'].update(visible=True)
+                #window = sg.Window("Interactive Graph", layout3, finalize=True)
+                # col1.update(visible = False)
+                # col2.update(visible = False)
+                # col3.update(visible = True)
+                #fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i = drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i)
+            else:
+                sg.popup_ok("There are no propriate files to show this graph.")
