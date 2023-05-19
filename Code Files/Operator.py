@@ -1,17 +1,9 @@
 import pandas as pd
 import numpy as np
-# import PySimpleGUI as sg
-# from OSA import OSA
-# from LASER import Laser
-# import threading
 import matplotlib.pyplot as plt
 import os
-# from json import load, dump
 from time import sleep, time
-# import pylab as plb
-# from GUI import enterSubstanceToMeasure
 from datetime import datetime
-
 
 #Globals
 global numOfMeasurments

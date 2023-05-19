@@ -110,15 +110,6 @@ def getSampleL():
         sampleL = [[sg.Push(), sg.Text("Connect to devices first or work in 'Debug Mode'"), sg.Push()]]
     return sampleL
 
-def getDatabases():
-    try:
-        foldersNames = os.listdir("..\\Databases")
-    except:
-        os.mkdir("..\\Databases")
-        foldersNames = os.listdir("..\\Databases")
-    foldersNames.sort()   
-    return foldersNames
-
 def getTests():
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
     analyzerSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",
@@ -146,6 +137,17 @@ def getTests():
         test_values = [[sg.Push(), sg.Text("Connect to devices first or run in 'Debug Mode'"), sg.Push()]]
     return test_values
 
+def getDatabases():
+    # This function is to check and show the list of files it is possible to load to the 'Results' Rublica.
+    try:
+        foldersNames = os.listdir("..\\Databases")
+    except:
+        os.mkdir("..\\Databases")
+        foldersNames = os.listdir("..\\Databases")
+    foldersNames.sort()   
+    return foldersNames
+
+# The fourth layout - the results window:
 def getResultsTabLayout():
     try:
         foldersNames = os.listdir("..\\Results")
@@ -159,13 +161,16 @@ def getResultsTabLayout():
     return Layout
 
 def updateResults(window):
+    # This function is to update the list in the result rublica after a measurment was finished.
     foldersNames = os.listdir("..\\Results")
     foldersNames.sort()
     window['-SAMPLE_TO_PLOT-'].update(foldersNames)
 
-# End of Layouts.-----------------------------------------------------------------------------------------------------------
+# End of Layouts.
 
 #---------------------------------------------------------------------------------------------------------------------------
+
+# 
 
 def open_Interactive_Graphs(dirName, analyzer_substance = False):
     try:
@@ -200,6 +205,7 @@ def updateJsonFileBeforeEnd(values):
         dump(connectionsDict, f)
 
 def checkStartConditions(values):
+    # Checking all the condition if everything is ok and we can start the test:
     getTestErrorText = ""
     if (int(values["test_CF"]) < 700):
         getTestErrorText = "Error: The 'Center Frequency' can only be between 700nm to 1600nm."
@@ -211,7 +217,7 @@ def checkStartConditions(values):
                 getTestErrorText = "Error: The max Number of Points per sample is XXX points."
         except:
                 getTestErrorText = "Error: The max Number of Points per sample is XXX points."
-    elif ( (values["test_res"] == "Manuall (Enter a value)") and ((float(values["test_manuallRes"]) < 0) or (float(values["test_manuallRes"]) > 4) )):################################################
+    elif ( (values["test_res"] == "Manuall (Enter a value)") and ((float(values["test_manuallRes"]) < 0) or (float(values["test_manuallRes"]) > 4) )):
         getTestErrorText = "Error: The resolution you enter is not good value."
     elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
         getTestErrorText = "Error: The start power of the laser must be btween 6 to 100"
@@ -253,11 +259,16 @@ def popup(message):
     window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
     return window
 
+def theTestThread():################################################################################################# To copy here the steps from 'Start Test' event.
+    None
+
 # The checking events - The managment of the GUI:
 window = reopenMainL()
 while True:
     event, values = window.read()
+    
     if event == 'Connect':
+        # This function try connect the devices:
         try:
             osa = OSA(values[0])
             laser = Laser(values[2])
@@ -273,6 +284,7 @@ while True:
         updateConnections(values)
         
     elif event == 'Debug Mode':
+        # Move and working in Debug Mode to allow the relevant functions and rest of the GUI.
         debugMode = True
         status = "Debug Mode"
         getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "Now you are working in 'Debug Mode'!"
@@ -281,25 +293,28 @@ while True:
         window = reopenMainL(window)
 
     elif event == 'Sample':
+        # To do only one sample.
         if ( isConnected or (not debugMode) ):
             setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"])
             getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
     
     elif event == "testPowerLevelSweep":
+        # To show the power test parameters setting.
         if (values["testPowerLevelSweep"] == True):
             window['section_powerSweep'].update(visible=True)
         else:
             window['section_powerSweep'].update(visible=False)
 
     elif event == "selectAllRep":
+        # Checking or unchecking all the reputations together.
         RepList = ["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r12","r14","r16","r18","r20","r22","r25","r27","r29","r32","r34","r37","r40"]
         for i in RepList:
             values[i] = values['selectAllRep']
             window[i].update(values["selectAllRep"])
         print(values)
 
-
     elif event == "test_analyzer":
+        # To show the parameters part of the analyzer setting.
         if (values["test_analyzer"] == True):
             window['section_analyzer'].update(visible=True)
         else:
@@ -307,9 +322,9 @@ while True:
 
     elif event == "Start Test":
         if (isConnected or debugMode):
-            getTestErrorText = checkStartConditions(values)
+            getTestErrorText = checkStartConditions(values) # Checking if all the parameters & conditions to start the tests are OK.
             if (getTestErrorText == ""):
-                # EveryThing is OK
+                # EveryThing is OK - Starting the test.
                 if values["test_res"] == "Manuall (Enter a value)":
                     res = values["test_manuallRes"]
                 else:
@@ -317,6 +332,7 @@ while True:
                 window['Start Test'].update(disabled=True)
                 window['section_stopTest'].update(visible=True)
                 window['test_errorText'].update("Executing Clean Test...")
+                ############################################################################# From here we start the thred of a function:
                 dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
                 window_message = sg.Window("",[[sg.Text("Executing 'Dark' Test...")]])
                 noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
@@ -348,16 +364,22 @@ while True:
                 window['Start Test'].update(disabled=False)
                 window['section_stopTest'].update(visible=False)
                 window['test_errorText'].update("Finish Testing.")
+                ######################################################################################### End of the function to thread.
             else:
                 window['test_errorText'].update(getTestErrorText)
             getTestErrorText = ""
 
     elif event == "Stop Test":
+        # This function support to stop the test. ######################################### need a work - we can enter all the test process into a thread, if there is a stop we juct cllose  the thred, I don't care if we don't save any result if the test didn't finish. He can make little samples.
         window['section_stopTest'].update(visible=False)
         window['Start Test'].update(disabled=False)
-        
+        ################################################################################################## Thread.close()
+        window['test_errorText'].update("The testing process was stopped.")
+        sg.popup_ok("The test process was stopped  by the user!")
+        getTestErrorText = ""
 
     elif event == "-LOAD_SAMPLE-":
+        # This function load a result from the forth rublic.
         try:
             command = 'py'
             dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
@@ -370,6 +392,7 @@ while True:
             continue
 
     elif event == '-DELETE_SAMPLE-':
+        #  This function delete the selected result from the results list in the forth rublic.
         tempEvent = sg.popup_ok_cancel("Are you sure you  want to delete this sample?")
         if ( tempEvent.upper() == "OK" ):
             try:
@@ -381,6 +404,7 @@ while True:
             #window['-SAMPLE_TO_PLOT-'].Update()
 
     elif ( (event == 'Close') or (event == sg.WIN_CLOSED) ):
+        # This function close the main GUI.
         window.close()
         for pid in graphs_pids:
             try:

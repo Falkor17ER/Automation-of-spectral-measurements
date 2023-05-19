@@ -1,10 +1,12 @@
+# This file is an API to work and send commands to the OSA device.
 import socket
 from time import sleep, time
 
 class OSA:
-    # Class to operate the OSA
+    # Class to operate the OSA:
+
     def __init__(self, IP):
-        # Create a TCP/IP socket
+        # Create a TCP/IP socket.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Connect the socket to the port where the server is listening
         server_address = (IP, 10001)
@@ -14,9 +16,8 @@ class OSA:
         self.Auth()
         self._pts = None
 
-
     def sendToOSA(self, string: str, print_flag = True):
-        # Add a newline character to the end of the string
+        # Add a newline character to the end of the string.
         string = string + "\r\n"
         if print_flag:
             print('sending {}'.format(string))
@@ -26,7 +27,7 @@ class OSA:
         self.sock.sendall(binary_data)
 
     def receiveFromOSA(self, MSGLEN = 1024) -> str:
-        # Add a newline character to the end of the string
+        # Add a newline character to the end of the string.
         binary_data = self.sock.recv(1024)
         string = binary_data.decode("utf-8")
         # Remove the newline character from the end of the string
@@ -34,6 +35,7 @@ class OSA:
         return string
 
     def Auth(self):
+        # Auttentication - the connection is OK.
         self.sendToOSA('open \"anonymous\"') # This is open \"Username"
         if self.receiveFromOSA() != 'AUTHENTICATE CRAM-MD5.':
             print("Connection failed\n")
@@ -63,7 +65,7 @@ class OSA:
         return True
 
     def setSpan(self, span):
-        # Set the span. The range will be: [(cf-span/2, cf+span/2)]
+        # Set the span. The range will be: [(cf-span/2, cf+span/2)].
         self.sendToOSA(':sens:wav:span {}nm'.format(span))
         return True
 
@@ -74,18 +76,16 @@ class OSA:
         else:
             self.sendToOSA(':sens:sweep:points:auto off')
             self.sendToOSA(':sens:sweep:points {}'.format(points))
-            
-        
         self.sendToOSA(':sens:sweep:points?')
-
         self._pts = int(self.receiveFromOSA())
         return True
     
     def getPoints(self):
+        # Get from the device the number of points per sample.
         return self._pts
     
     def setAveraging(self, times):
-        # from documantation :SENSE:AVERAGE:COUNT 100
+        # From documantation :SENSE:AVERAGE:COUNT 100.
         self.sendToOSA(':SENSE:AVERAGE:COUNT {}'.format(times))
 
     def setSpeed(self, speed):
@@ -94,13 +94,12 @@ class OSA:
         return True
 
     def setSens(self, sens):
-        # Changing the sensetivity of the device measurment
+        # Changing the sensetivity of the device measurment.
         self.sendToOSA(':sens:sens {}'.format(sens))
         return True
 
-    ############################################################################## Page 68 on OSA Control Manuall
     def setRes(self, res):
-    # Changing the resolution of the device measurment
+    # Changing the resolution of the device measurment.
         # self.sendToOSA(':SENSe:BANDwidth|:BWIDth[:RESolution]<wsp><NRf>[M|Hz]'.format(res))
         self.sendToOSA(':SENSE:BANDWIDTH:RESOLUTION {:.3f}NM'.format(float(res)))
         #self.sendToOSA(''.format(res))
@@ -133,8 +132,6 @@ class OSA:
         # number of sweeps
         while mode != 0:
             # mode: number of sweeps
-
-
             self.sendToOSA(':init:smode 1')
             self.sendToOSA('*CLS')
             sweep_completed = False
@@ -149,12 +146,11 @@ class OSA:
                         sweep_completed = True
                         break
                     if time() - start > 30:
-                        break             
-                
+                        break
             mode = mode - 1
     
     def sweepLive(self, mode=1):
-        # number of sweeps
+        # Number of sweeps.
         sleepTime = 0.1
         index = 0
         while mode != 0:
@@ -166,7 +162,6 @@ class OSA:
             sleep(0.05)
             self.sendToOSA(':init')
             sleep(0.05)
-
             # Wating for sweep to complete
             N = 200 * sleepTime
             i = 0
@@ -183,7 +178,6 @@ class OSA:
                 i = i+1
                 if (i >= N):
                     ans = '1'
-
             print(index)
             print(i)    
             mode = mode - 1
@@ -196,7 +190,7 @@ class OSA:
             return True
         return False
 
-
+# For Our checking - to delete.
 if __name__ == '__main__':
     osa = OSA(IP = '10.0.0.101')
     osa.setAveraging('2')

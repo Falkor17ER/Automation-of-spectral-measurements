@@ -67,8 +67,8 @@ def getNormlizedByRealFreq(dirname, darkMinus, to_norm, real_freq = '1500'):
 
     if to_norm:
         # Getting the elemnts of normalizations:
-        norm_vals_clean = clean_df[real_freq]
-        norm_vals_substance = substance_df[real_freq]
+        norm_vals_clean = clean_df[str(float(real_freq))]#################################################################################Problem
+        norm_vals_substance = substance_df[str(float(real_freq))]
 
         # Normalizing both clean and substance CSVs
         for idx in range(0,R):

@@ -1,0 +1,92 @@
+
+
+    # main_Layout = [
+    #     [sg.Push(), sg.Text("Please Chose the type of graph you want"), sg.Combo(["Sweep Graph", "Allan deviation & Concentration","Time analyze"], enable_events=True, key='-PLOT_TYPE-', default_value="Sweep Graph"), sg.Push()],
+    #     [sg.Column(sweepGraph, key='section_sweepGraph'), sg.Column(allan_and_concentration,key='section_Allan_Concentration'), sg.Column(allan_time_analyze,key='section_TimeAnalyze')]
+    #     ]
+    # return main_Layout
+
+# This is the main Layout - connect all the previous layouts:
+# def mainLayout (frequencyList, powerList, norm_freq_list, numIntervals):
+#     sweepGraph = getSweepLayout(frequencyList, powerList, norm_freq_list)
+#     allan_and_concentration = getAllanDeviationLayout(frequencyList, powerList, norm_freq_list)
+#     allan_time_analyze = getAllanLayout(frequencyList, powerList, numIntervals)
+#     main_Layout = [[sg.Push(), sg.Text("Please Chose the type of graph you want"), sg.Push()], [sg.Push(), sg.Combo(["Sweep Graph", "Allan deviation & Concentration","Time analyze"], enable_events=True, key='-PLOT_TYPE-', default_value="Sweep Graph"), sg.Push()],
+#     [collapse(sweepGraph, 'section_sweepGraph', True)],
+#     [collapse(allan_and_concentration, 'section_Allan_Concentration', False)],
+#     [collapse(allan_time_analyze, 'section_TimeAnalyze', False), sg.Push()]]
+
+###########
+
+        # if event == "-PLOT_TYPE-":
+        # # Changing to the relevant wanted window:
+        #     if values['-PLOT_TYPE-'] == 'section_sweepGraph':
+        #         window['section_sweepGraph'].update(visible=True)
+        #         window['section_Allan_Concentration'].update(visible=False)
+        #         window['section_TimeAnalyze'].update(visible=False)
+        #     elif values['-PLOT_TYPE-'] == 'section_Allan_Concentration':
+        #         if flag_allan:
+        #             window['section_sweepGraph'].update(visible=False)
+        #             window['section_Allan_Concentration'].update(visible=True)
+        #             window['section_TimeAnalyze'].update(visible=False)
+        #         else: sg.popup_ok("There are no propriate files to show this graph.")
+        #     elif values['-PLOT_TYPE-'] == 'section_TimeAnalyze':
+        #         if flag_allan:
+        #             window['section_sweepGraph'].update(visible=False)
+        #             window['section_Allan_Concentration'].update(visible=False)
+        #             window['section_TimeAnalyze'].update(visible=True)
+        #         else: sg.popup_ok("There are no propriate files to show this graph.")
+
+
+
+    # # Creating the automatic first graph:
+    # fig = plt.figure()
+    # plt.ion() 
+    # # fig = plt.gcf()
+    # fig.set_figwidth(PLOT_SIZE[0])
+    # fig.set_figheight(PLOT_SIZE[1])
+    # # draw_figure(window['figCanvas'].TKCanvas, fig)
+    # ax = fig.add_subplot(111)
+    # ax.set_xlabel("Wavelength [nm]")
+    # ax.grid()
+    # fig_agg = draw_figure_w_toolbar(window['figCanvas'].TKCanvas, fig, window['controls_cv'].TKCanvas)
+    # plt.title('No Plot to show. Choose data...')
+
+    # slider_elem = window['-SLIDER-']
+    # window['-SLIDER-'].bind('<ButtonRelease-1>', ' Release')
+    # slider_update = False
+    # test_selected = False
+    # i = 0
+
+# The end of parmeters.
+
+# ############################################################ Mass
+#     # End of creating the graph.
+#     # This part is for the allan deviation graph:
+
+#     # Creating the automatic first graph:
+#     fig = plt.figure()
+#     plt.ion()
+#     fig.set_figwidth(ALLAN_DEVIATION_SIZE[0])
+#     fig.set_figheight(ALLAN_DEVIATION_SIZE[1])
+#     ax_deviation = fig.add_subplot(211)
+#     ax_deviation.set_title("Allan Deviation")
+#     ax_deviation.grid(markevery=1)
+#     ax_conc = fig.add_subplot(212)
+#     ax_conc.set_xlabel("Time [s]")
+#     ax_deviation.set_xlabel("Averaging time [s]")
+#     ax_conc.set_title("Concentration [ppm]")
+#     ax_conc.grid()
+#     fig_agg = draw_figure_w_toolbar(window['figCanvas'].TKCanvas, fig, window['controls_cv'].TKCanvas)
+#     fig.tight_layout(pad=5.0)
+#     # End of creating the graph.
+#     # draw the initial plot in the window
+#     fig = plt.Figure()
+#     fig.set_figwidth(PLOT_SIZE[0])
+#     fig.set_figheight(PLOT_SIZE[1]-2)
+#     ax = fig.add_subplot(111)
+#     ax.set_xlabel("Wavelength [nm]")
+#     ax.set_ylabel("Power(0)/Power(t)")
+#     ax.grid()
+#     fig_agg = draw_figure_w_toolbar(window['figCanvas'].TKCanvas, fig, window['controls_cv'].TKCanvas)
+######################################################################################################
