@@ -1,168 +1,60 @@
+# class StoppableThread(threading.Thread):
+#     """Thread class with a stop() method. The thread itself has to check
+#     regularly for the stopped() condition."""
+
+#     def __init__(self,  *args, **kwargs):
+#         super(StoppableThread, self).__init__(*args, **kwargs)
+#         self._stop_event = threading.Event()
+
+#     def stop(self):
+#         self._stop_event.set()
+
+#     def stopped(self):
+#         return self._stop_event.is_set()
 
 
-    # main_Layout = [
-    #     [sg.Push(), sg.Text("Please Chose the type of graph you want"), sg.Combo(["Sweep Graph", "Allan deviation & Concentration","Time analyze"], enable_events=True, key='-PLOT_TYPE-', default_value="Sweep Graph"), sg.Push()],
-    #     [sg.Column(sweepGraph, key='section_sweepGraph'), sg.Column(allan_and_concentration,key='section_Allan_Concentration'), sg.Column(allan_time_analyze,key='section_TimeAnalyze')]
-    #     ]
-    # return main_Layout
+################################
+# def guiThread():
+#     root = tk.Tk()
+#     tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
+#     root.mainloop()
 
-# This is the main Layout - connect all the previous layouts:
-# def mainLayout (frequencyList, powerList, norm_freq_list, numIntervals):
-#     sweepGraph = getSweepLayout(frequencyList, powerList, norm_freq_list)
-#     allan_and_concentration = getAllanDeviationLayout(frequencyList, powerList, norm_freq_list)
-#     allan_time_analyze = getAllanLayout(frequencyList, powerList, numIntervals)
-#     main_Layout = [[sg.Push(), sg.Text("Please Chose the type of graph you want"), sg.Push()], [sg.Push(), sg.Combo(["Sweep Graph", "Allan deviation & Concentration","Time analyze"], enable_events=True, key='-PLOT_TYPE-', default_value="Sweep Graph"), sg.Push()],
-#     [collapse(sweepGraph, 'section_sweepGraph', True)],
-#     [collapse(allan_and_concentration, 'section_Allan_Concentration', False)],
-#     [collapse(allan_time_analyze, 'section_TimeAnalyze', False), sg.Push()]]
+# def popupOkCancel(return_value_holder):
+#     tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
+#     return_value_holder.return_value = tempEvent
 
-###########
+# gui_thread = threading.Thread(target=guiThread)
+    # gui_thread.start()
+    # gui_thread.join()
+    # return_value_holder = ReturnValueHolder()
+    # thread = threading.Thread(target=popupOkCancel, args=(return_value_holder,))
+    # thread.start()
+    # thread.join()
+    # tempEvent = return_value_holder.return_value
 
-        # if event == "-PLOT_TYPE-":
-        # # Changing to the relevant wanted window:
-        #     if values['-PLOT_TYPE-'] == 'section_sweepGraph':
-        #         window['section_sweepGraph'].update(visible=True)
-        #         window['section_Allan_Concentration'].update(visible=False)
-        #         window['section_TimeAnalyze'].update(visible=False)
-        #     elif values['-PLOT_TYPE-'] == 'section_Allan_Concentration':
-        #         if flag_allan:
-        #             window['section_sweepGraph'].update(visible=False)
-        #             window['section_Allan_Concentration'].update(visible=True)
-        #             window['section_TimeAnalyze'].update(visible=False)
-        #         else: sg.popup_ok("There are no propriate files to show this graph.")
-        #     elif values['-PLOT_TYPE-'] == 'section_TimeAnalyze':
-        #         if flag_allan:
-        #             window['section_sweepGraph'].update(visible=False)
-        #             window['section_Allan_Concentration'].update(visible=False)
-        #             window['section_TimeAnalyze'].update(visible=True)
-        #         else: sg.popup_ok("There are no propriate files to show this graph.")
+#############################3
 
+    # else:
+    #     try:
+    #         if testProcess.is_alive() == False:
 
+    #     except:
+    #         None
 
-    # # Creating the automatic first graph:
-    # fig = plt.figure()
-    # plt.ion() 
-    # # fig = plt.gcf()
-    # fig.set_figwidth(PLOT_SIZE[0])
-    # fig.set_figheight(PLOT_SIZE[1])
-    # # draw_figure(window['figCanvas'].TKCanvas, fig)
-    # ax = fig.add_subplot(111)
-    # ax.set_xlabel("Wavelength [nm]")
-    # ax.grid()
-    # fig_agg = draw_figure_w_toolbar(window['figCanvas'].TKCanvas, fig, window['controls_cv'].TKCanvas)
-    # plt.title('No Plot to show. Choose data...')
+# testThread.stop()
+            # testThread._Thread_stop() # Not working################################################################################################## Thread.close()
+            #testThread.exit() # Not working################################################################################################## Thread.close()
+            
+                ############################################################################# From here we start the thred of a function:
+                # testThread = threading.Thread(target=theTestThread, args=(window,))
+                # testThread.start()
+                # ######################################################################################### End of the function to thread.
 
-    # slider_elem = window['-SLIDER-']
-    # window['-SLIDER-'].bind('<ButtonRelease-1>', ' Release')
-    # slider_update = False
-    # test_selected = False
-    # i = 0
+#############################
+            # stop the thread
+            #testThread.stop()
+            #if testThread == False:     # Delete
+            #    print("testThread == False")    # Delete
+            # testProcess.terminate() ####### Close the thread!!!
+            ################################
 
-# The end of parmeters.
-
-# ############################################################ Mass
-#     # End of creating the graph.
-#     # This part is for the allan deviation graph:
-
-#     # Creating the automatic first graph:
-#     fig = plt.figure()
-#     plt.ion()
-#     fig.set_figwidth(ALLAN_DEVIATION_SIZE[0])
-#     fig.set_figheight(ALLAN_DEVIATION_SIZE[1])
-#     ax_deviation = fig.add_subplot(211)
-#     ax_deviation.set_title("Allan Deviation")
-#     ax_deviation.grid(markevery=1)
-#     ax_conc = fig.add_subplot(212)
-#     ax_conc.set_xlabel("Time [s]")
-#     ax_deviation.set_xlabel("Averaging time [s]")
-#     ax_conc.set_title("Concentration [ppm]")
-#     ax_conc.grid()
-#     fig_agg = draw_figure_w_toolbar(window['figCanvas'].TKCanvas, fig, window['controls_cv'].TKCanvas)
-#     fig.tight_layout(pad=5.0)
-#     # End of creating the graph.
-#     # draw the initial plot in the window
-#     fig = plt.Figure()
-#     fig.set_figwidth(PLOT_SIZE[0])
-#     fig.set_figheight(PLOT_SIZE[1]-2)
-#     ax = fig.add_subplot(111)
-#     ax.set_xlabel("Wavelength [nm]")
-#     ax.set_ylabel("Power(0)/Power(t)")
-#     ax.grid()
-#     fig_agg = draw_figure_w_toolbar(window['figCanvas'].TKCanvas, fig, window['controls_cv'].TKCanvas)
-######################################################################################################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# After Big Change, but still not working:
-# main_Layout =[
-    #     [sg.Menu(menu, key='MENU', font='22')],
-    #     [sg.Column(sweepGraph, visible=True, key='section_sweepGraph')],
-    #     [sg.Column(allan_and_concentration, visible=False, key='section_Allan_Concentration')],
-    #     [sg.Column(allan_time_analyze, visible=False, key='section_TimeAnalyze')]]
-    
-    #col, col1, col2, col3 = 1, window['section_sweepGraph'], window['section_Allan_Concentration'], window['section_TimeAnalyze']
-    #col = 1
-    #col1 = window['section_sweepGraph']
-    #col2 = window['section_Allan_Concentration']
-    #col3 = window['section_TimeAnalyze']
-    
-    #layout1 = [[sg.Menu(menu, key='MENU', font='22')], [sg.Column(sweepGraph, key='section_sweepGraph', visible=True)]]
-    #layout2 = [[sg.Menu(menu, key='MENU', font='22')], [sg.Column(allan_and_concentration, key='section_Allan_Concentration', visible=True)]]
-    # layout3 = [[sg.Menu(menu, key='MENU', font='22')], [sg.Column(allan_time_analyze, key='section_TimeAnalyze', visible=True)]]
-    #window = sg.Window("Interactive Graph", layout1, finalize=True)
-    #window = sg.Window("Interactive Graph", layout2, finalize=True)
-    #window = sg.Window("Interactive Graph", layout3, finalize=True)
-
-
-        if (event == "Sweep Graph") and (mode != "Sweep Graph"):
-            mode = "Sweep Graph"
-            #window = sg.Window("Interactive Graph", layout1, finalize=True)
-            window[f'section_sweepGraph'].update(visible=True)
-            window[f'section_Allan_Concentration'].update(visible=False)
-            window[f'section_TimeAnalyze'].update(visible=False)
-            # col1.update(visible = True)
-            # col2.update(visible = False)
-            # col3.update(visible = False)
-            #fig1,ax,fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
-        
-        elif (event == "Allan Deviation and Concentration") and (mode != "Allan Deviation and Concentration"):
-            if flag_allan:
-                mode ="Allan Deviation and Concentration"
-                window[f'section_sweepGraph'].update(visible=False)
-                window[f'section_Allan_Concentration'].update(visible=True)
-                window[f'section_TimeAnalyze'].update(visible=False)
-                #window = sg.Window("Interactive Graph", layout2, finalize=True)
-                # col1.update(visible = False)
-                # col2.update(visible = True)
-                # col3.update(visible = False)
-                #fig2, ax_conc, ax_deviation, fig_agg2 = drawAllanDeviationGraph(fig2, ax_conc, ax_deviation, fig_agg2)
-            else:
-                sg.popup_ok("There are no propriate files to show this graph.")
-
-        elif (event == "Allan Time") and (mode != "Allan Time"):
-            if flag_allanTime:
-                mode = "Allan Time"
-                window[f'section_sweepGraph'].update(visible=False)
-                window[f'section_Allan_Concentration'].update(visible=False)
-                window[f'section_TimeAnalyze'].update(visible=True)
-                #window = sg.Window("Interactive Graph", layout3, finalize=True)
-                # col1.update(visible = False)
-                # col2.update(visible = False)
-                # col3.update(visible = True)
-                #fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i = drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i)
-            else:
-                sg.popup_ok("There are no propriate files to show this graph.")

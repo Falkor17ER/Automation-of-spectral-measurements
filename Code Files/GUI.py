@@ -8,8 +8,9 @@ import PySimpleGUI as sg
 import os
 import signal
 import shutil
-import subprocess
 import threading
+import subprocess
+import tkinter.messagebox as tkm
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -42,19 +43,9 @@ graphs_pids = []
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-# class StoppableThread(threading.Thread):
-#     """Thread class with a stop() method. The thread itself has to check
-#     regularly for the stopped() condition."""
-
-#     def __init__(self,  *args, **kwargs):
-#         super(StoppableThread, self).__init__(*args, **kwargs)
-#         self._stop_event = threading.Event()
-
-#     def stop(self):
-#         self._stop_event.set()
-
-#     def stopped(self):
-#         return self._stop_event.is_set()
+class ReturnValueHolder:
+    def __init__(self):
+        self.return_value = None
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -68,7 +59,7 @@ rep_values_MHz = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MHz': 4, '1
                 '5.612MHz': 14, '4.910MHz': 16, '4.365MHz': 18, '3.928MHz': 20, '3.571MHz': 22, '3.143MHz': 25, 
                 '2.910MHz': 27, '2.709MHz': 29, '2.455MHz': 32, '2.311MHz': 34, '2.123MHz': 37, '1.964MHz': 40}
 # The size of the GUI window (Width, Length).
-SIZE = (600,600)
+SIZE = (600,630)
 #sg.theme('DarkBlue')
 sg.theme('Default')
 #---------------------------------------------------------------------------------------------------------------------------
@@ -149,7 +140,7 @@ def getTests():
                     [sg.Text("Output name:"), sg.Input("Test_sample1", s=15, key="test_name"), sg.Push(), sg.Text("Comments:"),sg.Input("",s=30,key="TEST1_COMMENT")], [],
                     [sg.Checkbox(text="Analyzer (Beer-Lambert & Allan Variance) ?",enable_events=True,key="test_analyzer")], [collapse(analyzerSection, 'section_analyzer', False)],
                     [sg.Push(), sg.Button("Start Test"), sg.Push()],[sg.Push(), collapse(stopTestSection, 'section_stopTest', False), sg.Push()],
-                    [sg.Push(),sg.Text(str(getTestErrorText), key="test_errorText"),sg.Push()]]
+                    [sg.Push(),sg.Text(str(getTestErrorText), key="test_errorText", justification='center'),sg.Push()]]
     else:
         test_values = [[sg.Push(), sg.Text("Connect to devices first or run in 'Debug Mode'"), sg.Push()]]
     return test_values
@@ -277,37 +268,80 @@ def popup(message):
     window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
     return window
 
-def theTestThread(window):
-    window['test_errorText'].update("Executing 'Dark' Test...")
-    noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
-    window['test_errorText'].update("Executing 'Clean/Empty' Tests...")
-    getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv")
-    # For user
-    tempEvent = sg.popup_ok_cancel("Empty measurment finished.\nPlease insert substance, then press 'OK'.")
-    # OK was chosen
-    if (tempEvent.upper()=="OK"):
-        window['test_errorText'].update("Executing 'Substance' Test...")
-        if (values['test_analyzer']):
-            if (not debugMode):
-                laser.emission(0)
-                sleep(8)
-            getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv") 
+#----------------------------------------------------------------------------------------------------------------------------------------
+
+class theTestThread(threading.Thread):
+    def __init__(self, arg1, arg2, arg3, arg4, arg5, arg6):
+        threading.Thread.__init__(self)
+        self.stop_event = threading.Event()
+        self.arg1 = arg1 # Laser
+        self.arg2 = arg2 # OSA
+        self.arg3 = arg3 # values
+        self.arg4 = arg4 # debugMode
+        self.arg5 = arg5 # dirName
+        self.arg6 = arg6 # window
+        self.result = None
+
+    def run(self):
+        # Set names:
+        laser = self.arg1
+        osa = self.arg2
+        values = self.arg3
+        debugMode = self.arg4
+        dirName = self.arg5
+        window = self.arg6
+        reason = None
+        #
+        window['test_errorText'].update("Executing 'Dark' Test...")
+        noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
+        window['test_errorText'].update("Executing 'Clean/Empty' Tests...")
+        reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv", window, "Executing 'Clean/Empty' Tests...", self)
+        if reason == False:
+            self.result = False
+            return False
+        window['test_errorText'].update("Executing 'Clean/Empty' Tests... (100%)")
+        # For user
+        tempEvent = tkm.askokcancel(title="Enter Substance!", message="Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
+        #tempEvent = sg.popup_ok_cancel("Enter Substance!", "Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
+        # OK was chosen
+        if tempEvent:
+            window['test_errorText'].update("Executing 'Substance' Test...")
+            if (values['test_analyzer']):
+                if (not debugMode):
+                    laser.emission(0)
+                    sleep(8)
+                reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv", window, "Executing 'Substance' Tests...", self) 
+            else:
+                reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv", window, "Executing 'Substance' Tests...", self)
+            if reason == False:
+                self.result = False
+                return False
+            window['test_errorText'].update("Executing 'Substance' Test... (100%)")
+            # Adding to Results tab.
+            updateResults(window)
+            # Open a new process of the graph/grphs.
+            ######################################################################### To check about this
+            if (values['test_analyzer']) and reason != False:
+                graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+            graphs_pids.append(open_Interactive_Graphs(dirName))
+            ############################################################################3
         else:
-            getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv")
-        # Adding to Results tab.
-        updateResults(window)
-        # Open a new process of the graph/grphs.
-        if (values['test_analyzer']):
-            graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-        graphs_pids.append(open_Interactive_Graphs(dirName))
-    else:
-        shutil.rmtree(dirName)
-    window['Start Test'].update(disabled=False)
-    window['section_stopTest'].update(visible=False)
-    window['test_errorText'].update("Finish Testing.")
-    # End of the test process.
+            shutil.rmtree(dirName)
+        window['Start Test'].update(disabled=False)
+        window['section_stopTest'].update(visible=False)
+        window['test_errorText'].update("Finish Testing.")
+        if reason:
+            self.result = True
+            return True
+    # End of the test thread.
+
+    def stop(self):
+        self.stop_event.set()
+
+#----------------------------------------------------------------------------------------------------------------------------------------
 
 # The checking events - The managment of the GUI:
+testProcess = None
 window = reopenMainL()
 while True:
     event, values = window.read()
@@ -377,26 +411,32 @@ while True:
                 window['Start Test'].update(disabled=True)
                 window['section_stopTest'].update(visible=True)
                 window['test_errorText'].update("Executing Clean Test...")
-                ############################################################################# From here we start the thred of a function:
                 dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
-                testThread = threading.Thread(target=theTestThread, args=(window,))
-                StoppableThread(testThread)
+                testThread = theTestThread(laser,osa,values,debugMode,dirName,window)
                 testThread.start()
-                ######################################################################################### End of the function to thread.
+                # testThread = threading.Thread(target=theTestThread, args=(laser,osa,values,debugMode,dirName,window,))
+                # testThread.start()
             else:
                 window['test_errorText'].update(getTestErrorText)
             getTestErrorText = ""
 
     elif event == "Stop Test":
-        # This function support to stop the test. ######################################### need a work - we can enter all the test process into a thread, if there is a stop we juct cllose  the thred, I don't care if we don't save any result if the test didn't finish. He can make little samples.
-        window['section_stopTest'].update(visible=False)
-        window['Start Test'].update(disabled=False)
-        testThread.stop()
-        # testThread._Thread_stop() # Not working################################################################################################## Thread.close()
-        #testThread.exit() # Not working################################################################################################## Thread.close()
-        window['test_errorText'].update("The testing process was stopped.")
-        sg.popup_ok("The test process was stopped  by the user!")
-        getTestErrorText = ""
+        tempEvent = sg.popup_ok_cancel("Stop Running test?", "Are you sure you want to stop the running test?\n'Ok' - Yes, stop the test.\n'Cancel' - Opps, continue the test.")
+        if (tempEvent.upper()=="OK"):
+            #### Open and close a window
+            testThread.stop()
+            waitLayout = [[sg.Text('Please wait, stopping the testing process...')]]
+            stoppingWindow = sg.Window('Stopping thest process', waitLayout)
+            while testThread.result != False:
+                print("waiting to exit")
+                None
+            stoppingWindow.close()
+            #sg.popup_ok("The test process was stopped by the user!")
+            window['section_stopTest'].update(visible=False)
+            window['Start Test'].update(disabled=False)
+            window['test_errorText'].update("The testing process was stopped.")
+            sg.popup_ok("The test process was stopped by the user!")
+            getTestErrorText = ""
 
     elif event == "-LOAD_SAMPLE-":
         # This function load a result from the forth rublic.
@@ -435,3 +475,9 @@ while True:
         break
 
 # End of GUI
+
+
+
+
+
+#_________________________________________________________________________________Delete_________________________________________________________________________________

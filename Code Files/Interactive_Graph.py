@@ -482,8 +482,8 @@ def interactiveGraph(csvFile):
             fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
             if flag_allan:
                 fig2, ax_conc, ax_deviation, fig_agg2 = drawAllanDeviationGraph(fig2, ax_conc, ax_deviation, fig_agg2)
-            if flag_allanTime:
-                fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i = drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i)
+            # if flag_allanTime:
+            #    fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i = drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i)
         # End of Reset.
 
         elif event == '_FILT_CONF_':

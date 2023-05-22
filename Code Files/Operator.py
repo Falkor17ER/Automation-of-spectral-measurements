@@ -167,7 +167,7 @@ def makeSubstaceCSV(csvname, df_original):
             df_substance.loc[len(df_substance)] = df_original.iloc[idx]
     df_substance.to_csv(csvname, index=False)
 
-def getSweepResults(laser,osa,values,debug,csvname):
+def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
     global debugMode
     debugMode = debug
     # This function will manage all the test process and call to all the relevant functions.
@@ -202,20 +202,36 @@ def getSweepResults(laser,osa,values,debug,csvname):
     # capturePower = True
     if (not debugMode):
         laser.emission(1)
+    #
+    theTotalForPrecents = len(reps) * (int((stop-start)/step)+1)
+    precentsPerJump = 100/theTotalForPrecents # Precents per one operationqmeasure.
+    precents = 0 # The total precents until now.
+    precentsMessage = None
     for freq in reps:
         for p in powers:
+            # For stopping the thread
+            if t.stop_event.is_set():
+                return False
+            #
+            precentsMessage = " (" + str(round(precents, 2)) + "%)\nChecking right now: Repetition: "+ str(rep_values_MHz[freq]) + ", Power: " + str(p)
             configureLaser(laser, p, freq)
             startTime = time()
             # Starting the test:
             if csvname[-12:-4] == "analyzer": # Analyze Graph: Beer-Lambert & Allan Variance Mode
                 totalTime = int(values['totalSampleTime'])
                 intervalTime = float(values['intervalTime'])
-                
                 if (not debugMode):
                     laser.emission(1)
                     sleep(0.4) # Waiting to laser Turn ON.
                 #
+                timeCounter = time()
                 while(time() - startTime < totalTime):
+                    # For stopping the thread
+                    if t.stop_event.is_set():
+                        return False
+                    #
+                    intervalMessage = "\n, Total time check: " + str( round(time() - timeCounter, 2) ) + " seconds / " + str(totalTime) + " seconds"
+                    window['test_errorText'].update(messageText + precentsMessage + intervalMessage)
                     lastTime = time()
                     result = meanMeasure(osa, 1 ,pts, debugMode, debug_type='substance')
                     new_row = []
@@ -237,6 +253,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
                         sleep(timeleft)
             #---------------------------------------------------------------------------------------------------------------
             else: # Regular Mode
+                window['test_errorText'].update(messageText + precentsMessage)
                 sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
                 if csvname[-9:-4] == "clean":
                     numOfSamples = values['cleanNumSamplesParameter']
@@ -259,6 +276,8 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 new_row = new_row + list(result)
                 # Append the new row to the dataframe
                 allResults_df.loc[len(allResults_df)] = new_row
+            precents = precents + precentsPerJump
+    window['test_errorText'].update(messageText + precentsMessage)
     # End of measurments
 
     # Save a substance csv
@@ -268,6 +287,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
     if (not debugMode):
         laser.emission(0) # Turn off the laser after the measurments sweep. 
     allResults_df.to_csv(csvname, index=False)
+    return True
 
 # End Tests Managment: ----------------------------------------------------------------------------------------------
 
