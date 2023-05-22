@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import time
 import allantools
+from scipy.signal import butter, cheby1, filtfilt
 
 # Helper function
 def normalize(x, y):
@@ -69,6 +69,8 @@ def getNormlizedByRealFreq(dirname, darkMinus, to_norm, real_freq = '1500'):
         # Getting the elemnts of normalizations:
         norm_vals_clean = clean_df[str(float(real_freq))]#################################################################################Problem
         norm_vals_substance = substance_df[str(float(real_freq))]
+        #norm_vals_clean = clean_df[real_freq]
+        #norm_vals_substance = substance_df[real_freq]
 
         # Normalizing both clean and substance CSVs
         for idx in range(0,R):
@@ -274,6 +276,36 @@ def getConcentration(dirname,databaseFile,wavelength,l):
     print("The total time it take was: ", totalTime)
     return df_C
 
+def filter_df(df, values):
+    filter_type = values['_FILTER_TYPE_']
+    if filter_type == 'BW':
+        filtered_df = butterworth_filter(df.copy(), float(values['_cutoff_BW']), int(values['_order_BW']))
+    elif filter_type == 'cheby1':
+        filtered_df = cheby1_filter(df.copy(), float(values['_cutoff_cheby1']), int(values['_order_cheby1']), float(values['_ripple_cheby1']))
+    return filtered_df
+
+def butterworth_filter(df, cutoff_freq, order):
+    # Design the Butterworth low-pass filter
+    b, a = butter(order, cutoff_freq, btype='low', analog=False, output='ba')
+    for idx, row in df.iterrows():
+        sample = np.asarray(row.iloc[10:], dtype=float)
+        mean_of_sample = np.mean(sample)
+        # Apply the filter to the sample signal
+        filtered_signal = filtfilt(b, a, sample-mean_of_sample)
+        df.iloc[idx,10:] = filtered_signal + mean_of_sample
+    return df
+
+def cheby1_filter(df, cutoff_freq, order, ripple):
+    # Design the chebyshev 1 low-pass filter
+    b, a = cheby1(order, ripple, cutoff_freq, btype='low', analog=False, output='ba')
+    for idx, row in df.iterrows():
+        sample = np.asarray(row.iloc[10:], dtype=float)
+        mean_of_sample = np.mean(sample)
+        # Apply the filter to the sample signal
+        filtered_signal = filtfilt(b, a, sample-mean_of_sample)
+        df.iloc[idx,10:] = filtered_signal + mean_of_sample
+    return df
+
 
 if __name__=='__main__':
     now = time.time()
@@ -285,13 +317,3 @@ if __name__=='__main__':
     #getAnalyzerTransmition(dirname,to_norm=False)
     getConcentration(dirname, databaseFile, wavelength, l)
     print("Everything worked fine!")
-
-
-### --- To Delete --- ### :
-    #df_clean_multipled = df_clean_multipled.append(clean_row, ignore_index=True)
-    #df_clean_multipled[idx] = clean_row
-#E = - df_transmittance.iloc[row][real_wavelength]
-        # real_wavelength = str(1524.9500000001818)
-        #C = abs(C)
-        #C_mol = (A/l)/E # [M] = [mol/L] = Units of mols.
-        # A = A*(1e10) # A is Unitless.

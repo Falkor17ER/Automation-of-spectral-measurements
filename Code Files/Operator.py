@@ -205,12 +205,12 @@ def getSweepResults(laser,osa,values,debug,csvname):
     for freq in reps:
         for p in powers:
             configureLaser(laser, p, freq)
-
+            startTime = time()
             # Starting the test:
             if csvname[-12:-4] == "analyzer": # Analyze Graph: Beer-Lambert & Allan Variance Mode
                 totalTime = int(values['totalSampleTime'])
                 intervalTime = float(values['intervalTime'])
-                startTime = time()
+                
                 if (not debugMode):
                     laser.emission(1)
                     sleep(0.4) # Waiting to laser Turn ON.
@@ -254,7 +254,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
                 new_row.append(p)
                 new_row.append(values["test_sens"])
                 new_row.append(values["test_res"])
-                new_row.append("")
+                new_row.append(time()-startTime)
                 new_row.append(numOfSamples)
                 new_row = new_row + list(result)
                 # Append the new row to the dataframe

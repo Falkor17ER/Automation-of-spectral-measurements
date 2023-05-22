@@ -52,16 +52,22 @@ def collapse(layout, key, visible):
     # Hide or show the relevants fields.
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
+def getLeftGlobalColumn(norm_freq_list):
+    layout = [[sg.Checkbox("Filter", default=True, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_")],
+              [sg.Checkbox("Subtract Dark", default=True, enable_events=True, key="-MINUS_DARK-")],
+              [sg.Text("Dark Status:"), sg.Text("", key='darkStatus')],
+              [sg.Checkbox("", key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue"), sg.Text("[nm]")],
+              [sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)')],
+              [sg.Button("Close", key = 'Close Graph')]]
+    return layout
+
 # The first layout:
 def getSweepLayout(frequencyList, powerList, norm_freq_list):
     # xAxis is a list of lists. Inputs must not be empty!
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Powers:"), sg.Push()],
                           [sg.Push(), sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='multiple', key='_RepetitionListBoxSweepG_'),sg.Listbox(powerList, size=(14,10), enable_events=True, bind_return_key=True, select_mode='multiple', key='_PowerListBoxSweepG_'), sg.Push()]]
-    normValue = [[sg.Push(), sg.Checkbox("", key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue"), sg.Text("[nm]"), sg.Button("Refresh", key="-Refresh-", enable_events=True), sg.Push()]]
-    menu_layout = [[collapse(normValue, 'section_normValue', True)],
-                  [sg.Push(), sg.Checkbox("Minus Dark", default=True, enable_events=True, key="-MINUS_DARK-"), sg.Checkbox("Logarithmic Scale", default=True, enable_events=True, key="-REG_LOG_SCALE-"), sg.Push()],
-                  [sg.Push(), sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push()],
-                  [sg.Push(),sg.Checkbox(text="Transition\ngraph",font='David 11',key="normCheckBox", enable_events=True, default=True), sg.Checkbox(text="Clean\nsample",font='David 11',key="cleanCheckBox",enable_events=True, default=False), sg.Checkbox(text="Substance\nsample",font='David 11',key="substanceCheckBox", enable_events=True, default=False), sg.Push()],
+    menu_layout = [[sg.Push(), sg.Checkbox("Logarithmic Scale", default=True, enable_events=True, key="-REG_LOG_SCALE-"), sg.Push()],
+                  [sg.Push(),sg.Checkbox(text="Transmittance\ngraph",font='David 11',key="normCheckBox", enable_events=True, default=True), sg.Checkbox(text="Empty\nsample",font='David 11',key="cleanCheckBox",enable_events=True, default=False), sg.Checkbox(text="Non empty\nsample",font='David 11',key="substanceCheckBox", enable_events=True, default=False), sg.Push()],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
                   [sg.Push(), sg.Button("Clear All", key='-CLEAR_SWEEP_PLOT-', enable_events=True),
                   sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
@@ -83,10 +89,8 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
     
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Power:"), sg.Push()],
                           [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxAllanDG_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxAllanDG_'), sg.Push()]]
-    normValue = [[sg.Push(), sg.Checkbox("", key='-Reg_Norm_Val-', enable_events=True), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue",enable_events=True), sg.Text("[nm]"), sg.Push()]]
     absorbance_layout = [[sg.Text("Select wavelength to calculate concentration:")],[sg.Push(), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_",enable_events=True), sg.Text("[nm]"), sg.Push()]]
-    menu_layout = [[collapse(normValue, 'section_normValue', True)],[sg.Checkbox("Minus Dark", default=True, enable_events=True, key="-MINUSDARK-"), sg.Text("", key="darkStatusText")],
-                  [sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
+    menu_layout = [[sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
                   [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
@@ -106,38 +110,32 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
     Layout = [[sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
-# The third layout:
-def getAllanSweepTimeLayout(frequencyList, powerList, interval_list):
-    # xAxis is a list of lists.
-    menu_layout = [[sg.Text("Select graph type:")],
-                   [sg.Combo(["Raw Data","Ratio Data"], default_value="Ratio Data", key='-ALLAN_GRAPH_TYPE-', enable_events=True)],
-                   [sg.Text("Select Rep and Power pair:")],
-                   [sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='single', key='-ALLAN_REP-'),
-                    sg.Listbox(values=powerList, s=(14,10), enable_events=True, select_mode='single', key='-ALLAN_POWER-')],
-                   [sg.Button("Close", key='Close Graph')]
-                   
-                   ]
-    graph_layout = [
-        #[sg.T('Controls:')],
-        [sg.Canvas(key='controls_cv3')],
-        #[sg.T('Figure:')],
-        [sg.Column(
-            layout=[
-                [sg.Canvas(key='figCanvas3',
-                        # it's important that you set this size
-                        size=(400 * 2, 400)
-                        )]
-            ],
-            background_color='#DAE0E6',
-            pad=(0, 0)
-        )],
-        [sg.Text('Graphs Interval')],
-        [sg.Slider(range=(min(interval_list), max(interval_list)), size=(60, 10),
-                orientation='h', key='-SLIDER-', resolution=1/(10*len(interval_list)))],
-        [sg.Button("Hold", key="-HOLD_TRACE-"), sg.Button("Clear All", key="-ALLAN_CLEAR-"), sg.Button("Play/Pause", key="-ALLAN_PLAY-"), sg.Push()]
-        ]
-    Layout = [[sg.Push(), sg.Text("Allan Sweep Time Graph", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
-    return Layout
+def filter_selection_window():
+    butterworth_layout = [[sg.Text("Cutoff frequency:"), sg.Input('0.03', key='_cutoff_BW')],
+                          [sg.Text("Order:"), sg.Input('4', key='_order_BW')]]
+    cheby1_layout = [[sg.Text("Cutoff frequency:"), sg.Input('0.03', key='_cutoff_cheby1')],
+                        [sg.Text("Order:"), sg.Input('4', key='_order_cheby1')],
+                        [sg.Text("Ripple [dB]:"), sg.Input('0.5', key='_ripple_cheby1')]]
+    filter_selection_layout = [[sg.Combo(['BW', 'cheby1'], key='_FILTER_TYPE_', default_value='BW', enable_events = True)],
+              [collapse(butterworth_layout, 'section_BW', True)],
+              [collapse(cheby1_layout, 'section_cheby1', False)],
+              [sg.Button('Ok'), sg.Button('Cancel')]]
+    filter_window = sg.Window('Filter configutarions', layout=filter_selection_layout, finalize=True)
+    while True:
+        event, values = filter_window.read()
+        if event == 'Ok':
+            filter_window.close()
+            return values
+        elif event == 'Cancel':
+            filter_window.close()
+            return False
+        elif event == '_FILTER_TYPE_':
+            if values['_FILTER_TYPE_'] == 'BW':
+                filter_window['section_BW'].update(visible=True)
+                filter_window['section_cheby1'].update(visible=False)
+            elif values['_FILTER_TYPE_'] == 'cheby1':
+                filter_window['section_BW'].update(visible=False)
+                filter_window['section_cheby1'].update(visible=True)
 
 # End of Layouts.
 
@@ -271,26 +269,6 @@ def interactiveGraph(csvFile):
         ax_deviation.legend(loc='upper right')
         fig_agg.draw()
 
-    # The Allan sweep time functions part:
-    
-    def update_internal_graph(ax, temp_df, fig_agg, i, color):
-        ax.cla()
-        ax.grid()
-        try:
-            line1 = ax.plot(np.asarray(temp_df.columns[11:], float), temp_df.iloc[i,11:], label='{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i]), color = color)
-            # Add a legend
-            ax.legend(loc='upper right')
-            fig_agg.draw()
-            return line1[0]
-        except:
-            return False
-
-    def add_allanTime_history(ax, hold_lines, fig_agg):
-        for line1 in hold_lines.values():
-            ax.add_line(line1)
-        ax.legend(loc='upper right')
-        fig_agg.draw()
-
 # End of functions and setting.
 
 
@@ -307,10 +285,8 @@ def interactiveGraph(csvFile):
     interval_list = None
     sweepGraph = None
     allan_and_concentration = None
-    allan_time_analyze = None
     flag_allan = True
     flag_allanTime = True
-    mode = "Sweep Graph"
 
     #
     colors_allanDeviationConcentration = [name for name, hex in mcolors.CSS4_COLORS.items()
@@ -368,15 +344,8 @@ def interactiveGraph(csvFile):
     except:
         sg.popup_ok("There was a problem reading the files.")
         exit()
-    try:
-        allan_df = pd.read_csv(csvFile + 'allan_ratio.csv')
-    except:
-        print("Coudln't read "+csvFile + 'allan_ratio.csv')
-        sg.popup_ok("Coudln't read "+csvFile + 'allan_ratio.csv')
-        flag_allanTime = False
 
     # This is the main Layout - connect all the previous layouts:
-    menu = [['Click here Reset', ['Are you sure? (Yes, Reset)']]]
     sweepGraph = getSweepLayout(frequencyList, powerList, norm_freq_list)
     
     if flag_allan:
@@ -386,25 +355,17 @@ def interactiveGraph(csvFile):
             [sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 20, "bold")),sg.Push()],
             [sg.Push(), sg.Text('There was a problem to read the correct file!'), sg.Push()]
             ]
-
-    if flag_allanTime:
-        interval_list = allan_df['Interval'].unique().tolist()
-        allan_time_analyze = getAllanSweepTimeLayout(frequencyList, powerList, interval_list)
-    else:
-        allan_time_analyze = [
-            [sg.Push(), sg.Text("Allan Sweep Time Graph", font=("David", 20, "bold")),sg.Push()],
-            [sg.Push(), sg.Text('There was a problem to read the correct file!'), sg.Push()]
-            ]
     
     layout = [
     [sg.Frame("Sweep Graph", sweepGraph, visible=True, key='section_sweepGraph', size=(FRAME_SIZE[0], FRAME_SIZE[1]))],
-    [sg.Frame("Allan Deviation & Concentration", allan_and_concentration, visible=True, key='section_Allan_Concentration', size=(FRAME_SIZE[0], FRAME_SIZE[1]))],
-    [sg.Frame("Allan Time Swep", allan_time_analyze, visible=True, key='section_TimeAnalyze', size=(FRAME_SIZE[0], FRAME_SIZE[1]))]]
+    [sg.Frame("Allan Deviation & Concentration", allan_and_concentration, visible=True, key='section_Allan_Concentration', size=(FRAME_SIZE[0], FRAME_SIZE[1]))]]
     
+    global_layout = getLeftGlobalColumn(norm_freq_list)
+
     main_Layout = [
-    [sg.Menu(menu, key='MENU', font='22')],
     [sg.Push(), sg.Text('Results of: '+csvFile, justification='center', background_color='#424f5e', expand_x=False, font=("David", 15, "bold")), sg.Push()],
-    [sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
+    [sg.Column([[sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf')]]), sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
+
     
     window = sg.Window("Interactive Graph", main_Layout, size=(WINDOW_SIZE[0], WINDOW_SIZE[1]), finalize=True)
     #window = sg.Window("Interactive Graph", main_Layout, size=(3860, 2160), finalize=True)
@@ -428,7 +389,8 @@ def interactiveGraph(csvFile):
     i = None
     ax = None
     ax_conc = None
-    ax_deviation =None
+    ax_deviation = None
+    filter_conf_vals = None
     # End of Parameters for the functions.
 
     # Sweep Graph - Start:
@@ -475,34 +437,10 @@ def interactiveGraph(csvFile):
         # End of creating the graph.
     # Allan Deviation - End.
 
-    # Allan Time - start:
-    def drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i):
-        # draw the initial plot in the window
-        plt.ioff()
-        fig3 = plt.Figure()
-        plt.ion()
-        fig3.set_figwidth(PLOT_SIZE[0])
-        fig3.set_figheight(PLOT_SIZE[1]-2)
-        ax = fig3.add_subplot(111)
-        ax.set_xlabel("Wavelength [nm]")
-        ax.set_ylabel("Power(0)/Power(t)")
-        ax.grid()
-        fig_agg3 = draw_figure_w_toolbar(window['figCanvas3'].TKCanvas, fig3, window['controls_cv3'].TKCanvas)
-        hold_lines = {}
-        slider_elem = window['-SLIDER-']
-        window['-SLIDER-'].bind('<ButtonRelease-1>', ' Release')
-        slider_update = False
-        test_selected = False
-        i = 0
-        return fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i
-    # Allan Time - End.
-
     # First Start:
     fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
     if flag_allan:
         fig2, ax_conc, ax_deviation, fig_agg2 = drawAllanDeviationGraph(fig2, ax_conc, ax_deviation, fig_agg2)
-    if flag_allanTime:
-        fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i = drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i)
 
     # Start checking the events:
     while True:
@@ -548,6 +486,14 @@ def interactiveGraph(csvFile):
                 fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i = drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i)
         # End of Reset.
 
+        elif event == '_FILT_CONF_':
+            filter_conf_vals = filter_selection_window()
+            # How to apply BW filter:
+            # if filter_conf_vals != None:
+            #   clean_df = filter_df(clean_df, filter_conf_vals)
+            # else:
+            #   filter_conf_vals = filter_selection_window()
+            #   clean_df = filter_df(clean_df, filter_conf_vals)
     # This part is for the sweep graph:
             
         # Clear the graph and the relevant parametrs.
@@ -850,94 +796,6 @@ def interactiveGraph(csvFile):
                     None
     # End of allan deviation & concentration graph.
 
-    # Allan time stemp:
-    
-        if flag_allanTime:
-
-            if event == '-ALLAN_PLAY-' and test_selected:
-                # Start or stop auto switching
-                slider_update = not slider_update
-            
-            if slider_update and event == '__TIMEOUT__': ########################### Problem
-                # Update to next timestamp
-                slider_elem.update(i)
-                curr_label = '{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i])
-                if curr_label not in hold_lines.keys():
-                    line1 = update_internal_graph(ax, temp_df, fig_agg3, i, color)
-                    add_allanTime_history(ax, hold_lines, fig_agg3)
-                i = (i+1) % len(interval_list)
-
-            if values['-ALLAN_REP-'] and values['-ALLAN_POWER-'] and not test_selected:
-                # First time test selection
-                temp_df = allan_df[(allan_df['REP_RATE'] == values['-ALLAN_REP-'][0]) & (allan_df['POWER'] == values['-ALLAN_POWER-'][0])]
-                if len(temp_df) > 0:
-                    test_selected = True
-                    slider_update = True
-                    slider_elem.Update(range=(min(temp_df['Interval']), max(temp_df['Interval'])))
-                    interval_list = temp_df['Interval'].unique().tolist()
-                else:
-                    test_selected = False
-
-            if test_selected and (event == '-ALLAN_REP-' or event == '-ALLAN_POWER-'):
-                # Test Update
-                temp_df = allan_df[(allan_df['REP_RATE'] == values['-ALLAN_REP-'][0]) & (allan_df['POWER'] == values['-ALLAN_POWER-'][0])]
-                if len(temp_df) > 0:
-                    test_selected = True
-                    slider_update = True
-                    slider_elem.Update(range=(min(temp_df['Interval']), max(temp_df['Interval'])))
-                    interval_list = temp_df['Interval'].unique().tolist()
-                    i = 0
-                else:
-                    test_selected = False
-            
-            if event == '-SLIDER- Release': ########################### Problem
-                interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
-                i = interval
-                curr_label = '{}_{}_TS_{:.2f}'.format(temp_df['REP_RATE'].iloc[i], temp_df['POWER'].iloc[i], temp_df['Interval'].iloc[i])
-                if curr_label not in hold_lines.keys():
-                    line1 = update_internal_graph(ax, temp_df, fig_agg3, i, color)
-                    add_allanTime_history(ax, hold_lines, fig_agg3)
-
-            if event == '-HOLD_TRACE-':
-                if line1 != False:
-                    hold_lines[line1._label] = line1
-                    colors_timeGraph.remove(color)
-                    color = colors_timeGraph[0]
-
-            if event == '-ALLAN_CLEAR-':
-                ax.cla()
-                ax.grid()
-                fig_agg3.draw()
-                hold_lines = {} # deleting history
-                colors_timeGraph = [name for name, hex in mcolors.CSS4_COLORS.items()
-                    if np.mean(mcolors.hex2color(hex)) < 0.7]
-                colors_timeGraph.pop(0)
-                
-            if event == '-ALLAN_GRAPH_TYPE-':
-                # ["Raw Data","Ratio Data"]
-                ax.cla()
-                ax.grid()
-                i = 0
-                fig_agg3.draw()
-                if values['-ALLAN_GRAPH_TYPE-'] == "Ratio Data":
-                    try:
-                        allan_df = pd.read_csv(csvFile + 'allan_ratio.csv')
-                        ax.set_ylabel("Power(0)/Power(t)")
-                    except:
-                        print("Coudln't read "+csvFile + 'allan_ratio.csv')
-                        exit()
-                else:
-                    try:
-                        allan_df = pd.read_csv(csvFile + 'allan.csv')
-                    except:
-                        print("Coudln't read "+csvFile + 'allan.csv')
-                        exit()
-                window['-ALLAN_REP-'].update(allan_df['REP_RATE'].unique().tolist())
-                window['-ALLAN_POWER-'].update(allan_df['POWER'].unique().tolist())
-                test_selected = False
-                slider_update = False
-                interval_list = allan_df['Interval'].unique().tolist()
-    # End of allan time  sweep
 
 # End of main while.
 
@@ -959,8 +817,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        dirname='C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-        #dirname = "..\\Results\\Uzziels_Theoretical_Measurements\\"
+        # dirname='C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
+        dirname = "..\\Results\\Uzziels_Theoretical_Measurements\\"
         args.csv_name = dirname
         args.analyzer_substance = False
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
