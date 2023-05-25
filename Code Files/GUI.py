@@ -1,4 +1,5 @@
 # This file contains the Graphical user interface and delivers the requests from the user to devices
+# from time import time as time
 from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory, noiseMeasurments
@@ -11,6 +12,7 @@ import shutil
 import threading
 import subprocess
 import tkinter.messagebox as tkm
+import time
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -292,38 +294,40 @@ class theTestThread(threading.Thread):
         window = self.arg6
         reason = None
         #
-        window['test_errorText'].update("Executing 'Dark' Test...")
+        window['test_errorText'].update("Part 1/3: Executing 'Dark' Test...")
         noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
-        window['test_errorText'].update("Executing 'Clean/Empty' Tests...")
-        reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv", window, "Executing 'Clean/Empty' Tests...", self)
+        window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests...")
+        reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv", window, "Part 2/3: Executing 'Clean/Empty' Tests...", self)
         if reason == False:
             self.result = False
             return False
-        window['test_errorText'].update("Executing 'Clean/Empty' Tests... (100%)")
+        window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests... (100%)")
         # For user
         tempEvent = tkm.askokcancel(title="Enter Substance!", message="Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
         #tempEvent = sg.popup_ok_cancel("Enter Substance!", "Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
         # OK was chosen
         if tempEvent:
-            window['test_errorText'].update("Executing 'Substance' Test...")
+            window['test_errorText'].update("Part 3/3: Executing 'Substance' Test...")
             if (values['test_analyzer']):
                 if (not debugMode):
                     laser.emission(0)
                     sleep(8)
-                reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv", window, "Executing 'Substance' Tests...", self) 
+                reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv", window, "Part 3/3: Executing 'Substance' Tests...", self) 
             else:
-                reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv", window, "Executing 'Substance' Tests...", self)
+                reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv", window, "Part 3/3: Executing 'Substance' Tests...", self)
             if reason == False:
                 self.result = False
                 return False
-            window['test_errorText'].update("Executing 'Substance' Test... (100%)")
+            window['test_errorText'].update("Part 3/3: Executing 'Substance' Test... (100%)")
             # Adding to Results tab.
             updateResults(window)
             # Open a new process of the graph/grphs.
             ######################################################################### To check about this
-            if (values['test_analyzer']) and reason != False:
-                graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-            graphs_pids.append(open_Interactive_Graphs(dirName))
+            if reason != False: # Everyting is OK, can open Graphs window.
+                if (values['test_analyzer']): 
+                    graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
+                else:
+                    graphs_pids.append(open_Interactive_Graphs(dirName))
             ############################################################################3
         else:
             shutil.rmtree(dirName)
@@ -414,8 +418,6 @@ while True:
                 dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
                 testThread = theTestThread(laser,osa,values,debugMode,dirName,window)
                 testThread.start()
-                # testThread = threading.Thread(target=theTestThread, args=(laser,osa,values,debugMode,dirName,window,))
-                # testThread.start()
             else:
                 window['test_errorText'].update(getTestErrorText)
             getTestErrorText = ""
@@ -423,15 +425,16 @@ while True:
     elif event == "Stop Test":
         tempEvent = sg.popup_ok_cancel("Stop Running test?", "Are you sure you want to stop the running test?\n'Ok' - Yes, stop the test.\n'Cancel' - Opps, continue the test.")
         if (tempEvent.upper()=="OK"):
-            #### Open and close a window
+            # Open and close a window
             testThread.stop()
-            waitLayout = [[sg.Text('Please wait, stopping the testing process...')]]
-            stoppingWindow = sg.Window('Stopping thest process', waitLayout)
-            while testThread.result != False:
-                print("waiting to exit")
-                None
-            stoppingWindow.close()
-            #sg.popup_ok("The test process was stopped by the user!")
+            sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+            animation = time.time()
+            timeToWaitForStop = time.time()
+            while ( (testThread.result != False) and (time.time() - timeToWaitForStop <= 2*float(values['intervalTime'])) ):
+                if (time.time() - animation > 0.05):
+                    sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+                    animation = time.time()
+            sg.PopupAnimated(None)
             window['section_stopTest'].update(visible=False)
             window['Start Test'].update(disabled=False)
             window['test_errorText'].update("The testing process was stopped.")

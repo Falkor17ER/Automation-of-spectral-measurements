@@ -58,3 +58,21 @@
             # testProcess.terminate() ####### Close the thread!!!
             ################################
 
+
+
+
+    #check0 = testThread.result
+            #a = 2*float(values['intervalTime'])
+            #print(a)
+            #check1 = time.time() - timeToWaitForStop
+            #check2 = testThread.result
+    
+    
+    # waitLayout = [[sg.Text('Please wait, stopping the testing process...')]]
+    # stoppingWindow = sg.Window('Stopping thest process', waitLayout)
+    # time.sleep(5)
+    # while testThread.result != False:
+    #     print("waiting to exit")
+    #     None
+    # stoppingWindow.close()
+    # sg.popup_ok("The test process was stopped by the user!")
