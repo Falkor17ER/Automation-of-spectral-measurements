@@ -9,18 +9,23 @@ import argparse
 import os
 import matplotlib.colors as mcolors
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from Analyzer import getNormlizedByCustomFreq, getAnalyzerTransmition, beerLambert, allandevation
+from Analyzer import get_clean_substance_transmittance, getAnalyzerTransmition, beerLambert, allandevation
 from datetime import datetime
 
 # Parameters:
 #SIZE = (WIDTH,LENTH):
 MEKADEM = 1 # The Ratio of all.
 WINDOW_SIZE = (int(1920*MEKADEM),int(1080*MEKADEM)) # The all window size.
-FRAME_SIZE = (0.77*WINDOW_SIZE[0],0.7*WINDOW_SIZE[1]) # The white box of the frame.
+FRAME_SIZE = (0.77*WINDOW_SIZE[0]+100,0.7*WINDOW_SIZE[1]+110) # The white box of the frame.
 SETTING_AREA_SIZE = (0.18*WINDOW_SIZE[0],0.55*WINDOW_SIZE[1]) # All the data in the frame.
 GRAPH_SIZE_AREA = (0.8*WINDOW_SIZE[0], 0.8*WINDOW_SIZE[1]) # The area of the ploted graph.
 PLOT_SIZE = (0.95/130*GRAPH_SIZE_AREA[0],0.95/135*GRAPH_SIZE_AREA[1]) # The plot area for the fig part (matplotlib).
 SUBSTANCE_DATABASE_SIZE = (int(WINDOW_SIZE[0]/64),int(WINDOW_SIZE[0]/384)) # The part of the substance window.
+
+# Functions and setting:
+
+# sg.theme('DarkBlue')
+sg.theme('DarkGrey2')
 
 #-------------------------------------------------------------------------------------------------
 
@@ -52,32 +57,35 @@ def collapse(layout, key, visible):
     # Hide or show the relevants fields.
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
-def getLeftGlobalColumn(norm_freq_list):
-    layout = [[sg.Checkbox("Filter", default=True, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_")],
-              [sg.Checkbox("Subtract Dark", default=True, enable_events=True, key="-MINUS_DARK-")],
-              [sg.Text("Dark Status:"), sg.Text("", key='darkStatus')],
-              [sg.Checkbox("", key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue"), sg.Text("[nm]")],
-              [sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)')],
-              [sg.Button("Close", key = 'Close Graph')]]
+def getGlobalColumn(norm_freq_list):
+    layout = [[sg.Checkbox("Filter", default=True, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_"), sg.Push(),
+              sg.Checkbox("Subtract Dark", default=True, enable_events=True, key="-MINUS_DARK-"),
+              sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push(), 
+              sg.Checkbox("", key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue"), sg.Text("[nm]"), sg.Push(),
+              sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)'), sg.Push(),
+              sg.Button("Close", key = 'Close Graph')]]
     return layout
 
 # The first layout:
-def getSweepLayout(frequencyList, powerList, norm_freq_list):
+def getSweepLayout(frequencyList, powerList, numIntervals):
     # xAxis is a list of lists. Inputs must not be empty!
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Powers:"), sg.Push()],
-                          [sg.Push(), sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='multiple', key='_RepetitionListBoxSweepG_'),sg.Listbox(powerList, size=(14,10), enable_events=True, bind_return_key=True, select_mode='multiple', key='_PowerListBoxSweepG_'), sg.Push()]]
+                          [sg.Push(), sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='single', key='_RepetitionListBoxSweepG_'),sg.Listbox(powerList, size=(14,10), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxSweepG_'), sg.Push()]]
     menu_layout = [[sg.Push(), sg.Checkbox("Logarithmic Scale", default=True, enable_events=True, key="-REG_LOG_SCALE-"), sg.Push()],
                   [sg.Push(),sg.Checkbox(text="Transmittance\ngraph",font='David 11',key="normCheckBox", enable_events=True, default=True), sg.Checkbox(text="Empty\nsample",font='David 11',key="cleanCheckBox",enable_events=True, default=False), sg.Checkbox(text="Non empty\nsample",font='David 11',key="substanceCheckBox", enable_events=True, default=False), sg.Push()],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_SWEEP_PLOT-', enable_events=True),
-                  sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()]]
+                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_SWEEP_PLOT-', enable_events=True),sg.Push()]]
     graph_layout = [
         #[sg.T('Controls:')],
         [sg.Canvas(key='controls_cv1')],
         #[sg.T('Figure:')],
         [sg.Column(layout=[[sg.Canvas(key='figCanvas1',
                         # it's important that you set this size
-                        size=(400 * 2, 400))]], background_color='#DAE0E6', pad=(0, 0))]]
+                        size=(400 * 2, 400))]], background_color='#DAE0E6', pad=(0, 0))],
+                        
+                    [sg.Text('Graphs Interval')],
+        [sg.Slider(range=(min(numIntervals), max(numIntervals)), size=(60, 10),
+                orientation='h', key='-SLIDER-', resolution=1/(10*len(numIntervals))), sg.Button("Hold", key = '_HOLD_REG_', enable_events=True)]]
     Layout = [[sg.Push(), sg.Text("Sweep Graph - Comparation (Power-Repetition)", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
@@ -151,36 +159,48 @@ def getTime():
     time = time.replace('.', '_')
     return time
 
-def setTitles(ax, scale):
-    ax.clear()                     
+def setTitles(ax, scale, fig):           
     ax.set_xlabel("Wavelength [nm]")
     ax.set_ylabel(scale)
+    # Update the plot scaling
+    ax.relim()  # Recalculate the data limits
+    ax.autoscale_view()  # Adjust the axis limits to fit the new data
+    fig.draw()
 
-def updateRegualrGraph(df_to_plot, ax, fig_agg):
-    ax.cla()
-    ax.grid()
+def updateRegualrGraph(df_to_plot, ax, fig_agg, color, scale, data_type):
+    line1 = False
     for i in range(len(df_to_plot)):
         try:
-            line1 = ax.plot(np.asarray(df_to_plot.columns[10:], float), df_to_plot.iloc[i,10:], label='{}_Power_{}%'.format(df_to_plot['REP_RATE'].iloc[i], df_to_plot['POWER'].iloc[i]))
-            # Add a legend
+            label = '{}_{}_Power_{}%_TS{:.2f}'.format(data_type, df_to_plot['REP_RATE'].iloc[i], df_to_plot['POWER'].iloc[i], df_to_plot['Interval'].iloc[i])
+            labels = [line.get_label() for line in ax.lines]
+            if label not in labels:
+                line1 = ax.plot(np.asarray(df_to_plot.columns[10:], float), df_to_plot.iloc[i,10:].values, label=label, color=color)
+                # Add a legend
+                line1 = line1[0]
+            else:
+                return False
         except:
             return False
+    if (scale not in ['[dB]', '[dBm]']) and line1 != False:
+        if scale == '[mW]':
+            old_scale = '[dBm]'
+        else:
+            old_scale = '[dB]'
+        y_data = line1.get_ydata()  # Get the y-data of the line
+        new_y_data = convert_scale(y_data, old_scale)  # Apply the function to modify the y-data
+        line1.set_ydata(new_y_data)  # Update the y-data of the line
     ax.legend(loc='upper right')
     fig_agg.draw()
-    return True
+    return line1
 
-def add_saved_lines(lines, ax, fig_agg):
+def add_reg_history(ax, hold_lines, fig_agg):
     ax.cla()
     ax.grid()
-    for line in lines:
-        try:
-            ax.plot(line)
-            # Add a legend
-        except:
-            return False
-    ax.legend(loc='upper right')
-    fig_agg.draw()
-    return True
+    if len(hold_lines) > 0:
+        for line1 in hold_lines.values():
+            ax.add_line(line1)
+        ax.legend(loc='upper right')
+        fig_agg.draw()
 
 def getDatabases():
     try:
@@ -230,94 +250,94 @@ def saveAllanPlots(holdAllanDeviationList, new_allandeviation_line, csvFileName,
         new_df = pd.concat([new_df.loc[:],temp_df]).reset_index(drop=True)
     new_df.to_csv(dirname+getTime()+'_'+csvFileName+'.csv', index=False)
 
-# End of additional functions.
+def convert_scale(y_data, old_scale):
+    if old_scale == '[dB]':
+        return [10**(val/10) for val in y_data]
+    elif old_scale == '[dBm]':
+        return [10**((val-30)/10) for val in y_data]
+    elif old_scale == '[mW]':
+        return [10*np.log10(val/(10**(-3))) for val in y_data]
+    elif old_scale == 'Ratio':
+        return [10*np.log10(val) for val in y_data]
 
+def convert_reg_scale(lines_dict, old_scale, fig_agg, ax):
+    for _, line in lines_dict.items():
+        y_data = line.get_ydata()  # Get the y-data of the line
+        new_y_data = convert_scale(y_data, old_scale)  # Apply the function to modify the y-data
+        line.set_ydata(new_y_data)  # Update the y-data of the line
+    fig_agg.draw() 
+
+# The sweep graph functions parts
+def clear_allan_plots(ax1,ax2,plotType):
+    ax1.cla()
+    ax2.cla()
+    ax1.set_xlabel("Time [s]")
+    ax2.set_xlabel("Averaging time [s]")
+    if plotType == 0:
+        ax1.set_title("Concentration [ppm]")
+    else:
+        ax1.set_title("Concentration [%]")
+    ax2.set_title("Allan Deviation")
+    ax1.grid()
+    ax2.grid(markevery=1)
+
+def add_allanDeviation_history(ax_conc, ax_deviation, hold_lines_conc, hold_lines_dev, fig_agg):
+    for line1 in hold_lines_conc.values():
+        ax_conc.add_line(line1)
+    ax_conc.legend(loc='upper right')
+    for line1 in hold_lines_dev.values():
+        ax_deviation.add_line(line1)
+    ax_deviation.legend(loc='upper right')
+    fig_agg.draw()
+
+def check_files(csvFile):
+    try:
+        df_clean = pd.read_csv(csvFile + 'clean.csv', nrows=1)
+    except:
+        sg.popup_ok("There was a problem reading clean.csv")
+        exit()
+    try:
+        df_substance = pd.read_csv(csvFile + 'substance.csv',  nrows=1)
+    except:
+        sg.popup_ok("There was a problem reading substance.csv")
+        exit()
 #---------------------------------------------------------------------------------------------------------------------------
 
 # This is the main function of the interactive graph:
 def interactiveGraph(csvFile):
-    
-    # Functions and setting:
-
-    # sg.theme('DarkBlue')
-    sg.theme('DarkGrey2')
-    
-    # The sweep graph functions part:
-        #None
-    
-    # The sweep graph functions part:
-    
-    def clear_plots(ax1,ax2,plotType):
-        ax1.cla()
-        ax2.cla()
-        ax1.set_xlabel("Time [s]")
-        ax2.set_xlabel("Averaging time [s]")
-        if plotType == 0:
-            ax1.set_title("Concentration [ppm]")
-        else:
-            ax1.set_title("Concentration [%]")
-        ax2.set_title("Allan Deviation")
-        ax1.grid()
-        ax2.grid(markevery=1)
-
-    def add_allanDeviation_history(ax_conc, ax_deviation, hold_lines_conc, hold_lines_dev, fig_agg):
-        for line1 in hold_lines_conc.values():
-            ax_conc.add_line(line1)
-        ax_conc.legend(loc='upper right')
-        for line1 in hold_lines_dev.values():
-            ax_deviation.add_line(line1)
-        ax_deviation.legend(loc='upper right')
-        fig_agg.draw()
-
-# End of functions and setting.
-
-
-# Start of parmeters:
-    reread = True # If no major change selected, reread stays false
-    new_concentration_line = None
-    new_allandeviation_line = None
-    realWavelength = None
-    df_concentration = None
-    lastNormValue = None
-    holdConcentrationList = {}
+    # Variables initializations
+    reread = True                   # If no major change selected, reread stays false
+    new_concentration_line = None   # holds last added line to concentration plot
+    new_allandeviation_line = None  # holds last added line to allan deviation plot
+    realWavelength = None           # When user inserts a wavelength, the realWavelength is closest wavelength exists in the data
+    df_concentration = None         # the output of concentration calculation function
+    lastNormValue = None            # normalization wavelength is held to reduce unnecessary normalization tasks
+    holdConcentrationList = {}      # holds the history of concentration and deviation (next dict)
     holdAllanDeviationList = {}
-    hold_lines = {}
-    interval_list = None
-    sweepGraph = None
-    allan_and_concentration = None
+    hold_reg_lines = {}
+    sweepGraph = None               # layout of the sweepgraph window
+    allan_and_concentration = None  # layout of the concentration window
     flag_allan = True
     flag_allanTime = True
+    line1 = False
+    data_type = 'T'
 
     #
     colors_allanDeviationConcentration = [name for name, hex in mcolors.CSS4_COLORS.items()
                    if np.mean(mcolors.hex2color(hex)) < 0.7]
     colors_allanDeviationConcentration.pop(0)
+    colors_reg_Sweep = colors_allanDeviationConcentration.copy()
+    color_reg = colors_reg_Sweep[0]
     color = colors_allanDeviationConcentration[0]
-    #
-    colors_timeGraph = [name for name, hex in mcolors.CSS4_COLORS.items()
-                   if np.mean(mcolors.hex2color(hex)) < 0.7]
-    colors_timeGraph.pop(0)
-    color = colors_timeGraph[0]
     #
 
     scales_dict = {"LOG": {"CLEAN": "[dBm]", "SUBSTANCE": "[dBm]", "RATIO": "[dB]"}, "WATT":{"CLEAN": "[mW]", "SUBSTANCE": "[mW]", "RATIO": "Ratio"}}
+    scales_dict_converter = {'[dBm]': '[mW]', '[dB]': 'Ratio', '[mW]': '[dBm]', 'Ratio': '[dB]'}
     #----------------------------------------------------------------------------------------
     
-    clean = True
-    substance = True
-    try:
-        df_clean = pd.read_csv(csvFile + 'clean.csv')
-    except:
-        clean = False
-    try:
-        df_substance = pd.read_csv(csvFile + 'substance.csv')
-    except:
-        substance = False
-    if (not (clean and substance)):
-        sg.popup_ok("There was a problem reading the files.")
-        exit()
+    check_files(csvFile)
 
-    df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile, True)
+    df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=True, to_norm=False)
     frequencyList = df_ratio['REP_RATE'].unique().tolist()
     powerList = df_ratio['POWER'].unique().tolist()
     norm_freq_list = np.asarray(df_ratio.columns[10:].tolist(), float)
@@ -346,7 +366,9 @@ def interactiveGraph(csvFile):
         exit()
 
     # This is the main Layout - connect all the previous layouts:
-    sweepGraph = getSweepLayout(frequencyList, powerList, norm_freq_list)
+    interval_list = list(df_transmittance['Interval'].loc[(df_transmittance['POWER'] == df_transmittance.iloc[0]['POWER']) & (df_transmittance['REP_RATE'] == df_transmittance.iloc[0]['REP_RATE'])].values)
+    sweepGraph = getSweepLayout(frequencyList, powerList, interval_list)
+    
     
     if flag_allan:
         allan_and_concentration = getAllanDeviationLayout(frequencyList, powerList, norm_freq_list) 
@@ -360,11 +382,11 @@ def interactiveGraph(csvFile):
     [sg.Frame("Sweep Graph", sweepGraph, visible=True, key='section_sweepGraph', size=(FRAME_SIZE[0], FRAME_SIZE[1]))],
     [sg.Frame("Allan Deviation & Concentration", allan_and_concentration, visible=True, key='section_Allan_Concentration', size=(FRAME_SIZE[0], FRAME_SIZE[1]))]]
     
-    global_layout = getLeftGlobalColumn(norm_freq_list)
+    global_layout = getGlobalColumn(norm_freq_list)
 
-    main_Layout = [
+    main_Layout = [[sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf')],
     [sg.Push(), sg.Text('Results of: '+csvFile, justification='center', background_color='#424f5e', expand_x=False, font=("David", 15, "bold")), sg.Push()],
-    [sg.Column([[sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf')]]), sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
+    [sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
 
     
     window = sg.Window("Interactive Graph", main_Layout, size=(WINDOW_SIZE[0], WINDOW_SIZE[1]), finalize=True)
@@ -373,24 +395,18 @@ def interactiveGraph(csvFile):
     
 
     # Parameters for the functions:
-    fig = None
     fig1 = None
     fig2 = None
-    fig3 = None
     fig_agg1 = None
     fig_agg2 = None
-    fig_agg3 = None
     scales = None
     scale = None
-    hold_lines = None
-    slider_elem = None
-    slider_update = None
-    test_selected = None
-    i = None
     ax = None
     ax_conc = None
     ax_deviation = None
     filter_conf_vals = None
+    slider_elem = window['-SLIDER-']
+    window['-SLIDER-'].bind('<ButtonRelease-1>', ' Release')
     # End of Parameters for the functions.
 
     # Sweep Graph - Start:
@@ -461,7 +477,7 @@ def interactiveGraph(csvFile):
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=True)
                 window['_PowerListBoxAllanDG_'].update(set_to_index=[])
                 window['_RepetitionListBoxAllanDG_'].update(set_to_index=[])
-                clear_plots(ax_conc, ax_deviation, values['-SLIDER-'])
+                clear_allan_plots(ax_conc, ax_deviation, values['-SLIDER-'])
                 new_concentration_line = None
                 new_allandeviation_line = None
                 holdConcentrationList = {}
@@ -470,21 +486,28 @@ def interactiveGraph(csvFile):
                     if np.mean(mcolors.hex2color(hex)) < 0.7]
                 colors_allanDeviationConcentration.pop(0)
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=False)
-            if flag_allanTime:
-                ax.cla()
-                ax.grid()
-                fig_agg3.draw()
-                hold_lines = {} # deleting history
-                colors_timeGraph = [name for name, hex in mcolors.CSS4_COLORS.items()
+                hold_reg_lines = {} # deleting history
+                colors_reg_Sweep = [name for name, hex in mcolors.CSS4_COLORS.items()
                     if np.mean(mcolors.hex2color(hex)) < 0.7]
-                colors_timeGraph.pop(0)
+                colors_reg_Sweep.pop(0)
+                color_reg = colors_reg_Sweep[0]
+                line1 = False
+                values['substanceCheckBox'] = False
+                window['substanceCheckBox'].update(False)
+                values['cleanCheckBox'] = False
+                window['cleanCheckBox'].update(False)
+                values['normCheckBox'] = True
+                window['normCheckBox'].update(True)
+                window['-REG_LOG_SCALE-'].update(True)
+                scales = scales_dict["LOG"]
+                scale = "[dB]"
+                data_type = 'T'
+                df_plotted_full = df_ratio
             #
             fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
             if flag_allan:
                 fig2, ax_conc, ax_deviation, fig_agg2 = drawAllanDeviationGraph(fig2, ax_conc, ax_deviation, fig_agg2)
-            # if flag_allanTime:
-            #    fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i = drawAllanSweepTime(fig3, ax, fig_agg3, hold_lines,slider_elem,slider_update,test_selected,i)
-        # End of Reset.
+            # End of Reset.
 
         elif event == '_FILT_CONF_':
             filter_conf_vals = filter_selection_window()
@@ -501,10 +524,37 @@ def interactiveGraph(csvFile):
             window['_PowerListBoxSweepG_'].update(set_to_index=[])
             window['_RepetitionListBoxSweepG_'].update(set_to_index=[])
             ax.cla()
+            ax.grid()
+            hold_reg_lines = {} # deleting history
+            colors_reg_Sweep = [name for name, hex in mcolors.CSS4_COLORS.items()
+                   if np.mean(mcolors.hex2color(hex)) < 0.7]
+            colors_reg_Sweep.pop(0)
+            color_reg = colors_reg_Sweep[0]
+            values['substanceCheckBox'] = False
+            window['substanceCheckBox'].update(False)
+            values['cleanCheckBox'] = False
+            window['cleanCheckBox'].update(False)
+            values['normCheckBox'] = True
+            window['normCheckBox'].update(True)
+            window['-REG_LOG_SCALE-'].update(True)
+            scales = scales_dict["LOG"]
+            scale = "[dB]"
+            fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
+            line1 = False
+            data_type = 'T'
+            df_plotted_full = df_ratio
+
+        if event == '-SLIDER- Release':
+            interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+            df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_']) & (df_plotted_full['Interval'] == interval)]
+            if len(df_plotted) == 0:
+                continue
+            add_reg_history(ax, hold_reg_lines, fig_agg1)
+            line1 = updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
 
         elif ( (event == '-Refresh-') or (event == '-MINUS_DARK-') ):
             window3 = sg.Window("Processing...", [[sg.Text("Renormalzing results, please wait...")]], finalize=True)
-            df_ratio, df_clean, df_substance, darkStatus = getNormlizedByCustomFreq(csvFile, values['-MINUS_DARK-'], values["normValue"], to_norm=values['-Reg_Norm_Val-'])
+            df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, values['-MINUS_DARK-'], values["normValue"], to_norm=values['-Reg_Norm_Val-'])
             if values['cleanCheckBox']:
                 df_plotted_full = df_clean
             elif values['substanceCheckBox']:
@@ -514,11 +564,12 @@ def interactiveGraph(csvFile):
             else:
                 window3.close()
                 continue
-            df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
-            if len(df_plotted) < 0:
+            interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+            df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_']) & (df_plotted_full['Interval'] == interval)]
+            if len(df_plotted) == 0:
                 window3.close()
                 continue
-            updateRegualrGraph(df_plotted, ax, fig_agg1)
+            updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
             window3.close()
             if values['-MINUS_DARK-'] and darkStatus:
                 window['darkStatus'].update("OK")
@@ -530,101 +581,120 @@ def interactiveGraph(csvFile):
                 window['darkStatus'].update("No way! No sense")
         
         elif (event == '_RepetitionListBoxSweepG_') or (event == '_PowerListBoxSweepG_'):
-            df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
-            if len(df_plotted) < 0:
+            interval_list = list(df_plotted_full['Interval'].loc[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])].values)
+            try:
+                interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+            except:
                 continue
-            updateRegualrGraph(df_plotted, ax, fig_agg1)
+            df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_']) & (df_plotted_full['Interval'] == interval)]
+            if len(df_plotted) == 0:
+                continue
+            slider_elem.Update(range=(min(df_plotted_full['Interval'].loc[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]), max(df_plotted_full['Interval'].loc[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])])))
+            add_reg_history(ax, hold_reg_lines, fig_agg1)
+            line1 = updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
+        
+        elif event == '_HOLD_REG_':
+            if line1 != False:
+                hold_reg_lines[line1._label] = line1
+                colors_reg_Sweep.remove(color_reg)
+                color_reg = colors_reg_Sweep[0]
         
         elif (event == '-REG_LOG_SCALE-'):
             window3 = sg.Window("Processing...", [[sg.Text("Changing graph scale, please wait...")]], finalize=True)
             if values['-REG_LOG_SCALE-']:
                 scales = scales_dict["LOG"]
-                if scale == '[mW]':
-                    scale = '[dBm]'
-                    df_plotted.iloc[:,10:] = df_plotted.iloc[:,10:].apply(lambda val : 10*np.log10(val/(10**(-3))))
-                    df_clean.iloc[:,10:] = df_clean.iloc[:,10:].apply(lambda val : 10*np.log10(val/(10**(-3))))
-                    df_substance.iloc[:,10:] = df_substance.iloc[:,10:].apply(lambda val : 10*np.log10(val/(10**(-3))))
-                    df_ratio.iloc[:,10:] = df_ratio.iloc[:,10:].apply(lambda val : 10*np.log10(val/(10**(-3))))
-                    df_plotted_full.iloc[:,10:] = df_plotted_full.iloc[:,10:].apply(lambda val : 10*np.log10(val/(10**(-3))))
-                else:
-                    scale = '[dB]'
-                    df_plotted.iloc[:,10:] = df_plotted.iloc[:,10:].apply(lambda val : 10*np.log10(val))
-                    df_clean.iloc[:,10:] = df_clean.iloc[:,10:].apply(lambda val : 10*np.log10(val))
-                    df_substance.iloc[:,10:] = df_substance.iloc[:,10:].apply(lambda val : 10*np.log10(val))
-                    df_ratio.iloc[:,10:] = df_ratio.iloc[:,10:].apply(lambda val : 10*np.log10(val))
-                    df_plotted_full.iloc[:,10:] = df_plotted_full.iloc[:,10:].apply(lambda val : 10*np.log10(val))
             else:
                 scales = scales_dict["WATT"]
-                if scale == '[dB]':
-                    scale = 'Ratio'
-                    df_plotted.iloc[:,10:] = df_plotted.iloc[:,10:].apply(lambda val : 10**(val/10))
-                    df_clean.iloc[:,10:] = df_clean.iloc[:,10:].apply(lambda val : 10**(val/10))
-                    df_substance.iloc[:,10:] = df_substance.iloc[:,10:].apply(lambda val : 10**(val/10))
-                    df_ratio.iloc[:,10:] = df_ratio.iloc[:,10:].apply(lambda val : 10**(val/10))
-                    df_plotted_full.iloc[:,10:] = df_plotted_full.iloc[:,10:].apply(lambda val : 10**(val/10))
-                else:
-                    scale = '[mW]'
-                    df_plotted.iloc[:,10:] = df_plotted.iloc[:,10:].apply(lambda val : (10**(-3))*10**(val/10))
-                    df_clean.iloc[:,10:] = df_clean.iloc[:,10:].apply(lambda val : (10**(-3))*10**(val/10))
-                    df_substance.iloc[:,10:] = df_substance.iloc[:,10:].apply(lambda val : (10**(-3))*10**(val/10))
-                    df_ratio.iloc[:,10:] = df_ratio.iloc[:,10:].apply(lambda val : (10**(-3))*10**(val/10))
-                    df_plotted_full.iloc[:,10:] = df_plotted_full.iloc[:,10:].apply(lambda val : (10**(-3))*10**(val/10))
-            updateRegualrGraph(df_plotted,ax,fig_agg1)
+            new_dict = hold_reg_lines.copy()
+            if line1 != False:
+                new_dict[line1._label] = line1
+            convert_reg_scale(new_dict, scale, fig_agg1, ax)
+            # Update the plot scaling
+            ax.relim()  # Recalculate the data limits
+            ax.autoscale_view()  # Adjust the axis limits to fit the new data
+            scale = scales_dict_converter[scale]
             window3.close()
 
         elif (event == 'cleanCheckBox'):
             ax.cla()
             ax.grid()
-            scale = scales["CLEAN"]
+            if values['-REG_LOG_SCALE-']:
+                scales = scales_dict["LOG"]
+            else:
+                scales = scales_dict["WATT"]
+            scale = scales['CLEAN']    
             if (values['cleanCheckBox']):
-                df_plotted_full = df_clean
-                df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
-                if len(df_plotted) < 0:
-                    continue
-                updateRegualrGraph(df_plotted, ax, fig_agg1)
                 values['substanceCheckBox'] = False
                 values['normCheckBox'] = False                                      
                 window['substanceCheckBox'].update(False)
                 window['normCheckBox'].update(False)
+                data_type = 'C'
+                df_plotted_full = df_clean
+                df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
+                if len(df_plotted) == 0:
+                    continue
+                new_range = (min(df_plotted['Interval']), max(df_plotted['Interval']))
+                interval_list = df_plotted['Interval'].tolist()
+                slider_elem.Update(range=new_range)
+                interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+                add_reg_history(ax, hold_reg_lines, fig_agg1)
+                line1 = updateRegualrGraph(df_plotted[df_plotted['Interval'] == interval], ax, fig_agg1, color_reg, scale, data_type)
+
+                
         
         elif (event == 'substanceCheckBox'):
             ax.cla()
             ax.grid()
-            scale = scales["SUBSTANCE"]
+            if values['-REG_LOG_SCALE-']:
+                scales = scales_dict["LOG"]
+            else:
+                scales = scales_dict["WATT"]
+            scale = scales['SUBSTANCE']
             if (values['substanceCheckBox']):
-                df_plotted_full = df_substance
-                df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
-                if len(df_plotted) < 0:
-                    continue
-                updateRegualrGraph(df_plotted, ax, fig_agg1)
                 values['cleanCheckBox'] = False
                 values['normCheckBox'] = False
                 window['cleanCheckBox'].update(False)                              
                 window['normCheckBox'].update(False)
+                data_type = 'S'
+                df_plotted_full = df_substance
+                df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
+                if len(df_plotted) == 0:
+                    continue
+                new_range = (min(df_plotted['Interval']), max(df_plotted['Interval']))
+                interval_list = df_plotted['Interval'].tolist()
+                slider_elem.Update(range=new_range)
+                interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+                add_reg_history(ax, hold_reg_lines, fig_agg1)
+                line1 = updateRegualrGraph(df_plotted[df_plotted['Interval'] == interval], ax, fig_agg1, color_reg, scale, data_type)
+                
         
         elif (event == 'normCheckBox'):
             ax.cla()
             ax.grid()
-            scale = scales["RATIO"]
+            if values['-REG_LOG_SCALE-']:
+                scales = scales_dict["LOG"]
+            else:
+                scales = scales_dict["WATT"]
+            scale = scales['RATIO']
             if (values['normCheckBox']):
-                df_plotted_full = df_ratio
-                df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
-                if len(df_plotted) < 0:
-                    continue
-                updateRegualrGraph(df_plotted, ax, fig_agg1)
                 values['cleanCheckBox'] = False                                      
                 values['substanceCheckBox'] = False
                 window['cleanCheckBox'].update(False)
                 window['substanceCheckBox'].update(False)
+                data_type = 'T'
+                df_plotted_full = df_ratio
+                df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])]
+                if len(df_plotted) == 0:
+                    continue
+                new_range = (min(df_plotted['Interval']), max(df_plotted['Interval']))
+                interval_list = df_plotted['Interval'].tolist()
+                slider_elem.Update(range=new_range)
+                interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+                add_reg_history(ax, hold_reg_lines, fig_agg1)
+                line1 = updateRegualrGraph(df_plotted[df_plotted['Interval'] == interval], ax, fig_agg1, color_reg, scale, data_type)
+                
 
-        # Always execute:
-        if values['-Reg_Norm_Val-']:
-            if values['-REG_LOG_SCALE-']:
-                scale = '[dB]'
-            else:
-                scale = 'Ratio'
-        plt.ylabel(scale)
-        plt.xlabel("Wavelength [nm]")
+        setTitles(ax, scale, fig_agg1)
     # End of sweep graph.
 
     # This part is for allan deviation & concentration part:
@@ -636,7 +706,7 @@ def interactiveGraph(csvFile):
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=True)
                 window['_PowerListBoxAllanDG_'].update(set_to_index=[])
                 window['_RepetitionListBoxAllanDG_'].update(set_to_index=[])
-                clear_plots(ax_conc, ax_deviation, values['-SLIDER-'])
+                clear_allan_plots(ax_conc, ax_deviation, values['-SLIDER-'])
                 new_concentration_line = None
                 new_allandeviation_line = None
                 holdConcentrationList = {}
@@ -717,7 +787,7 @@ def interactiveGraph(csvFile):
                     adev = future3[1] # Everytime is calculating.
                     mean_interval = future3[2]
                     # End of the logic of working Animation.
-                    clear_plots(ax_conc, ax_deviation, values['-SLIDER-'])
+                    clear_allan_plots(ax_conc, ax_deviation, values['-SLIDER-'])
                     add_allanDeviation_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg2)
                     new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
                     if (values['-SLIDER-'] == 0):
@@ -818,7 +888,7 @@ if __name__ == '__main__':
 
     if args.csv_name == None:
         # dirname='C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-        dirname = "..\\Results\\Uzziels_Theoretical_Measurements\\"
+        dirname = "..\\Results\\2023_05_10_12_59_10_356441_lab_demo_CF=1500_Span=50_analyzer=True\\"
         args.csv_name = dirname
         args.analyzer_substance = False
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"

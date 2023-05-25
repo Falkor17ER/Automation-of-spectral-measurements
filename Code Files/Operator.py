@@ -202,8 +202,8 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
     # capturePower = True
     if (not debugMode):
         laser.emission(1)
-    #
-    theTotalForPrecents = len(reps) * (int((stop-start)/step)+1)
+    ######################################## IF NO POWER SWEEP stop and start are missing
+    theTotalForPrecents = len(reps) * (int((stop-start)/step)+1) 
     precentsPerJump = 100/theTotalForPrecents # Precents per one operationqmeasure.
     precents = 0 # The total precents until now.
     precentsMessage = None

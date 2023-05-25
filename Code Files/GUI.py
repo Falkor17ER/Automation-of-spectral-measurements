@@ -1,5 +1,4 @@
 # This file contains the Graphical user interface and delivers the requests from the user to devices
-# from time import time as time
 from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory, noiseMeasurments
@@ -9,8 +8,8 @@ import PySimpleGUI as sg
 import os
 import signal
 import shutil
-import threading
 import subprocess
+import threading
 import tkinter.messagebox as tkm
 import time
 
@@ -43,13 +42,6 @@ getTestErrorText = ""
 graphs_pids = []
 # sg.theme_previewer()
 
-#---------------------------------------------------------------------------------------------------------------------------
-
-class ReturnValueHolder:
-    def __init__(self):
-        self.return_value = None
-
-#---------------------------------------------------------------------------------------------------------------------------
 
 # Initial reads
 # The Currently working directory - where this .py file can be found.
@@ -423,6 +415,7 @@ while True:
             getTestErrorText = ""
 
     elif event == "Stop Test":
+        # This function support to stop the test.
         tempEvent = sg.popup_ok_cancel("Stop Running test?", "Are you sure you want to stop the running test?\n'Ok' - Yes, stop the test.\n'Cancel' - Opps, continue the test.")
         if (tempEvent.upper()=="OK"):
             # Open and close a window
@@ -478,9 +471,3 @@ while True:
         break
 
 # End of GUI
-
-
-
-
-
-#_________________________________________________________________________________Delete_________________________________________________________________________________
