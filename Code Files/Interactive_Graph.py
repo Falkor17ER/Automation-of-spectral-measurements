@@ -58,11 +58,11 @@ def collapse(layout, key, visible):
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
 def getGlobalColumn(norm_freq_list):
-    layout = [[sg.Checkbox("Filter", default=True, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_"), sg.Push(),
-              sg.Checkbox("Subtract Dark", default=True, enable_events=True, key="-MINUS_DARK-"),
+    layout = [[sg.Checkbox("Filter", default=False, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_"), sg.Push(),
+              sg.Checkbox("Subtract Dark", default=False, enable_events=True, key="-MINUS_DARK-"),
               sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push(), 
-              sg.Checkbox("", key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),s=7,key="normValue"), sg.Text("[nm]"), sg.Push(),
-              sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)'), sg.Push(),
+              sg.Checkbox("", enable_events=True, key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),enable_events=True,s=7,key="normValue"), sg.Text("[nm]"), sg.Push()],
+              [sg.Text("Applied", key="_GLOBAL_STATUS_"), sg.Button("Apply", key='_APPLY_GLOBAL_', enable_events=True), sg.Push(), sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)'),
               sg.Button("Close", key = 'Close Graph')]]
     return layout
 
@@ -301,6 +301,48 @@ def check_files(csvFile):
     except:
         sg.popup_ok("There was a problem reading substance.csv")
         exit()
+
+def clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, drawSweepGraph):
+    window['_PowerListBoxSweepG_'].update(set_to_index=[])
+    window['_RepetitionListBoxSweepG_'].update(set_to_index=[])
+    ax.cla()
+    ax.grid()
+    hold_reg_lines = {} # deleting history
+    colors_reg_Sweep = [name for name, hex in mcolors.CSS4_COLORS.items()
+            if np.mean(mcolors.hex2color(hex)) < 0.7]
+    colors_reg_Sweep.pop(0)
+    color_reg = colors_reg_Sweep[0]
+    values['substanceCheckBox'] = False
+    window['substanceCheckBox'].update(False)
+    values['cleanCheckBox'] = False
+    window['cleanCheckBox'].update(False)
+    values['normCheckBox'] = True
+    window['normCheckBox'].update(True)
+    window['-REG_LOG_SCALE-'].update(True)
+    scales = scales_dict["LOG"]
+    scale = "[dB]"
+    fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
+    line1 = False
+    data_type = 'T'
+    return hold_reg_lines, color_reg, colors_reg_Sweep, values, line1, data_type, fig1, ax, fig_agg1,scales,scale
+
+def apply_function_animation(csvFile, values, filter_conf_vals):
+   
+    future = None
+    animation = time.time()
+    sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+    while True:
+        if (time.time() - animation > 0.05):
+            sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+            animation = time.time()
+        if future == None:
+            future = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(get_clean_substance_transmittance, [csvFile, values['-MINUS_DARK-'], filter_conf_vals, values['-Reg_Norm_Val-'], values['normValue'], values['_FILTER_CB_']])
+        if (future._state != 'RUNNING'):
+            sg.PopupAnimated(None)
+            break
+    future = future.result()
+    return future[0], future[1], future[2], future[3]
+    
 #---------------------------------------------------------------------------------------------------------------------------
 
 # This is the main function of the interactive graph:
@@ -336,34 +378,14 @@ def interactiveGraph(csvFile):
     #----------------------------------------------------------------------------------------
     
     check_files(csvFile)
-
-    df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=True, to_norm=False)
+ # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=values['-MINUS_DARK-'], filter_values=filter_conf_vals, to_norm=values['-Reg_Norm_Val-'], real_freq=values['normValue'], to_filter=values['_FILTER_CB_'])
+    df_ratio, df_clean, df_substance, darkStatus = apply_function_animation(csvFile, {'-MINUS_DARK-': False, '-Reg_Norm_Val-': False, 'normValue': '1500', '_FILTER_CB_': False}, None)
+    # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=False, to_norm=False)
+    df_transmittance = df_ratio.copy()
     frequencyList = df_ratio['REP_RATE'].unique().tolist()
     powerList = df_ratio['POWER'].unique().tolist()
     norm_freq_list = np.asarray(df_ratio.columns[10:].tolist(), float)
     df_plotted_full = df_ratio
-
-    # Creating & Loading the transmition file
-    # Animation while loading the database to GUI
-    animation = time.time()
-    future = None
-    sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-    while True:
-        if (time.time() - animation > 0.05):
-            sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-            animation = time.time()
-        if future == None:
-            future = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, False, '1550', True])
-        if ( future._state != 'RUNNING' ):
-            darkStatus = (future.result())[1]
-            sg.PopupAnimated(None)
-            future = None
-            break
-    try:
-        df_transmittance = pd.read_csv(csvFile + 'transmittance.csv')
-    except:
-        sg.popup_ok("There was a problem reading the files.")
-        exit()
 
     # This is the main Layout - connect all the previous layouts:
     interval_list = list(df_transmittance['Interval'].loc[(df_transmittance['POWER'] == df_transmittance.iloc[0]['POWER']) & (df_transmittance['REP_RATE'] == df_transmittance.iloc[0]['REP_RATE'])].values)
@@ -468,11 +490,28 @@ def interactiveGraph(csvFile):
             window.close()
             break
 
+        elif event == '_FILTER_CB_' or event == '_FILT_CONF_' or event == '-MINUS_DARK-' or event == '-Reg_Norm_Val-' or event == 'normValue':
+            window['_GLOBAL_STATUS_'].update("Not Applied")
+            if event == '_FILT_CONF_':
+                filter_conf_vals = filter_selection_window()
+        
+        elif event == '_APPLY_GLOBAL_':
+            # How to apply BW filter:
+            if filter_conf_vals == None and values['_FILTER_CB_']:
+                filter_conf_vals = filter_selection_window()
+            df_ratio, df_clean, df_substance, darkStatus = apply_function_animation(csvFile, values, filter_conf_vals)
+            df_transmittance = df_ratio.copy()
+            frequencyList = df_ratio['REP_RATE'].unique().tolist()
+            powerList = df_ratio['POWER'].unique().tolist()
+            norm_freq_list = np.asarray(df_ratio.columns[10:].tolist(), float)
+            window['_GLOBAL_STATUS_'].update("Applied")
+            hold_reg_lines, color_reg, colors_reg_Sweep, values, line1, data_type, fig1, ax, fig_agg1,scales,scale = clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, drawSweepGraph)
+            df_plotted_full = df_ratio
+            
         # Reset all and clear all:
         elif event == 'Are you sure? (Yes, Reset)':
-            window['_PowerListBoxSweepG_'].update(set_to_index=[])
-            window['_RepetitionListBoxSweepG_'].update(set_to_index=[])
-            ax.cla()
+            hold_reg_lines, color_reg, colors_reg_Sweep, values, line1, data_type, fig1, ax, fig_agg1,scales,scale = clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, drawSweepGraph)
+            df_plotted_full = df_ratio
             if flag_allan:
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=True)
                 window['_PowerListBoxAllanDG_'].update(set_to_index=[])
@@ -486,65 +525,17 @@ def interactiveGraph(csvFile):
                     if np.mean(mcolors.hex2color(hex)) < 0.7]
                 colors_allanDeviationConcentration.pop(0)
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=False)
-                hold_reg_lines = {} # deleting history
-                colors_reg_Sweep = [name for name, hex in mcolors.CSS4_COLORS.items()
-                    if np.mean(mcolors.hex2color(hex)) < 0.7]
-                colors_reg_Sweep.pop(0)
-                color_reg = colors_reg_Sweep[0]
-                line1 = False
-                values['substanceCheckBox'] = False
-                window['substanceCheckBox'].update(False)
-                values['cleanCheckBox'] = False
-                window['cleanCheckBox'].update(False)
-                values['normCheckBox'] = True
-                window['normCheckBox'].update(True)
-                window['-REG_LOG_SCALE-'].update(True)
-                scales = scales_dict["LOG"]
-                scale = "[dB]"
-                data_type = 'T'
-                df_plotted_full = df_ratio
-            #
-            fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
-            if flag_allan:
                 fig2, ax_conc, ax_deviation, fig_agg2 = drawAllanDeviationGraph(fig2, ax_conc, ax_deviation, fig_agg2)
             # End of Reset.
 
-        elif event == '_FILT_CONF_':
-            filter_conf_vals = filter_selection_window()
-            # How to apply BW filter:
-            # if filter_conf_vals != None:
-            #   clean_df = filter_df(clean_df, filter_conf_vals)
-            # else:
-            #   filter_conf_vals = filter_selection_window()
-            #   clean_df = filter_df(clean_df, filter_conf_vals)
     # This part is for the sweep graph:
             
         # Clear the graph and the relevant parametrs.
-        if event == '-CLEAR_SWEEP_PLOT-':
-            window['_PowerListBoxSweepG_'].update(set_to_index=[])
-            window['_RepetitionListBoxSweepG_'].update(set_to_index=[])
-            ax.cla()
-            ax.grid()
-            hold_reg_lines = {} # deleting history
-            colors_reg_Sweep = [name for name, hex in mcolors.CSS4_COLORS.items()
-                   if np.mean(mcolors.hex2color(hex)) < 0.7]
-            colors_reg_Sweep.pop(0)
-            color_reg = colors_reg_Sweep[0]
-            values['substanceCheckBox'] = False
-            window['substanceCheckBox'].update(False)
-            values['cleanCheckBox'] = False
-            window['cleanCheckBox'].update(False)
-            values['normCheckBox'] = True
-            window['normCheckBox'].update(True)
-            window['-REG_LOG_SCALE-'].update(True)
-            scales = scales_dict["LOG"]
-            scale = "[dB]"
-            fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
-            line1 = False
-            data_type = 'T'
+        elif event == '-CLEAR_SWEEP_PLOT-':
+            hold_reg_lines, color_reg, colors_reg_Sweep, values, line1, data_type, fig1, ax, fig_agg1,scales,scale = clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, drawSweepGraph)
             df_plotted_full = df_ratio
 
-        if event == '-SLIDER- Release':
+        elif event == '-SLIDER- Release':
             interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
             df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_']) & (df_plotted_full['Interval'] == interval)]
             if len(df_plotted) == 0:
@@ -552,33 +543,33 @@ def interactiveGraph(csvFile):
             add_reg_history(ax, hold_reg_lines, fig_agg1)
             line1 = updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
 
-        elif ( (event == '-Refresh-') or (event == '-MINUS_DARK-') ):
-            window3 = sg.Window("Processing...", [[sg.Text("Renormalzing results, please wait...")]], finalize=True)
-            df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, values['-MINUS_DARK-'], values["normValue"], to_norm=values['-Reg_Norm_Val-'])
-            if values['cleanCheckBox']:
-                df_plotted_full = df_clean
-            elif values['substanceCheckBox']:
-                df_plotted_full = df_substance
-            elif values['normCheckBox']:
-                df_plotted_full = df_ratio
-            else:
-                window3.close()
-                continue
-            interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
-            df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_']) & (df_plotted_full['Interval'] == interval)]
-            if len(df_plotted) == 0:
-                window3.close()
-                continue
-            updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
-            window3.close()
-            if values['-MINUS_DARK-'] and darkStatus:
-                window['darkStatus'].update("OK")
-            elif values['-MINUS_DARK-'] and (darkStatus == False):
-                window['darkStatus'].update("'dark.csv' not Found")
-            elif values['-MINUS_DARK-']==False and (darkStatus == False):
-                window['darkStatus'].update("Calculation ignoring dark measurment")
-            elif values['-MINUS_DARK-']==False and (darkStatus == True):
-                window['darkStatus'].update("No way! No sense")
+        # elif ( (event == '-Refresh-') or (event == '-MINUS_DARK-') ):
+        #     window3 = sg.Window("Processing...", [[sg.Text("Renormalzing results, please wait...")]], finalize=True)
+        #     df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, values['-MINUS_DARK-'], values["normValue"], to_norm=values['-Reg_Norm_Val-'])
+        #     if values['cleanCheckBox']:
+        #         df_plotted_full = df_clean
+        #     elif values['substanceCheckBox']:
+        #         df_plotted_full = df_substance
+        #     elif values['normCheckBox']:
+        #         df_plotted_full = df_ratio
+        #     else:
+        #         window3.close()
+        #         continue
+        #     interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
+        #     df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_']) & (df_plotted_full['Interval'] == interval)]
+        #     if len(df_plotted) == 0:
+        #         window3.close()
+        #         continue
+        #     updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
+        #     window3.close()
+        #     if values['-MINUS_DARK-'] and darkStatus:
+        #         window['darkStatus'].update("OK")
+        #     elif values['-MINUS_DARK-'] and (darkStatus == False):
+        #         window['darkStatus'].update("'dark.csv' not Found")
+        #     elif values['-MINUS_DARK-']==False and (darkStatus == False):
+        #         window['darkStatus'].update("Calculation ignoring dark measurment")
+        #     elif values['-MINUS_DARK-']==False and (darkStatus == True):
+        #         window['darkStatus'].update("No way! No sense")
         
         elif (event == '_RepetitionListBoxSweepG_') or (event == '_PowerListBoxSweepG_'):
             interval_list = list(df_plotted_full['Interval'].loc[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])].values)
@@ -640,8 +631,6 @@ def interactiveGraph(csvFile):
                 add_reg_history(ax, hold_reg_lines, fig_agg1)
                 line1 = updateRegualrGraph(df_plotted[df_plotted['Interval'] == interval], ax, fig_agg1, color_reg, scale, data_type)
 
-                
-        
         elif (event == 'substanceCheckBox'):
             ax.cla()
             ax.grid()
@@ -667,7 +656,6 @@ def interactiveGraph(csvFile):
                 add_reg_history(ax, hold_reg_lines, fig_agg1)
                 line1 = updateRegualrGraph(df_plotted[df_plotted['Interval'] == interval], ax, fig_agg1, color_reg, scale, data_type)
                 
-        
         elif (event == 'normCheckBox'):
             ax.cla()
             ax.grid()

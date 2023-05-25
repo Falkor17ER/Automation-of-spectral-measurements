@@ -41,7 +41,14 @@ def minusDark(dirname,df_clean, df_substance, df_dark, mode):
     # Return:
     return df_clean, df_substance, True
 
-def get_clean_substance_transmittance(dirname, darkMinus, filter_values = None, to_norm = False, real_freq = '1500', to_filter = False):
+def get_clean_substance_transmittance(val_list):
+    dirname = val_list[0]
+    darkMinus = val_list[1]
+    filter_values = val_list[2]
+    to_norm = val_list[3]
+    real_freq = val_list[4]
+    to_filter = val_list[5]
+    
     try:
         # Load clean and substance csvs
         clean_df = pd.read_csv(dirname+'\\'+'clean.csv')
@@ -60,23 +67,28 @@ def get_clean_substance_transmittance(dirname, darkMinus, filter_values = None, 
         clean_df = filter_df(clean_df, filter_values)
         substance_df = filter_df(substance_df, filter_values)
     #
-    if darkMinus and not df_dark.empty:
+    if darkMinus and (not df_dark.empty):
         clean_df, substance_df, darkStatus = minusDark(dirname,clean_df, substance_df, df_dark, "sweepGraph")
     else:
         darkStatus = False
 
     columns = substance_df.columns.to_list()
+    clean_df.columns = columns
+    df_dark.columns = columns
     freqs = [element for element in columns[10:]]
     R_substance, _ = substance_df.shape
     R_clean, _ = clean_df.shape
+    R_dark, _ = df_dark.shape
 
     if to_norm:
-        real_freq = get_closeset_wavelength(dirname, real_freq)
+        
         # Getting the elemnts of normalizations:
-        norm_vals_clean = clean_df[str(float(real_freq))]#################################################################################Problem
-        norm_vals_substance = substance_df[str(float(real_freq))]
-        #norm_vals_clean = clean_df[real_freq]
-        #norm_vals_substance = substance_df[real_freq]
+        real_freq = get_closeset_wavelength(clean_df.columns[10:], real_freq)
+        norm_vals_clean = clean_df[real_freq]
+        real_freq = get_closeset_wavelength(substance_df.columns[10:], real_freq)
+        norm_vals_substance = substance_df[real_freq]
+        real_freq = get_closeset_wavelength(df_dark.columns[10:], real_freq)
+        norm_vals_dark = df_dark[real_freq]
 
         # Normalizing both clean and substance CSVs
         for idx in range(0,R_substance):
@@ -85,14 +97,18 @@ def get_clean_substance_transmittance(dirname, darkMinus, filter_values = None, 
         for idx in range(0,R_clean):
             # Iterating over each row and normlizing
             clean_df.iloc[idx,10:] = clean_df.iloc[idx,10:].apply(lambda val : val - norm_vals_clean[idx])
+        for idx in range(0,R_dark):
+            # Iterating over each row and normlizing
+            df_dark.iloc[idx,10:] = df_dark.iloc[idx,10:].apply(lambda val : val - norm_vals_dark[idx])
     
     df_transmittance = substance_df.copy()
     if R_clean < R_substance:
-        df_columns = columns
-        freqs = [element for element in df_columns[10:]]
+        df_columns = df_transmittance.columns.to_list()
+        freqs = df_columns[10:]
         r = None
         p = None
         df_clean_multipled = pd.DataFrame(columns=df_columns)
+        clean_df.columns = df_columns
         for idx, row in substance_df.iterrows():
             if ( row['REP_RATE'] != r or row['POWER'] != p ):
                 r = row['REP_RATE']
@@ -108,15 +124,14 @@ def get_clean_substance_transmittance(dirname, darkMinus, filter_values = None, 
     df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
     return df_transmittance, clean_df, substance_df, darkStatus
 
-def get_closeset_wavelength(dirname, Freq):
-    clean_df = pd.read_csv(dirname+'\\'+'clean.csv', nrows=1)
-    columns = clean_df.columns.to_list()
-    freqs = [float(element) for element in columns[10:]]
+def get_closeset_wavelength(freqs, Freq):
+    freqs = np.asarray(freqs, float)
     distance_from_user = [abs(float(Freq)-element) for element in freqs]
     real_freq = freqs[np.argmin(distance_from_user)]
     if real_freq.is_integer():
         # convert x to integer
         real_freq = int(real_freq)
+        return str(real_freq)+'.0'
     return str(real_freq)
 
 def getAnalyzerTransmition(val_list):
