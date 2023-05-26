@@ -282,7 +282,8 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
 
     # Save a substance csv
     if csvname[-12:-4] == "analyzer":
-        makeSubstaceCSV(csvname, allResults_df)
+        # makeSubstaceCSV(csvname, allResults_df)
+        csvname = csvname[:-12] + 'substance.csv'
     # Turn off the laser
     if (not debugMode):
         laser.emission(0) # Turn off the laser after the measurments sweep. 

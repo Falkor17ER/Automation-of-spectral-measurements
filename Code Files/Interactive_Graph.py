@@ -9,7 +9,7 @@ import argparse
 import os
 import matplotlib.colors as mcolors
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from Analyzer import get_clean_substance_transmittance, getAnalyzerTransmition, beerLambert, allandevation
+from Analyzer import get_clean_substance_transmittance, beerLambert, allandevation
 from datetime import datetime
 
 # Parameters:
@@ -25,7 +25,8 @@ SUBSTANCE_DATABASE_SIZE = (int(WINDOW_SIZE[0]/64),int(WINDOW_SIZE[0]/384)) # The
 # Functions and setting:
 
 # sg.theme('DarkBlue')
-sg.theme('DarkGrey2')
+# sg.theme('DarkGrey2')
+sg.theme('Default')
 
 #-------------------------------------------------------------------------------------------------
 
@@ -105,8 +106,8 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                   [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
                   [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=True), sg.Input("csv file name", s=15, key='csvFileName'), sg.Push()],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_ALLAN_PLOT-', enable_events=True), sg.Button("Close", key='Close Graph', enable_events=True),sg.Push()],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()],
-                  [sg.Push(), sg.Text("ppm", font='David 10'), sg.Slider(range=(0,1), orientation='h', key='-SLIDER-', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("%", font='David 10'), sg.Push()]]
+                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_ALLAN_PLOT-', enable_events=True),sg.Push()],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()],
+                  [sg.Push(), sg.Text("ppm", font='David 10'), sg.Slider(range=(0,1), orientation='h', key='_PPM_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("%", font='David 10'), sg.Push()]]
                   #[sg.Push(), sg.Button("ppm", key='_ppm_', enable_events=True), sg.Button("%", key='_Precents_', enable_events=True), sg.Push()]]
     graph_layout = [
         #[sg.T('Controls:')],
@@ -273,10 +274,10 @@ def clear_allan_plots(ax1,ax2,plotType):
     ax2.cla()
     ax1.set_xlabel("Time [s]")
     ax2.set_xlabel("Averaging time [s]")
-    if plotType == 0:
-        ax1.set_title("Concentration [ppm]")
-    else:
+    if plotType:
         ax1.set_title("Concentration [%]")
+    else:
+        ax1.set_title("Concentration [ppm]")
     ax2.set_title("Allan Deviation")
     ax1.grid()
     ax2.grid(markevery=1)
@@ -343,24 +344,34 @@ def apply_function_animation(csvFile, values, filter_conf_vals):
     future = future.result()
     return future[0], future[1], future[2], future[3]
     
+def convert_concentraion_units(ax_conc, fig_agg, ppm_slider):
+    # ppm_slider = 0-ppm, 1-%
+    lines = ax_conc.lines
+    for line in lines:
+        y_data = line.get_ydata()  # Get the y-data of the line
+        if ppm_slider: # '1%' = 10,000ppm 
+            new_y_data = [val/10000 for val in y_data]
+            ax_conc.set_title("Concentration [%]")
+        else:
+            new_y_data = [val*10000 for val in y_data]
+            ax_conc.set_title("Concentration [ppm]")
+        line.set_ydata(new_y_data)  # Update the y-data of the line
+    fig_agg.draw()
 #---------------------------------------------------------------------------------------------------------------------------
 
 # This is the main function of the interactive graph:
 def interactiveGraph(csvFile):
     # Variables initializations
-    reread = True                   # If no major change selected, reread stays false
     new_concentration_line = None   # holds last added line to concentration plot
     new_allandeviation_line = None  # holds last added line to allan deviation plot
     realWavelength = None           # When user inserts a wavelength, the realWavelength is closest wavelength exists in the data
     df_concentration = None         # the output of concentration calculation function
-    lastNormValue = None            # normalization wavelength is held to reduce unnecessary normalization tasks
     holdConcentrationList = {}      # holds the history of concentration and deviation (next dict)
     holdAllanDeviationList = {}
     hold_reg_lines = {}
     sweepGraph = None               # layout of the sweepgraph window
     allan_and_concentration = None  # layout of the concentration window
     flag_allan = True
-    flag_allanTime = True
     line1 = False
     data_type = 'T'
 
@@ -391,7 +402,8 @@ def interactiveGraph(csvFile):
     interval_list = list(df_transmittance['Interval'].loc[(df_transmittance['POWER'] == df_transmittance.iloc[0]['POWER']) & (df_transmittance['REP_RATE'] == df_transmittance.iloc[0]['REP_RATE'])].values)
     sweepGraph = getSweepLayout(frequencyList, powerList, interval_list)
     
-    
+    if len(df_clean) == len(df_substance):
+        flag_allan = False
     if flag_allan:
         allan_and_concentration = getAllanDeviationLayout(frequencyList, powerList, norm_freq_list) 
     else:
@@ -507,6 +519,14 @@ def interactiveGraph(csvFile):
             window['_GLOBAL_STATUS_'].update("Applied")
             hold_reg_lines, color_reg, colors_reg_Sweep, values, line1, data_type, fig1, ax, fig_agg1,scales,scale = clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, drawSweepGraph)
             df_plotted_full = df_ratio
+            if values['-MINUS_DARK-'] and darkStatus:
+                window['darkStatus'].update("OK")
+            elif values['-MINUS_DARK-'] and (darkStatus == False):
+                window['darkStatus'].update("'dark.csv' not Found")
+            elif values['-MINUS_DARK-']==False and (darkStatus == False):
+                window['darkStatus'].update("Calculation ignoring dark measurment")
+            elif values['-MINUS_DARK-']==False and (darkStatus == True):
+                window['darkStatus'].update("No way! No sense")
             
         # Reset all and clear all:
         elif event == 'Are you sure? (Yes, Reset)':
@@ -516,7 +536,7 @@ def interactiveGraph(csvFile):
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=True)
                 window['_PowerListBoxAllanDG_'].update(set_to_index=[])
                 window['_RepetitionListBoxAllanDG_'].update(set_to_index=[])
-                clear_allan_plots(ax_conc, ax_deviation, values['-SLIDER-'])
+                clear_allan_plots(ax_conc, ax_deviation, values['_PPM_SLIDER_'])
                 new_concentration_line = None
                 new_allandeviation_line = None
                 holdConcentrationList = {}
@@ -524,6 +544,7 @@ def interactiveGraph(csvFile):
                 colors_allanDeviationConcentration = [name for name, hex in mcolors.CSS4_COLORS.items()
                     if np.mean(mcolors.hex2color(hex)) < 0.7]
                 colors_allanDeviationConcentration.pop(0)
+                color = colors_allanDeviationConcentration[0]
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=False)
                 fig2, ax_conc, ax_deviation, fig_agg2 = drawAllanDeviationGraph(fig2, ax_conc, ax_deviation, fig_agg2)
             # End of Reset.
@@ -542,34 +563,6 @@ def interactiveGraph(csvFile):
                 continue
             add_reg_history(ax, hold_reg_lines, fig_agg1)
             line1 = updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
-
-        # elif ( (event == '-Refresh-') or (event == '-MINUS_DARK-') ):
-        #     window3 = sg.Window("Processing...", [[sg.Text("Renormalzing results, please wait...")]], finalize=True)
-        #     df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, values['-MINUS_DARK-'], values["normValue"], to_norm=values['-Reg_Norm_Val-'])
-        #     if values['cleanCheckBox']:
-        #         df_plotted_full = df_clean
-        #     elif values['substanceCheckBox']:
-        #         df_plotted_full = df_substance
-        #     elif values['normCheckBox']:
-        #         df_plotted_full = df_ratio
-        #     else:
-        #         window3.close()
-        #         continue
-        #     interval = interval_list[np.argmin([abs(values['-SLIDER-']-element) for element in interval_list])]
-        #     df_plotted = df_plotted_full[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_']) & (df_plotted_full['Interval'] == interval)]
-        #     if len(df_plotted) == 0:
-        #         window3.close()
-        #         continue
-        #     updateRegualrGraph(df_plotted, ax, fig_agg1, color_reg, scale, data_type)
-        #     window3.close()
-        #     if values['-MINUS_DARK-'] and darkStatus:
-        #         window['darkStatus'].update("OK")
-        #     elif values['-MINUS_DARK-'] and (darkStatus == False):
-        #         window['darkStatus'].update("'dark.csv' not Found")
-        #     elif values['-MINUS_DARK-']==False and (darkStatus == False):
-        #         window['darkStatus'].update("Calculation ignoring dark measurment")
-        #     elif values['-MINUS_DARK-']==False and (darkStatus == True):
-        #         window['darkStatus'].update("No way! No sense")
         
         elif (event == '_RepetitionListBoxSweepG_') or (event == '_PowerListBoxSweepG_'):
             interval_list = list(df_plotted_full['Interval'].loc[df_plotted_full['REP_RATE'].isin(values['_RepetitionListBoxSweepG_']) & df_plotted_full['POWER'].isin(values['_PowerListBoxSweepG_'])].values)
@@ -681,7 +674,6 @@ def interactiveGraph(csvFile):
                 add_reg_history(ax, hold_reg_lines, fig_agg1)
                 line1 = updateRegualrGraph(df_plotted[df_plotted['Interval'] == interval], ax, fig_agg1, color_reg, scale, data_type)
                 
-
         setTitles(ax, scale, fig_agg1)
     # End of sweep graph.
 
@@ -694,7 +686,7 @@ def interactiveGraph(csvFile):
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=True)
                 window['_PowerListBoxAllanDG_'].update(set_to_index=[])
                 window['_RepetitionListBoxAllanDG_'].update(set_to_index=[])
-                clear_allan_plots(ax_conc, ax_deviation, values['-SLIDER-'])
+                clear_allan_plots(ax_conc, ax_deviation, values['_PPM_SLIDER_'])
                 new_concentration_line = None
                 new_allandeviation_line = None
                 holdConcentrationList = {}
@@ -702,6 +694,7 @@ def interactiveGraph(csvFile):
                 colors_allanDeviationConcentration = [name for name, hex in mcolors.CSS4_COLORS.items()
                     if np.mean(mcolors.hex2color(hex)) < 0.7]
                 colors_allanDeviationConcentration.pop(0)
+                color = colors_allanDeviationConcentration[0]
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=False)
             
             elif event == '_ADD_GRAPH_':
@@ -712,76 +705,50 @@ def interactiveGraph(csvFile):
                     window['_CSV_'].update(disabled=True)
                     window['-CLEAR_ALLAN_PLOT-'].update(disabled=True)
                     window['Close Graph'].update(disabled=True)
-                    future1 = None
                     future2 = None
                     future3 = None
-                    startOperation = True
-                    SecondaryOperation = True
+                    Operation_State = 0 # 0-beerlambert, 1-allandeviation
                     animation = time.time()
-                    start_time = time.time()
                     sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
                     while True:
                         if (time.time() - animation > 0.05):
                             sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
                             animation = time.time()
                         #
-                        if reread and startOperation:
-                            # get concentration
-                            # normalzation of clean and analyzer is required before concentration calculations
-                            if ( values['-Reg_Norm_Val-'] == True):
-                                if (lastNormValue != values['normValue']):
-                                    if future1 == None:
-                                        future1 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, values['-Reg_Norm_Val-'], values['normValue'],values['-MINUSDARK-']])
-                                    lastNormValue = values['normValue']
-                            else:
-                                if future1 == None:
-                                    future1 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(getAnalyzerTransmition, [csvFile, False, values['normValue'], values['-MINUSDARK-']])
-                            startOperation = False
-                            SecondaryOperation = False
-                        #
-                        if ( (SecondaryOperation or future1 != None) and (time.time()-start_time>0.1) ):
-                            if ( SecondaryOperation or future1._state != 'RUNNING' ):
-                                try:
-                                    darkStatus = (future1.result())[1]
-                                except:
-                                    None
-                                # filter selection
-                                if future2 == None:
-                                    future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(values['_ABS_NM_']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_']])
-                                SecondaryOperation = False
-                                future1 = None
-                        #
-                        if ( (future2 != None) and (time.time()-start_time>0.1) ):
-                            if (future2._state != 'RUNNING'):
+                        if (Operation_State == 0):
+                            if future2 == None:
+                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(values['_ABS_NM_']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance])
+                            elif future2._state != 'RUNNING':
                                 future2 = future2.result()
                                 df_concentration = future2[0]
                                 realWavelength = future2[1]
-                                df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxAllanDG_']) & df_concentration['POWER'].isin(values['_PowerListBoxAllanDG_'])]
-                                label = 'p{}_rr{}_c{}_wl{:.2f}_wgl{:.2f}'.format(values['_PowerListBoxAllanDG_'][0], values['_RepetitionListBoxAllanDG_'][0], values['_DATA_FILE_'][0].replace('_','-'), float(realWavelength), float(values['_WAVEGUIDE_LENGTH_']))
-                                if values['-Reg_Norm_Val-'] == True:
-                                    label = label + '_norm' + values['normValue']
-                                if values['-MINUSDARK-'] and darkStatus == True:
-                                    label = label + '_minudark'
-                                if future3 == None:
-                                    future3 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(allandevation, df_plotted)
-                                future2 = None
+                                Operation_State = 1
                         #
-                        if ( (future3 != None) and (time.time()-start_time>0.1) ):
-                            if ( future3._state != 'RUNNING'):
+                        elif (Operation_State == 1):
+                            if future3 == None:
+                                df_plotted = df_concentration[df_concentration['REP_RATE'].isin(values['_RepetitionListBoxAllanDG_']) & df_concentration['POWER'].isin(values['_PowerListBoxAllanDG_'])]
+                                future3 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(allandevation, df_plotted)
+                            elif future3._state != 'RUNNING':
+                                future3 = future3.result()
+                                tau = future3[0] # Everytime is calculating.
+                                adev = future3[1] # Everytime is calculating.
+                                mean_interval = future3[2]
                                 sg.PopupAnimated(None)
                                 break
-                    future3 = future3.result()
-                    tau = future3[0] # Everytime is calculating.
-                    adev = future3[1] # Everytime is calculating.
-                    mean_interval = future3[2]
+
                     # End of the logic of working Animation.
-                    clear_allan_plots(ax_conc, ax_deviation, values['-SLIDER-'])
+                    label = 'p{}_rr{}_c{}_wl{:.2f}_wgl{:.2f}'.format(values['_PowerListBoxAllanDG_'][0], values['_RepetitionListBoxAllanDG_'][0], values['_DATA_FILE_'][0].replace('_','-'), float(realWavelength), float(values['_WAVEGUIDE_LENGTH_']))
+                    if values['-Reg_Norm_Val-'] == True:
+                        label = label + '_norm' + values['normValue']
+                    if values['-MINUS_DARK-'] and darkStatus == True:
+                        label = label + '_minusdark'
+                    clear_allan_plots(ax_conc, ax_deviation, values['_PPM_SLIDER_'])
                     add_allanDeviation_history(ax_conc,ax_deviation,holdConcentrationList,holdAllanDeviationList,fig_agg2)
                     new_allandeviation_line = ax_deviation.loglog(tau, adev, label=label, color = color)
-                    if (values['-SLIDER-'] == 0):
-                        new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [ppm]'], float), label=label, color = color)
-                    else:
+                    if (values['_PPM_SLIDER_']):
                         new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [%]'], float), label=label, color = color)
+                    else:
+                        new_concentration_line = ax_conc.plot(df_plotted['Interval'], np.asarray(df_plotted['Concentration [ppm]'], float), label=label, color = color)
                     ax_deviation.grid(which='minor', alpha=0.2, linestyle='--')
                     ax_deviation.grid(which='major', alpha=1, linestyle='-')
                     ax_conc.grid(which='minor', alpha=0.2)
@@ -794,7 +761,6 @@ def interactiveGraph(csvFile):
                     new_allandeviation_line = new_allandeviation_line[0]
                     # Show the two Graphs:
                     fig_agg2.draw()
-                    reread = False
                 else:
                     sg.popup_ok("Make sure the parameters are chosen correctly")
                 window['_ADD_GRAPH_'].update(disabled=False)
@@ -802,11 +768,6 @@ def interactiveGraph(csvFile):
                 window['_CSV_'].update(disabled=False)
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=False)
                 window['Close Graph'].update(disabled=False)
-                window['-MINUSDARK-'].update(darkStatus)
-                if darkStatus:
-                    window['darkStatusText'].update("OK")
-                else:
-                    window['darkStatusText'].update("'dark.csv' not Found")
                         
             elif event == '_HOLD_':
                 window['_HOLD_'].update(disabled=True)
@@ -841,17 +802,15 @@ def interactiveGraph(csvFile):
                     window['_ABS_NM_'].update(wavelength)
                 else:
                     window['section_AbsValue'].update(visible=False)
-                reread = True
             
-            elif event == '-Reg_Norm_Val-' or event == 'normValue' or event == '_WAVEGUIDE_LENGTH_' or event == '_ABS_NM_' or event =="-MINUSDARK-":
-                reread = True
+            elif event == '_PPM_SLIDER_':
+                convert_concentraion_units(ax_conc, fig_agg2, values['_PPM_SLIDER_'])
 
-            elif event == '-SLIDER-':
-                #print(values['-SLIDER-'])
-                if values['-SLIDER-'] == 0: # ppm mode
-                    None
-                elif values['-SLIDER-'] == 1: # '%'' mode
-                    None
+            # Update the plot scaling
+            ax_conc.relim()  # Recalculate the data limits
+            ax_conc.autoscale_view()  # Adjust the axis limits to fit the new data
+            fig_agg2.draw()
+
     # End of allan deviation & concentration graph.
 
 

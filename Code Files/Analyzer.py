@@ -212,17 +212,12 @@ def beerLambert(val_list):
     wavelength = val_list[2]
     l = val_list[3]
     G = val_list[4]
+    df_transmittance = val_list[5]
     G = float(G)
     #
     # This function calculate C (Concentration).
     # k = The wavenumber, A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
     # E is minus every result, every rublica. 
-    
-    # Loading the dataframe of transmittance.csv:
-    try:
-        df_transmittance = pd.read_csv(dirname+'\\transmittance.csv')
-    except:
-        return False
 
     # Getting the wavenumber from waveguide:
     k = 10000000/wavelength # In unit of cm^(-1)
@@ -269,9 +264,8 @@ def beerLambert(val_list):
         else:
             # Site 1: https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/11%3A_Coordination_Chemistry_III_-_Electronic_Spectra/11.01%3A_Absorption_of_Light/11.1.01%3A_Beer-Lambert_Absorption_Law
             # Site 2: https://www.nexsens.com/knowledge-base/technical-notes/faq/how-do-you-convert-from-molarity-m-to-parts-per-million-ppm-and-mgl.htm
-            # C = ((A/l)/epsilon)/float(G) # [ppm]
-            C = A/(l*epsilon*float(G)) # [ppm]
-        #new_row.append(C)
+            # C = ((A/l)/epsilon)/G # [ppm]
+            C = A/(l*epsilon*G) # [ppm]
         new_row.append(C)
         new_row.append(C/10000) #   '1%' = 10,000ppm 
         # From database gama is 1, but here from the measurment of the waveguide the value is the manipulation of the value and Gama.
