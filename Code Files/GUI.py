@@ -175,16 +175,8 @@ def updateResults(window):
 # 
 
 def open_Interactive_Graphs(dirName, analyzer_substance = False):
-    try:
-        command = 'py'
-        if analyzer_substance:
-            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
-        else:
-            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
-        process = subprocess.Popen([command] + args)
-        pid = process.pid
-        return pid
-    except:
+    files = os.listdir()
+    if 'Interactive_Graph.exe' in files:
         command = 'Interactive_Graph.exe'
         if analyzer_substance:
             args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
@@ -193,6 +185,16 @@ def open_Interactive_Graphs(dirName, analyzer_substance = False):
         process = subprocess.Popen([command] + args)
         pid = process.pid
         return pid
+    else:
+        command = 'py'
+        if analyzer_substance:
+            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
+        else:
+            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
+        process = subprocess.Popen([command] + args)
+        pid = process.pid
+        return pid
+        
 
 def updateJsonFileBeforeEnd(values):
     # This funciton save default connection parameters.
@@ -314,13 +316,8 @@ class theTestThread(threading.Thread):
             # Adding to Results tab.
             updateResults(window)
             # Open a new process of the graph/grphs.
-            ######################################################################### To check about this
             if reason != False: # Everyting is OK, can open Graphs window.
-                if (values['test_analyzer']): 
-                    graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-                else:
-                    graphs_pids.append(open_Interactive_Graphs(dirName))
-            ############################################################################3
+                graphs_pids.append(open_Interactive_Graphs(dirName))
         else:
             shutil.rmtree(dirName)
         window['Start Test'].update(disabled=False)
@@ -436,16 +433,8 @@ while True:
 
     elif event == "-LOAD_SAMPLE-":
         # This function load a result from the forth rublic.
-        try:
-            command = 'py'
-            dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
-            filesList = os.listdir(dirName)
-            filesList = [name[:-4] for name in filesList]
-            if 'analyzer' in filesList:
-                graphs_pids.append(open_Interactive_Graphs(dirName, analyzer_substance = True))
-            graphs_pids.append(open_Interactive_Graphs(dirName))
-        except:
-            continue
+        dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+        graphs_pids.append(open_Interactive_Graphs(dirName))
 
     elif event == '-DELETE_SAMPLE-':
         #  This function delete the selected result from the results list in the forth rublic.
