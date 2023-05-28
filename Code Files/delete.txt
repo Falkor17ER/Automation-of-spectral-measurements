@@ -1,0 +1,20 @@
+#except:
+        # In case the opening of the process was not successful:
+        # if 'Interactive_Graph.exe' in files:
+        #     command = 'Interactive_Graph.exe'
+        #     if analyzer_substance:
+        #         args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
+        #     else:
+        #         args = ['--csv_name', dirName+"\\"]
+        #     process = subprocess.Popen([command] + args)
+        #     pid = process.pid
+        #     return pid
+        # else:
+        #     command = 'py'
+        #     if analyzer_substance:
+        #         args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
+        #     else:
+        #         args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
+        #     process = subprocess.Popen([command] + args)
+        #     pid = process.pid
+        #     return pid

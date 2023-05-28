@@ -193,6 +193,7 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
         powers = range(start,stop+1,step)
     else:
         powers = [start]
+        step = 1
     # Making the CSV File
     startF = int(values["test_CF"]) - int(values["test_SPAN"])/2
     stopF = startF + int(values["test_SPAN"])
@@ -203,7 +204,8 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
     if (not debugMode):
         laser.emission(1)
     ######################################## IF NO POWER SWEEP stop and start are missing
-    theTotalForPrecents = len(reps) * (int((stop-start)/step)+1) 
+    #theTotalForPrecents = len(reps) * (int((stop-start)/step)+1) 
+    theTotalForPrecents = len(reps) * (int((powers[-1]-powers[0])/step)+1) 
     precentsPerJump = 100/theTotalForPrecents # Precents per one operationqmeasure.
     precents = 0 # The total precents until now.
     precentsMessage = None

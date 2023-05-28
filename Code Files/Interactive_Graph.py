@@ -8,6 +8,7 @@ import numpy as np
 import argparse
 import os
 import matplotlib.colors as mcolors
+import tkinter.messagebox as tkm
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from Analyzer import get_clean_substance_transmittance, beerLambert, allandevation
 from datetime import datetime
@@ -121,7 +122,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
 def getRangeChoosingLayout(left, right):
     # Choose the range of the search location:
     cutoff_layout = [[sg.Text("Left Cutoff:"), sg.Push(), sg.Input(left, key='Lcutoff', s=15), sg.Text("nm")], [sg.Text("Right Cutoff:"), sg.Push(), sg.Input(right, key='Rcutoff', s=15), sg.Text("nm")]]
-    layout = [[sg.Checkbox("Searching in range", key='searchInRange'), sg.Push()], [sg.Column(cutoff_layout), sg.Button("Set", key='cutoffSet')]]
+    layout = [[sg.Push(), sg.Text("Show picks in range?"), sg.Text("No"), sg.Slider(range=(0,1), orientation='h', key='_PEAKS_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("Yes"), sg.Push()], [sg.Column(cutoff_layout), sg.Button("Set", key='cutoffSet')]]
     return layout
 
 def filter_selection_window():
@@ -134,13 +135,13 @@ def filter_selection_window():
               [collapse(butterworth_layout, 'section_BW', True)],
               [collapse(cheby1_layout, 'section_cheby1', False)],
               [sg.Button('Ok'), sg.Button('Cancel')]]
-    filter_window = sg.Window('Filter configutarions', layout=filter_selection_layout, finalize=True)
+    filter_window = sg.Window('Filter configurations', layout=filter_selection_layout, finalize=True)
     while True:
         event, values = filter_window.read()
         if event == 'Ok':
             filter_window.close()
             return values
-        elif event == 'Cancel':
+        elif ( (event == 'Cancel') or (event == sg.WIN_CLOSED) ):
             filter_window.close()
             return False
         elif event == '_FILTER_TYPE_':
@@ -177,7 +178,7 @@ def updateRegualrGraph(df_to_plot, ax, fig_agg, color, scale, data_type):
     line1 = False
     for i in range(len(df_to_plot)):
         try:
-            label = '{}_{}_Power_{}%_TS{:.2f}'.format(data_type, df_to_plot['REP_RATE'].iloc[i], df_to_plot['POWER'].iloc[i], df_to_plot['Interval'].iloc[i])
+            label = '{}_{}_Power_{}%_TS {:.2f}'.format(data_type, df_to_plot['REP_RATE'].iloc[i], df_to_plot['POWER'].iloc[i], df_to_plot['Interval'].iloc[i])
             labels = [line.get_label() for line in ax.lines]
             if label not in labels:
                 line1 = ax.plot(np.asarray(df_to_plot.columns[10:], float), df_to_plot.iloc[i,10:].values, label=label, color=color)
@@ -300,13 +301,17 @@ def check_files(csvFile):
     try:
         df_clean = pd.read_csv(csvFile + 'clean.csv', nrows=1)
     except:
-        sg.popup_ok("There was a problem reading clean.csv")
-        exit()
+        tkm.showerror(title="Problem reading 'clean' file!", message="There was a problem reading 'clean.csv' file.") ################################
+        # sg.popup_ok("There was a problem reading clean.csv")
+        return False
+        #exit()
     try:
         df_substance = pd.read_csv(csvFile + 'substance.csv',  nrows=1)
     except:
-        sg.popup_ok("There was a problem reading substance.csv")
-        exit()
+        tkm.showerror(title="Problem reading 'substance' file!", message="There was a problem reading 'substance.csv' file.") ######################
+        # sg.popup_ok("There was a problem reading substance.csv")
+        return False
+        #exit()
 
 def clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, drawSweepGraph):
     window['_PowerListBoxSweepG_'].update(set_to_index=[])
@@ -333,7 +338,6 @@ def clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, dr
     return hold_reg_lines, color_reg, colors_reg_Sweep, values, line1, data_type, fig1, ax, fig_agg1,scales,scale
 
 def apply_function_animation(csvFile, values, filter_conf_vals):
-   
     future = None
     animation = time.time()
     sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
@@ -362,6 +366,41 @@ def convert_concentraion_units(ax_conc, fig_agg, ppm_slider):
             ax_conc.set_title("Concentration [ppm]")
         line.set_ydata(new_y_data)  # Update the y-data of the line
     fig_agg.draw()
+
+def getLinePeak(line, left, right):
+    # Create DataFrame
+    y_data = line.get_ydata()  # Get the y-data of the line
+    x_data = line.get_xdata()  # Get the x-data of the line
+    data = {"Wavelengths": x_data, "Values": y_data}
+    df = pd.DataFrame(data)
+    # Filter the DataFrame based on the wavelength range
+    filtered_df = df.loc[(df['Wavelengths'] >= float(left)) & (df['Wavelengths'] <= float(right))]
+    # Find the minimum value within the filtered range
+    min_value = filtered_df['Values'].min()
+    # Get the corresponding wavelength for the minimum value
+    min_wavelength = filtered_df.loc[filtered_df['Values'] == min_value, 'Wavelengths'].values[0]
+    return min_value, min_wavelength
+
+def addMinimumDots(ax, fig_agg1, left, right):
+    peaks_x = []
+    peaks_y = []
+    for line in ax.lines:
+        peak_x, peak_y = getLinePeak(line, left, right)
+        peaks_x.append(peak_x)
+        peaks_y.append(peak_y)
+    ax.scatter(peaks_y, peaks_x, marker='o', color='red', s=100)
+    fig_agg1.draw()
+
+def deleteMinimumDots(ax, fig_agg1):
+    None
+    # # Get all artists on the axes
+    # artists = ax.get_children()
+    # # Filter and remove scatter plot markers from the axes
+    # for artist in artists:
+    #     if isinstance(artist, plt.PathCollection):
+    #         artist.remove()
+    # fig_agg1.draw()
+
 #---------------------------------------------------------------------------------------------------------------------------
 
 # This is the main function of the interactive graph:
@@ -393,7 +432,9 @@ def interactiveGraph(csvFile):
     scales_dict_converter = {'[dBm]': '[mW]', '[dB]': 'Ratio', '[mW]': '[dBm]', 'Ratio': '[dB]'}
     #----------------------------------------------------------------------------------------
     
-    check_files(csvFile)
+    check = check_files(csvFile)
+    if check == False:
+        return False
     # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=values['-MINUS_DARK-'], filter_values=filter_conf_vals, to_norm=values['-Reg_Norm_Val-'], real_freq=values['normValue'], to_filter=values['_FILTER_CB_'])
     df_ratio, df_clean, df_substance, darkStatus = apply_function_animation(csvFile, {'-MINUS_DARK-': False, '-Reg_Norm_Val-': False, 'normValue': '1500', '_FILTER_CB_': False}, None)
     # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=False, to_norm=False)
@@ -495,13 +536,6 @@ def interactiveGraph(csvFile):
         return fig2, ax_conc, ax_deviation, fig_agg2
         # End of creating the graph.
     # Allan Deviation - End.
-
-    def addMinimumDots(hold, left, right):
-        None
-
-    def deleteMinimumDots(hold):
-        for line in hold.values():
-            None
 
     # First Start:
     fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
@@ -822,8 +856,6 @@ def interactiveGraph(csvFile):
             elif event == '_PPM_SLIDER_':
                 convert_concentraion_units(ax_conc, fig_agg2, values['_PPM_SLIDER_'])
 
-
-
 ################################################################################################
             elif event == 'searchInRange':
                 # Checking cutoffs:
@@ -864,11 +896,14 @@ def interactiveGraph(csvFile):
                     window['Rcutoff'].update(values['Lcutoff'])
                 # End of cutoffs check.
 
-            if values['searchInRange']:
-                # Cutoffs already checked.
-                deleteMinimumDots(hold_reg_lines)
-                addMinimumDots(hold_reg_lines, values['Lcutoff'], values['Rcutoff'])
 
+
+            if values['_PEAKS_SLIDER_'] == 1:
+                # Cutoffs already checked.
+                addMinimumDots(ax, fig_agg1, values['Lcutoff'], values['Rcutoff'])
+            # values['_PEAKS_SLIDER_'] == 0: Delete the dots.
+            else:
+                deleteMinimumDots(ax, fig_agg1)
 #############################################################################################
 
             # Update the plot scaling

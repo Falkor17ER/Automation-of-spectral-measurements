@@ -2,13 +2,14 @@
 from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory, noiseMeasurments
+from Interactive_Graph import interactiveGraph
 from json import load, dump
 from time import sleep
 import PySimpleGUI as sg
 import os
 import signal
 import shutil
-import subprocess
+import multiprocessing
 import threading
 import tkinter.messagebox as tkm
 import time
@@ -176,25 +177,12 @@ def updateResults(window):
 
 def open_Interactive_Graphs(dirName, analyzer_substance = False):
     files = os.listdir()
-    if 'Interactive_Graph.exe' in files:
-        command = 'Interactive_Graph.exe'
-        if analyzer_substance:
-            args = ['--csv_name', dirName+"\\", '--analyzer_substance', '1']
-        else:
-            args = ['--csv_name', dirName+"\\"]
-        process = subprocess.Popen([command] + args)
-        pid = process.pid
-        return pid
+    process = multiprocessing.Process(target=interactiveGraph, args=(dirName, ))
+    process.start()
+    if process != False:
+        return process.pid # return the process number.
     else:
-        command = 'py'
-        if analyzer_substance:
-            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\", '--analyzer_substance', '1']
-        else:
-            args = ['Interactive_Graph.py', '--csv_name', dirName+"\\"]
-        process = subprocess.Popen([command] + args)
-        pid = process.pid
-        return pid
-        
+        return False
 
 def updateJsonFileBeforeEnd(values):
     # This funciton save default connection parameters.
@@ -317,12 +305,16 @@ class theTestThread(threading.Thread):
             updateResults(window)
             # Open a new process of the graph/grphs.
             if reason != False: # Everyting is OK, can open Graphs window.
-                graphs_pids.append(open_Interactive_Graphs(dirName))
+                processPID = open_Interactive_Graphs(dirName + "\\") # process ID or False
+                if processPID != False:
+                    graphs_pids.append(processPID)
+                    window['test_errorText'].update("Finish Testing.")
+                else:
+                    window['test_errorText'].update("There was some problem! Probably because missing files.")
         else:
             shutil.rmtree(dirName)
         window['Start Test'].update(disabled=False)
         window['section_stopTest'].update(visible=False)
-        window['test_errorText'].update("Finish Testing.")
         if reason:
             self.result = True
             return True
@@ -332,131 +324,136 @@ class theTestThread(threading.Thread):
         self.stop_event.set()
 
 #----------------------------------------------------------------------------------------------------------------------------------------
-
-# The checking events - The managment of the GUI:
-testProcess = None
-window = reopenMainL()
-while True:
-    event, values = window.read()
-    
-    if event == 'Connect':
-        # This function try connect the devices:
-        try:
-            osa = OSA(values[0])
-            laser = Laser(values[2])
-            if not isConnected:
-                isConnected = True
-                debugMode = False
-                status = "Devices are connected"
-                getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "The devices are connected"
-                window.close()
-                window = reopenMainL()
-        except:
-            print("Failed to connect to OSA or Laser, try again or continue wiht DEBUG mode.")
-        updateConnections(values)
+if __name__ == '__main__':
+    # The checking events - The managment of the GUI:
+    testProcess = None
+    window = reopenMainL()
+    while True:
+        event, values = window.read()
         
-    elif event == 'Debug Mode':
-        # Move and working in Debug Mode to allow the relevant functions and rest of the GUI.
-        debugMode = True
-        status = "Debug Mode"
-        getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "Now you are working in 'Debug Mode'!"
-        laser = None
-        osa = None
-        window = reopenMainL(window)
-
-    elif event == 'Sample':
-        # To do only one sample.
-        if ( isConnected or (not debugMode) ):
-            setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"])
-            getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
-    
-    elif event == "testPowerLevelSweep":
-        # To show the power test parameters setting.
-        if (values["testPowerLevelSweep"] == True):
-            window['section_powerSweep'].update(visible=True)
-        else:
-            window['section_powerSweep'].update(visible=False)
-
-    elif event == "selectAllRep":
-        # Checking or unchecking all the reputations together.
-        RepList = ["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r12","r14","r16","r18","r20","r22","r25","r27","r29","r32","r34","r37","r40"]
-        for i in RepList:
-            values[i] = values['selectAllRep']
-            window[i].update(values["selectAllRep"])
-        print(values)
-
-    elif event == "test_analyzer":
-        # To show the parameters part of the analyzer setting.
-        if (values["test_analyzer"] == True):
-            window['section_analyzer'].update(visible=True)
-        else:
-            window['section_analyzer'].update(visible=False)
-
-    elif event == "Start Test":
-        if (isConnected or debugMode):
-            getTestErrorText = checkStartConditions(values) # Checking if all the parameters & conditions to start the tests are OK.
-            if (getTestErrorText == ""):
-                # EveryThing is OK - Starting the test.
-                if values["test_res"] == "Manuall (Enter a value)":
-                    res = values["test_manuallRes"]
-                else:
-                    res = values["test_res"]
-                window['Start Test'].update(disabled=True)
-                window['section_stopTest'].update(visible=True)
-                window['test_errorText'].update("Executing Clean Test...")
-                dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
-                testThread = theTestThread(laser,osa,values,debugMode,dirName,window)
-                testThread.start()
-            else:
-                window['test_errorText'].update(getTestErrorText)
-            getTestErrorText = ""
-
-    elif event == "Stop Test":
-        # This function support to stop the test.
-        tempEvent = sg.popup_ok_cancel("Stop Running test?", "Are you sure you want to stop the running test?\n'Ok' - Yes, stop the test.\n'Cancel' - Opps, continue the test.")
-        if (tempEvent.upper()=="OK"):
-            # Open and close a window
-            testThread.stop()
-            sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-            animation = time.time()
-            timeToWaitForStop = time.time()
-            while ( (testThread.result != False) and (time.time() - timeToWaitForStop <= 2*float(values['intervalTime'])) ):
-                if (time.time() - animation > 0.05):
-                    sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-                    animation = time.time()
-            sg.PopupAnimated(None)
-            window['section_stopTest'].update(visible=False)
-            window['Start Test'].update(disabled=False)
-            window['test_errorText'].update("The testing process was stopped.")
-            sg.popup_ok("The test process was stopped by the user!")
-            getTestErrorText = ""
-
-    elif event == "-LOAD_SAMPLE-":
-        # This function load a result from the forth rublic.
-        dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
-        graphs_pids.append(open_Interactive_Graphs(dirName))
-
-    elif event == '-DELETE_SAMPLE-':
-        #  This function delete the selected result from the results list in the forth rublic.
-        tempEvent = sg.popup_ok_cancel("Are you sure you  want to delete this sample?")
-        if ( tempEvent.upper() == "OK" ):
+        if event == 'Connect':
+            # This function try connect the devices:
             try:
-                dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
-                shutil.rmtree(dirName)
+                osa = OSA(values[0])
+                laser = Laser(values[2])
+                if not isConnected:
+                    isConnected = True
+                    debugMode = False
+                    status = "Devices are connected"
+                    getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "The devices are connected"
+                    window.close()
+                    window = reopenMainL()
             except:
-                continue
-            updateResults(window)
-            #window['-SAMPLE_TO_PLOT-'].Update()
+                print("Failed to connect to OSA or Laser, try again or continue wiht DEBUG mode.")
+            updateConnections(values)
+            
+        elif event == 'Debug Mode':
+            # Move and working in Debug Mode to allow the relevant functions and rest of the GUI.
+            debugMode = True
+            status = "Debug Mode"
+            getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "Now you are working in 'Debug Mode'!"
+            laser = None
+            osa = None
+            window = reopenMainL(window)
 
-    elif ( (event == 'Close') or (event == sg.WIN_CLOSED) ):
-        # This function close the main GUI.
-        window.close()
-        for pid in graphs_pids:
-            try:
-                os.kill(pid, signal.SIGTERM)
-                print(f"Process with PID {pid} killed successfully.")
-            except OSError as e:
-                print(f"Error killing process with PID {pid}: {e}")
-        break
+        elif event == 'Sample':
+            # To do only one sample.
+            if ( isConnected or (not debugMode) ):
+                setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"])
+                getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
+        
+        elif event == "testPowerLevelSweep":
+            # To show the power test parameters setting.
+            if (values["testPowerLevelSweep"] == True):
+                window['section_powerSweep'].update(visible=True)
+            else:
+                window['section_powerSweep'].update(visible=False)
+
+        elif event == "selectAllRep":
+            # Checking or unchecking all the reputations together.
+            RepList = ["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r12","r14","r16","r18","r20","r22","r25","r27","r29","r32","r34","r37","r40"]
+            for i in RepList:
+                values[i] = values['selectAllRep']
+                window[i].update(values["selectAllRep"])
+            print(values)
+
+        elif event == "test_analyzer":
+            # To show the parameters part of the analyzer setting.
+            if (values["test_analyzer"] == True):
+                window['section_analyzer'].update(visible=True)
+            else:
+                window['section_analyzer'].update(visible=False)
+
+        elif event == "Start Test":
+            if (isConnected or debugMode):
+                getTestErrorText = checkStartConditions(values) # Checking if all the parameters & conditions to start the tests are OK.
+                if (getTestErrorText == ""):
+                    # EveryThing is OK - Starting the test.
+                    if values["test_res"] == "Manuall (Enter a value)":
+                        res = values["test_manuallRes"]
+                    else:
+                        res = values["test_res"]
+                    window['Start Test'].update(disabled=True)
+                    window['section_stopTest'].update(visible=True)
+                    window['test_errorText'].update("Executing Clean Test...")
+                    dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
+                    testThread = theTestThread(laser,osa,values,debugMode,dirName,window)
+                    testThread.start()
+                else:
+                    window['test_errorText'].update(getTestErrorText)
+                getTestErrorText = ""
+
+        elif event == "Stop Test":
+            # This function support to stop the test.
+            tempEvent = sg.popup_ok_cancel("Stop Running test?", "Are you sure you want to stop the running test?\n'Ok' - Yes, stop the test.\n'Cancel' - Opps, continue the test.")
+            if (tempEvent.upper()=="OK"):
+                # Open and close a window
+                testThread.stop()
+                sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+                animation = time.time()
+                timeToWaitForStop = time.time()
+                while ( (testThread.result != False) and (time.time() - timeToWaitForStop <= 2*float(values['intervalTime'])) ):
+                    if (time.time() - animation > 0.05):
+                        sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+                        animation = time.time()
+                sg.PopupAnimated(None)
+                window['section_stopTest'].update(visible=False)
+                window['Start Test'].update(disabled=False)
+                window['test_errorText'].update("The testing process was stopped.")
+                sg.popup_ok("The test process was stopped by the user!")
+                getTestErrorText = ""
+
+        elif event == "-LOAD_SAMPLE-":
+            # This function load a result from the forth rublic.
+            dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+            processPID = open_Interactive_Graphs(dirName)
+            if processPID != False:
+                graphs_pids.append(processPID)
+            else:
+                tkm.showerror(title="Problem in loading the file", message="There was a problem in loading this measurment, probably because missing files.")
+            #graphs_pids.append(open_Interactive_Graphs(dirName))
+
+        elif event == '-DELETE_SAMPLE-':
+            #  This function delete the selected result from the results list in the forth rublic.
+            tempEvent = sg.popup_ok_cancel("Are you sure you  want to delete this sample?")
+            if ( tempEvent.upper() == "OK" ):
+                try:
+                    dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
+                    shutil.rmtree(dirName)
+                except:
+                    continue
+                updateResults(window)
+                #window['-SAMPLE_TO_PLOT-'].Update()
+
+        elif ( (event == 'Close') or (event == sg.WIN_CLOSED) ):
+            # This function close the main GUI.
+            window.close()
+            for pid in graphs_pids:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    print(f"Process with PID {pid} killed successfully.")
+                except OSError as e:
+                    print(f"Error killing process with PID {pid}: {e}")
+            break
 
 # End of GUI
