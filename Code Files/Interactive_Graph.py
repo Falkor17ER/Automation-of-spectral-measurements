@@ -63,8 +63,7 @@ def getGlobalColumn(norm_freq_list):
               sg.Checkbox("Subtract Dark", default=False, enable_events=True, key="-MINUS_DARK-"),
               sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push(), 
               sg.Checkbox("", enable_events=True, key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),enable_events=True,s=7,key="normValue"), sg.Text("[nm]"), sg.Push()],
-              [sg.Text("Applied", key="_GLOBAL_STATUS_"), sg.Button("Apply", key='_APPLY_GLOBAL_', enable_events=True), sg.Push(), sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)'),
-              sg.Button("Close", key = 'Close Graph')]]
+              [sg.Push(), sg.Button("Apply", key='_APPLY_GLOBAL_', enable_events=True), sg.Text("Applied", key="_GLOBAL_STATUS_"), sg.Push()]]
     return layout
 
 # The first layout:
@@ -87,7 +86,7 @@ def getSweepLayout(frequencyList, powerList, numIntervals):
                     [sg.Text('Graphs Interval')],
         [sg.Slider(range=(min(numIntervals), max(numIntervals)), size=(60, 10),
                 orientation='h', key='-SLIDER-', resolution=1/(10*len(numIntervals))), sg.Button("Hold", key = '_HOLD_REG_', enable_events=True)]]
-    Layout = [[sg.Push(), sg.Text("Sweep Graph - Comparation (Power-Repetition)", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
+    Layout = [[sg.Push(), sg.Text("Sweep Graph", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
 # The seconcd layout:
@@ -118,6 +117,12 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
                         size=(400 * 2, 200))]], background_color='#DAE0E6', pad=(0, 0))]]
     Layout = [[sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
+
+def getRangeChoosingLayout(left, right):
+    # Choose the range of the search location:
+    cutoff_layout = [[sg.Text("Left Cutoff:"), sg.Push(), sg.Input(left, key='Lcutoff', s=15), sg.Text("nm")], [sg.Text("Right Cutoff:"), sg.Push(), sg.Input(right, key='Rcutoff', s=15), sg.Text("nm")]]
+    layout = [[sg.Checkbox("Searching in range", key='searchInRange'), sg.Push()], [sg.Column(cutoff_layout), sg.Button("Set", key='cutoffSet')]]
+    return layout
 
 def filter_selection_window():
     butterworth_layout = [[sg.Text("Cutoff frequency:"), sg.Input('0.03', key='_cutoff_BW')],
@@ -389,7 +394,7 @@ def interactiveGraph(csvFile):
     #----------------------------------------------------------------------------------------
     
     check_files(csvFile)
- # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=values['-MINUS_DARK-'], filter_values=filter_conf_vals, to_norm=values['-Reg_Norm_Val-'], real_freq=values['normValue'], to_filter=values['_FILTER_CB_'])
+    # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=values['-MINUS_DARK-'], filter_values=filter_conf_vals, to_norm=values['-Reg_Norm_Val-'], real_freq=values['normValue'], to_filter=values['_FILTER_CB_'])
     df_ratio, df_clean, df_substance, darkStatus = apply_function_animation(csvFile, {'-MINUS_DARK-': False, '-Reg_Norm_Val-': False, 'normValue': '1500', '_FILTER_CB_': False}, None)
     # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=False, to_norm=False)
     df_transmittance = df_ratio.copy()
@@ -416,17 +421,21 @@ def interactiveGraph(csvFile):
     [sg.Frame("Sweep Graph", sweepGraph, visible=True, key='section_sweepGraph', size=(FRAME_SIZE[0], FRAME_SIZE[1]))],
     [sg.Frame("Allan Deviation & Concentration", allan_and_concentration, visible=True, key='section_Allan_Concentration', size=(FRAME_SIZE[0], FRAME_SIZE[1]))]]
     
+    wavelengthList = df_clean.columns.to_list()
+    Lcutoff = str(round(float(wavelengthList[10]), 2))
+    Rcutoff = str(round(float(wavelengthList[-1]), 2))
+    range_choosing_layout = getRangeChoosingLayout(Lcutoff, Rcutoff)
     global_layout = getGlobalColumn(norm_freq_list)
+    general_Buttons_layout = [[sg.Push(), sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)'), sg.Push()], [sg.Push(), sg.Button("Close", key = 'Close Graph'), sg.Push()]]
 
-    main_Layout = [[sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf')],
-    [sg.Push(), sg.Text('Results of: '+csvFile, justification='center', background_color='#424f5e', expand_x=False, font=("David", 15, "bold")), sg.Push()],
+    main_Layout = [[sg.Push(), sg.Frame("Range choosing", range_choosing_layout, visible=True, key='section_choose_range'), sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf'), sg.Frame("General Buttons", general_Buttons_layout, visible=True, key='section_global_buttons'), sg.Push()],
+    [sg.Push(), sg.Text('Results of: '+csvFile, justification='center', background_color='#7393B3', expand_x=False, font=("David", 15, "bold")), sg.Push()],
     [sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
-
+    # Background_color = '#424f5e'
     
     window = sg.Window("Interactive Graph", main_Layout, size=(WINDOW_SIZE[0], WINDOW_SIZE[1]), finalize=True)
     #window = sg.Window("Interactive Graph", main_Layout, size=(3860, 2160), finalize=True)
     #window = sg.Window("Interactive Graph", main_Layout, size=(WINDOW_SIZE[0], WINDOW_SIZE[1]))
-    
 
     # Parameters for the functions:
     fig1 = None
@@ -486,6 +495,13 @@ def interactiveGraph(csvFile):
         return fig2, ax_conc, ax_deviation, fig_agg2
         # End of creating the graph.
     # Allan Deviation - End.
+
+    def addMinimumDots(hold, left, right):
+        None
+
+    def deleteMinimumDots(hold):
+        for line in hold.values():
+            None
 
     # First Start:
     fig1, ax, fig_agg1,scales,scale = drawSweepGraph(fig1, ax, fig_agg1,scales,scale)
@@ -805,6 +821,55 @@ def interactiveGraph(csvFile):
             
             elif event == '_PPM_SLIDER_':
                 convert_concentraion_units(ax_conc, fig_agg2, values['_PPM_SLIDER_'])
+
+
+
+################################################################################################
+            elif event == 'searchInRange':
+                # Checking cutoffs:
+                # Edge cases:
+                if float(values['Lcutoff']) < float(Lcutoff):
+                    values['Lcutoff'] == Lcutoff
+                    window['Lcutoff'].update(Lcutoff)
+                if float(values['Rcutoff']) > float(Rcutoff):
+                    values['Rcutoff'] == Rcutoff
+                    window['Rcutoff'].update(Rcutoff)
+                # Compare cases:
+                if float(values['Lcutoff']) > float(values['Rcutoff']):
+                    values['Lcutoff'] == values['Rcutoff']
+                    window['Lcutoff'].update(values['Rcutoff'])
+                elif float(values['Rcutoff']) < float(values['Lcutoff']):
+                    values['Rcutoff'] == values['Lcutoff']
+                    window['Rcutoff'].update(values['Lcutoff'])
+                # End of cutoffs check.
+                if values['searchInRange'] == False:
+                    # Clean the red dots, minimum per range dots:
+                    deleteMinimumDots(hold_reg_lines)
+
+            elif event == 'cutoffSet':
+                # Checking cutoffs:
+                # Edge cases:
+                if float(values['Lcutoff']) < float(Lcutoff):
+                    values['Lcutoff'] == Lcutoff
+                    window['Lcutoff'].update(Lcutoff)
+                if float(values['Rcutoff']) > float(Rcutoff):
+                    values['Rcutoff'] == Rcutoff
+                    window['Rcutoff'].update(Rcutoff)
+                # Compare cases:
+                if float(values['Lcutoff']) > float(values['Rcutoff']):
+                    values['Lcutoff'] == values['Rcutoff']
+                    window['Lcutoff'].update(values['Rcutoff'])
+                elif float(values['Rcutoff']) < float(values['Lcutoff']):
+                    values['Rcutoff'] == values['Lcutoff']
+                    window['Rcutoff'].update(values['Lcutoff'])
+                # End of cutoffs check.
+
+            if values['searchInRange']:
+                # Cutoffs already checked.
+                deleteMinimumDots(hold_reg_lines)
+                addMinimumDots(hold_reg_lines, values['Lcutoff'], values['Rcutoff'])
+
+#############################################################################################
 
             # Update the plot scaling
             ax_conc.relim()  # Recalculate the data limits
