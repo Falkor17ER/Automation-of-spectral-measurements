@@ -9,6 +9,7 @@ import argparse
 import os
 import matplotlib.colors as mcolors
 import tkinter.messagebox as tkm
+import matplotlib.collections as clt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from Analyzer import get_clean_substance_transmittance, beerLambert, allandevation
 from datetime import datetime
@@ -87,7 +88,7 @@ def getSweepLayout(frequencyList, powerList, numIntervals):
                     [sg.Text('Graphs Interval')],
         [sg.Slider(range=(min(numIntervals), max(numIntervals)), size=(60, 10),
                 orientation='h', key='-SLIDER-', resolution=1/(10*len(numIntervals))), sg.Button("Hold", key = '_HOLD_REG_', enable_events=True)]]
-    Layout = [[sg.Push(), sg.Text("Sweep Graph", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
+    Layout = [[sg.Push(), sg.Text("Sweep Graph", font=("David", 10, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
 # The seconcd layout:
@@ -98,7 +99,8 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
     
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Power:"), sg.Push()],
                           [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxAllanDG_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxAllanDG_'), sg.Push()]]
-    absorbance_layout = [[sg.Text("Select wavelength to calculate concentration:")],[sg.Push(), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_",enable_events=True), sg.Text("[nm]"), sg.Push()]]
+    absorbance_layout = [[sg.Text("Concetration wavelength range:")], [sg.Push(), sg.Text("From: "), sg.Input("", key="from",s=7), sg.Text("to: "), sg.Input("", key='to', s=7), sg.Text("nm"), sg.Push()], [sg.Push(), sg.Text("The wavelength value to calculate: "), sg.Text("", key='_ABS_NM_'), sg.Text("nm"), sg.Push()]]
+    #, [sg.Push(), sg.Text("Value to calculate: "), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_",enable_events=True), sg.Text("[nm]"), sg.Push()]]
     menu_layout = [[sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
                   [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
@@ -116,13 +118,13 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
         [sg.Column(layout=[[sg.Canvas(key='figCanvas2',
                         # it's important that you set this size
                         size=(400 * 2, 200))]], background_color='#DAE0E6', pad=(0, 0))]]
-    Layout = [[sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 30, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
+    Layout = [[sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 10, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
 def getRangeChoosingLayout(left, right):
     # Choose the range of the search location:
     cutoff_layout = [[sg.Text("Left Cutoff:"), sg.Push(), sg.Input(left, key='Lcutoff', s=15), sg.Text("nm")], [sg.Text("Right Cutoff:"), sg.Push(), sg.Input(right, key='Rcutoff', s=15), sg.Text("nm")]]
-    layout = [[sg.Push(), sg.Text("Show picks in range?"), sg.Text("No"), sg.Slider(range=(0,1), orientation='h', key='_PEAKS_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("Yes"), sg.Push()], [sg.Column(cutoff_layout), sg.Button("Set", key='cutoffSet')]]
+    layout = [[sg.Push(), sg.Text("Show peaks?"), sg.Text("No"), sg.Slider(range=(0,1), orientation='h', key='_PEAKS_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("Yes"), sg.Push()], [sg.Column(cutoff_layout), sg.Button("Set", key='cutoffSet')]]
     return layout
 
 def filter_selection_window():
@@ -219,6 +221,19 @@ def getDatabases():
     filenames = [name[:-4] for name in filenames]
     return filenames
 
+def findValueInDatabase(data_file, left, right):
+    try:
+        df = pd.read_csv("..\\Databases\\" + data_file, names=['Wavenumber', 'Absorbance'], delimiter='\t')
+    except:
+        return False
+    df['Wavelength'] = df['Wavenumber'].apply(lambda val: 10000000/val) # Adding a column of wavelength.
+    filtered_df = df.loc[(df['Wavelength'] >= float(left)) & (df['Wavelength'] <= float(right))]
+    if filtered_df.empty:
+        return df.loc[df['Absorbance'] == df['Absorbance'].max(), 'Wavelength'].values[0]
+    max_value = filtered_df['Absorbance'].max()
+    max_absorbanceWavelength = filtered_df.loc[filtered_df['Absorbance'] == max_value, 'Wavelength'].values[0]
+    return round(max_absorbanceWavelength, 2)
+
 def get_maximum(data_file):
     with open("..\\Databases\\"+data_file, mode='r') as data:
         data = data.readlines()
@@ -301,14 +316,14 @@ def check_files(csvFile):
     try:
         df_clean = pd.read_csv(csvFile + 'clean.csv', nrows=1)
     except:
-        tkm.showerror(title="Problem reading 'clean' file!", message="There was a problem reading 'clean.csv' file.") ################################
+        tkm.showerror(title="Problem reading 'clean' file!", message="There was a problem reading 'clean.csv' file.")
         # sg.popup_ok("There was a problem reading clean.csv")
         return False
         #exit()
     try:
         df_substance = pd.read_csv(csvFile + 'substance.csv',  nrows=1)
     except:
-        tkm.showerror(title="Problem reading 'substance' file!", message="There was a problem reading 'substance.csv' file.") ######################
+        tkm.showerror(title="Problem reading 'substance' file!", message="There was a problem reading 'substance.csv' file.")
         # sg.popup_ok("There was a problem reading substance.csv")
         return False
         #exit()
@@ -381,6 +396,23 @@ def getLinePeak(line, left, right):
     min_wavelength = filtered_df.loc[filtered_df['Values'] == min_value, 'Wavelengths'].values[0]
     return min_value, min_wavelength
 
+def checkLeftRightWavelength(window, valuesLcutoff, valuesRcutoff ,Lcutoff, Rcutoff):
+    # Checking cutoffs:
+    # Edge cases:
+    if float(valuesLcutoff) < float(Lcutoff):
+        valuesLcutoff = Lcutoff
+    if float(valuesRcutoff) > float(Rcutoff):
+        valuesRcutoff = Rcutoff
+    # Compare cases:
+    if float(valuesLcutoff) > float(valuesRcutoff):
+        if float(valuesRcutoff) < float(Lcutoff):
+            valuesRcutoff = Lcutoff
+        valuesLcutoff = valuesRcutoff
+    # End of cutoffs check.
+    #window['Lcutoff'].update(valuesLcutoff)
+    #window['Rcutoff'].update(valuesRcutoff)
+    return window, valuesLcutoff, valuesRcutoff
+
 def addMinimumDots(ax, fig_agg1, left, right):
     peaks_x = []
     peaks_y = []
@@ -392,14 +424,13 @@ def addMinimumDots(ax, fig_agg1, left, right):
     fig_agg1.draw()
 
 def deleteMinimumDots(ax, fig_agg1):
-    None
-    # # Get all artists on the axes
-    # artists = ax.get_children()
-    # # Filter and remove scatter plot markers from the axes
-    # for artist in artists:
-    #     if isinstance(artist, plt.PathCollection):
-    #         artist.remove()
-    # fig_agg1.draw()
+    # Get all artists on the axes
+    artists = ax.get_children()
+    # Filter and remove scatter plot markers from the axes
+    for artist in artists:
+        if isinstance(artist, clt.PathCollection):
+            artist.remove()
+    fig_agg1.draw()
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -463,13 +494,13 @@ def interactiveGraph(csvFile):
     [sg.Frame("Allan Deviation & Concentration", allan_and_concentration, visible=True, key='section_Allan_Concentration', size=(FRAME_SIZE[0], FRAME_SIZE[1]))]]
     
     wavelengthList = df_clean.columns.to_list()
-    Lcutoff = str(round(float(wavelengthList[10]), 2))
-    Rcutoff = str(round(float(wavelengthList[-1]), 2))
+    Lcutoff = str(round(float(wavelengthList[10]), 2)) # The minimum left wavelength possible in the range.
+    Rcutoff = str(round(float(wavelengthList[-1]), 2)) # The maximum right wavelength possible in the range.
     range_choosing_layout = getRangeChoosingLayout(Lcutoff, Rcutoff)
     global_layout = getGlobalColumn(norm_freq_list)
     general_Buttons_layout = [[sg.Push(), sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)'), sg.Push()], [sg.Push(), sg.Button("Close", key = 'Close Graph'), sg.Push()]]
 
-    main_Layout = [[sg.Push(), sg.Frame("Range choosing", range_choosing_layout, visible=True, key='section_choose_range'), sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf'), sg.Frame("General Buttons", general_Buttons_layout, visible=True, key='section_global_buttons'), sg.Push()],
+    main_Layout = [[sg.Push(), sg.Frame("Peaks", range_choosing_layout, visible=True, key='section_choose_range'), sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf'), sg.Frame("General Buttons", general_Buttons_layout, visible=True, key='section_global_buttons'), sg.Push()],
     [sg.Push(), sg.Text('Results of: '+csvFile, justification='center', background_color='#7393B3', expand_x=False, font=("David", 15, "bold")), sg.Push()],
     [sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
     # Background_color = '#424f5e'
@@ -760,6 +791,11 @@ def interactiveGraph(csvFile):
                     Operation_State = 0 # 0-beerlambert, 1-allandeviation
                     animation = time.time()
                     sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
+                    # Check the range of the wavelength in the 'Range choosing' tab.
+                    window, values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(window, values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
+                    window['Lcutoff'].update(values['Lcutoff'])
+                    window['Rcutoff'].update(values['Rcutoff'])
+                    #
                     while True:
                         if (time.time() - animation > 0.05):
                             sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
@@ -845,66 +881,37 @@ def interactiveGraph(csvFile):
                 sg.popup_auto_close(csvFileWasSaved, title="CSV File Saved", auto_close_duration=2)
                 window['_CSV_'].update(disabled=False)
 
+            #elif event == 'Se':#################################################################################################################
+
             elif event == '_DATA_FILE_':
                 if len(values['_DATA_FILE_']) > 0:
-                    wavelength = get_maximum(values['_DATA_FILE_'][0]+'.txt')
+                    # wavelength = get_maximum(values['_DATA_FILE_'][0]+'.txt')
                     window['section_AbsValue'].update(visible=True)
-                    window['_ABS_NM_'].update(wavelength)
+                    window['from'].update(values['Lcutoff'])
+                    window['to'].update(values['Rcutoff'])
+                    window['_ABS_NM_'].update(str(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['Lcutoff'], values['Rcutoff'])))
                 else:
                     window['section_AbsValue'].update(visible=False)
             
             elif event == '_PPM_SLIDER_':
                 convert_concentraion_units(ax_conc, fig_agg2, values['_PPM_SLIDER_'])
 
-################################################################################################
-            elif event == 'searchInRange':
-                # Checking cutoffs:
-                # Edge cases:
-                if float(values['Lcutoff']) < float(Lcutoff):
-                    values['Lcutoff'] == Lcutoff
-                    window['Lcutoff'].update(Lcutoff)
-                if float(values['Rcutoff']) > float(Rcutoff):
-                    values['Rcutoff'] == Rcutoff
-                    window['Rcutoff'].update(Rcutoff)
-                # Compare cases:
-                if float(values['Lcutoff']) > float(values['Rcutoff']):
-                    values['Lcutoff'] == values['Rcutoff']
-                    window['Lcutoff'].update(values['Rcutoff'])
-                elif float(values['Rcutoff']) < float(values['Lcutoff']):
-                    values['Rcutoff'] == values['Lcutoff']
-                    window['Rcutoff'].update(values['Lcutoff'])
-                # End of cutoffs check.
-                if values['searchInRange'] == False:
-                    # Clean the red dots, minimum per range dots:
-                    deleteMinimumDots(hold_reg_lines)
-
-            elif event == 'cutoffSet':
-                # Checking cutoffs:
-                # Edge cases:
-                if float(values['Lcutoff']) < float(Lcutoff):
-                    values['Lcutoff'] == Lcutoff
-                    window['Lcutoff'].update(Lcutoff)
-                if float(values['Rcutoff']) > float(Rcutoff):
-                    values['Rcutoff'] == Rcutoff
-                    window['Rcutoff'].update(Rcutoff)
-                # Compare cases:
-                if float(values['Lcutoff']) > float(values['Rcutoff']):
-                    values['Lcutoff'] == values['Rcutoff']
-                    window['Lcutoff'].update(values['Rcutoff'])
-                elif float(values['Rcutoff']) < float(values['Lcutoff']):
-                    values['Rcutoff'] == values['Lcutoff']
-                    window['Rcutoff'].update(values['Lcutoff'])
-                # End of cutoffs check.
-
-
-
             if values['_PEAKS_SLIDER_'] == 1:
+                # Check the range of the wavelength in the 'Range choosing' tab.
+                window, values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(window, values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
+                window['Lcutoff'].update(values['Lcutoff'])
+                window['Rcutoff'].update(values['Rcutoff'])
                 # Cutoffs already checked.
-                addMinimumDots(ax, fig_agg1, values['Lcutoff'], values['Rcutoff'])
-            # values['_PEAKS_SLIDER_'] == 0: Delete the dots.
-            else:
                 deleteMinimumDots(ax, fig_agg1)
-#############################################################################################
+                addMinimumDots(ax, fig_agg1, values['Lcutoff'], values['Rcutoff'])
+            else: # values['_PEAKS_SLIDER_'] == 0: Delete the dots.
+                deleteMinimumDots(ax, fig_agg1)
+
+            if event == 'cutoffSet':
+                # Check the range of the wavelength in the 'Range choosing' tab.
+                window, values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(window, values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
+                window['Lcutoff'].update(values['Lcutoff'])
+                window['Rcutoff'].update(values['Rcutoff'])
 
             # Update the plot scaling
             ax_conc.relim()  # Recalculate the data limits
@@ -935,7 +942,8 @@ if __name__ == '__main__':
 
     if args.csv_name == None:
         # dirname='C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-        dirname = "..\\Results\\2023_05_10_12_59_10_356441_lab_demo_CF=1500_Span=50_analyzer=True\\"
+        #dirname = "..\\Results\\2023_05_10_12_59_10_356441_lab_demo_CF=1500_Span=50_analyzer=True\\"
+        dirname = "..\\Results\\Uzziels_Theoretical_Measurements\\"
         args.csv_name = dirname
         args.analyzer_substance = False
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
@@ -944,3 +952,4 @@ if __name__ == '__main__':
     interactiveGraph(args.csv_name)
     # interactiveGraph(args.csv_name, analyzer_substance=args.analyzer_substance)
 
+########################################## Delete ###########################################################################################
