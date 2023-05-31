@@ -88,7 +88,7 @@ def getSweepLayout(frequencyList, powerList, numIntervals):
                     [sg.Text('Graphs Interval')],
         [sg.Slider(range=(min(numIntervals), max(numIntervals)), size=(60, 10),
                 orientation='h', key='-SLIDER-', resolution=1/(10*len(numIntervals))), sg.Button("Hold", key = '_HOLD_REG_', enable_events=True)]]
-    Layout = [[sg.Push(), sg.Text("Sweep Graph", font=("David", 10, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
+    Layout = [[sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
 # The seconcd layout:
@@ -118,7 +118,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
         [sg.Column(layout=[[sg.Canvas(key='figCanvas2',
                         # it's important that you set this size
                         size=(400 * 2, 200))]], background_color='#DAE0E6', pad=(0, 0))]]
-    Layout = [[sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 10, "bold")),sg.Push()], [sg.Text("")], [sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
+    Layout = [[sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
 def getRangeChoosingLayout(left, right):
@@ -803,7 +803,8 @@ def interactiveGraph(csvFile):
                         #
                         if (Operation_State == 0):
                             if future2 == None:
-                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(values['_ABS_NM_']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance])
+                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', 206.0, float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance])
+                                #float(values['_ABS_NM_'])
                             elif future2._state != 'RUNNING':
                                 future2 = future2.result()
                                 df_concentration = future2[0]
@@ -943,7 +944,7 @@ if __name__ == '__main__':
     if args.csv_name == None:
         # dirname='C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
         #dirname = "..\\Results\\2023_05_10_12_59_10_356441_lab_demo_CF=1500_Span=50_analyzer=True\\"
-        dirname = "..\\Results\\Uzziels_Theoretical_Measurements\\"
+        dirname = "..\\Results\\Recent_Measurements\\"
         args.csv_name = dirname
         args.analyzer_substance = False
         #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"

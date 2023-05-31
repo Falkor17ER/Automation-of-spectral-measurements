@@ -67,14 +67,11 @@ def get_clean_substance_transmittance(val_list):
         clean_df = filter_df(clean_df, filter_values)
         substance_df = filter_df(substance_df, filter_values)
     #
-    if darkMinus and (not df_dark.empty):
-        clean_df, substance_df, darkStatus = minusDark(dirname,clean_df, substance_df, df_dark, "sweepGraph")
-    else:
-        darkStatus = False
-
+    
     columns = substance_df.columns.to_list()
     clean_df.columns = columns
-    df_dark.columns = columns
+    if darkMinus and (not df_dark.empty):
+        df_dark.columns = columns
     freqs = [element for element in columns[10:]]
     R_substance, _ = substance_df.shape
     R_clean, _ = clean_df.shape
@@ -97,9 +94,16 @@ def get_clean_substance_transmittance(val_list):
         for idx in range(0,R_clean):
             # Iterating over each row and normlizing
             clean_df.iloc[idx,10:] = clean_df.iloc[idx,10:].apply(lambda val : val - norm_vals_clean[idx])
-        for idx in range(0,R_dark):
-            # Iterating over each row and normlizing
-            df_dark.iloc[idx,10:] = df_dark.iloc[idx,10:].apply(lambda val : val - norm_vals_dark[idx])
+        if darkMinus and (not df_dark.empty):
+            for idx in range(0,R_dark):
+                # Iterating over each row and normlizing
+                df_dark.iloc[idx,10:] = df_dark.iloc[idx,10:].apply(lambda val : val - norm_vals_dark[idx])
+
+    if darkMinus and (not df_dark.empty):
+        clean_df, substance_df, darkStatus = minusDark(dirname,clean_df, substance_df, df_dark, "sweepGraph")
+    else:
+        darkStatus = False
+
     
     df_transmittance = substance_df.copy()
     if R_clean < R_substance:
