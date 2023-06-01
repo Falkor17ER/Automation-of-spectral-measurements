@@ -100,15 +100,19 @@ def getSampleL():
         sampleL = [[sg.Push(), sg.Text("OSA", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Push(), sg.Input("1500",s=15,key="CF"), sg.Text("[nm]")],
                     [sg.Text("Span:"), sg.Push(), sg.Input("50",s=15,key="SPAN"), sg.Text("[nm]")],
-                    [sg.Text("Ponits: (Auto recommended)"), sg.Push(), sg.Input("Auto",s=15,key="PTS")],
+                    [sg.Text("Number of Points (Auto recommended):"), sg.Push(), sg.Input("Auto",s=15,key="PTS")],
+                    [sg.Text("Sensetivity: "), sg.Push(), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="sens")],
+                    [sg.Text("Resolution: "), sg.Push(), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>"], enable_events=True, default_value="1nm <0.820nm>" ,key="res")],
+                    [sg.Text("")],
                     [sg.Push(), sg.Text("Laser", font='David 15 bold'), sg.Push()],
-                    [sg.Text("Power:"), sg.Push(), sg.Input("6",s=15,key="POWER"), sg.Text("%")],
+                    [sg.Text("Power:"), sg.Push(), sg.Input("6",s=15, key="POWER"), sg.Text("%")],
                     [sg.Text("Repetition Rate:"), sg.Push(), sg.Combo(list(rep_values_MHz.keys()), key="REP", default_value=list(rep_values_MHz.keys())[0])],
+                    [sg.Text("")],
                     [sg.Push(), sg.Text("Misc", font='David 15 bold'), sg.Push()],
                     [sg.Checkbox("Save sample", key="Save"), sg.Push(), sg.Text("Output name:"), sg.Input("demo_sample", s=15, key="sample_name")],
                     [sg.Checkbox("Plot sample", key="Plot")],
                     [sg.Push(), sg.Button("Sample"), sg.Push()],
-                    [sg.Push(), sg.Text(getSamplesText), sg.Push()]]
+                    [sg.Push(), sg.Text(getSamplesText, key="singleSampleText"), sg.Push()]]
     else:
         sampleL = [[sg.Push(), sg.Text("Connect to devices first or work in 'Debug Mode'"), sg.Push()]]
     return sampleL
@@ -122,7 +126,7 @@ def getTests():
         test_values = [[sg.Push(), sg.Text("Tests - choose the tests you want", font='David 15 bold'), sg.Push()],
                     [sg.Text("Center Frequency:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
                     sg.Text("Span:"), sg.Input("50",s=5,key="test_SPAN"), sg.Text("[nm]")],
-                    [sg.Text("Number of Ponits: (Auto recommended)"), sg.Input("Auto",s=12,key="test_PTS"), sg.Text("Sensetivity: "), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="test_sens")], [sg.Text("Resolution: "), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>"], enable_events=True, default_value="1nm <0.820nm>" ,key="test_res")],
+                    [sg.Text("Number of Points: (Auto recommended)"), sg.Input("Auto",s=12,key="test_PTS"), sg.Text("Sensetivity: "), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="test_sens")], [sg.Text("Resolution: "), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>"], enable_events=True, default_value="1nm <0.820nm>" ,key="test_res")],
                     [sg.Text("Start Power Level [%]:"), sg.Input("6",s=3,key="minPL"), sg.Checkbox(text="Sweep?", enable_events=True, key="testPowerLevelSweep"), collapse(powerSweepSection, 'section_powerSweep', False)],
                     [sg.Text("Sample Averaging (Dark Measurments): "), sg.Input("5",s=2,key="darkNumSamplesParameter"), sg.Text("(max: 100)")],
                     [sg.Text("Sample Averaging (Clean/Empty Measurments): "), sg.Input("5",s=2,key="cleanNumSamplesParameter"), sg.Text("(max: 100)")],
@@ -141,7 +145,7 @@ def getTests():
     return test_values
 
 def getDatabases():
-    # This function is to check and show the list of files it is possible to load to the 'Results' Rublica.
+    # This function checks and show the list of files that are possible to load for the 'Results' tab.
     try:
         foldersNames = os.listdir("..\\Databases")
     except:
@@ -206,9 +210,9 @@ def checkStartConditions(values):
     elif (values["test_PTS"] != "Auto"):
         try:
             if (int(values["test_PTS"]) > 2000) or (int(values["test_PTS"]) < 101):
-                getTestErrorText = "Error: The max Number of Points per sample is XXX points."
+                getTestErrorText = "Error: The max Number of Points per sample is should be between 101 to 2,000 points."
         except:
-                getTestErrorText = "Error: The max Number of Points per sample is XXX points."
+                getTestErrorText = "Error: The max Number of Points per sample should be an int! between 101 to 2,000 points."
     elif ( (values["test_res"] == "Manuall (Enter a value)") and ((float(values["test_manuallRes"]) < 0) or (float(values["test_manuallRes"]) > 4) )):
         getTestErrorText = "Error: The resolution you enter is not good value."
     elif (int(values["minPL"]) < 6 or int(values["minPL"]) > 100):
@@ -332,7 +336,7 @@ if __name__ == '__main__':
         event, values = window.read()
         
         if event == 'Connect':
-            # This function try connect the devices:
+            # Try connect the devices:
             try:
                 osa = OSA(values[0])
                 laser = Laser(values[2])
@@ -358,9 +362,23 @@ if __name__ == '__main__':
 
         elif event == 'Sample':
             # To do only one sample.
-            if ( isConnected or (not debugMode) ):
-                setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"])
+            # Checking for correct settings:
+            getSamplesText = ""
+            if (values["PTS"] != "Auto"):
+                try:
+                    if (int(values["PTS"]) > 2000) or (int(values["PTS"]) < 101):
+                        getSamplesText = "Error: The max Number of Points per sample is XXX points."
+                except:
+                    getSamplesText = "Error: The number of Points per sample should be between 101 to 2,000 points."
+            if ( (int(values["POWER"]) < 6 or int(values["POWER"]) > 100) ):
+                getSamplesText = "Error: The power of the laser must be btween 6 to 100"
+            #
+            if debugMode:
+                getSamplesText = "Everything is OK, the sample finished successfully"
+            if ( ( isConnected or (not debugMode) ) and getSamplesText == "" ):
+                setConfig(laser,osa,values["CF"],values["SPAN"],values["PTS"],values["POWER"],values["REP"],values["sens"],values["res"])
                 getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
+            window['singleSampleText'].update(getSamplesText)
         
         elif event == "testPowerLevelSweep":
             # To show the power test parameters setting.
