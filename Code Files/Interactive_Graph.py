@@ -99,7 +99,7 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
     
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Power:"), sg.Push()],
                           [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxAllanDG_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxAllanDG_'), sg.Push()]]
-    absorbance_layout = [[sg.Text("Concetration wavelength range:")], [sg.Push(), sg.Text("From: "), sg.Input("", key="from",s=7), sg.Text("to: "), sg.Input("", key='to', s=7), sg.Text("nm"), sg.Push()], [sg.Push(), sg.Text("The wavelength value to calculate: "), sg.Text("", key='_ABS_NM_'), sg.Text("nm"), sg.Push()]]
+    absorbance_layout = [[sg.Text("Concetration wavelength range:")], [sg.Push(), sg.Text("From: "), sg.Input("", key="from",s=7), sg.Text("to: "), sg.Input("", key='to', s=7), sg.Text("[nm]"), sg.Button("Set", key='_data_wavelength_set_'), sg.Push()], [sg.Push(), sg.Text("The wavelength value to calculate: "), sg.Text("", key='_ABS_NM_'), sg.Text("nm"), sg.Push()]]
     #, [sg.Push(), sg.Text("Value to calculate: "), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_",enable_events=True), sg.Text("[nm]"), sg.Push()]]
     menu_layout = [[sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
                   [collapse(absorbance_layout, 'section_AbsValue', False)],
@@ -227,6 +227,10 @@ def findValueInDatabase(data_file, left, right):
     except:
         return False
     df['Wavelength'] = df['Wavenumber'].apply(lambda val: 10000000/val) # Adding a column of wavelength.
+    if len(left) == 0:
+        left = '0'
+    if len(right) == 0:
+        right = '0'
     filtered_df = df.loc[(df['Wavelength'] >= float(left)) & (df['Wavelength'] <= float(right))]
     if filtered_df.empty:
         return df.loc[df['Absorbance'] == df['Absorbance'].max(), 'Wavelength'].values[0]
@@ -396,9 +400,17 @@ def getLinePeak(line, left, right):
     min_wavelength = filtered_df.loc[filtered_df['Values'] == min_value, 'Wavelengths'].values[0]
     return min_value, min_wavelength
 
-def checkLeftRightWavelength(window, valuesLcutoff, valuesRcutoff ,Lcutoff, Rcutoff):
+def checkLeftRightWavelength(valuesLcutoff, valuesRcutoff ,Lcutoff, Rcutoff):
     # Checking cutoffs:
     # Edge cases:
+    if len(valuesLcutoff) == 0:
+        valuesLcutoff = '0'
+    if len(valuesRcutoff) == 0:
+        valuesRcutoff = '0'
+    if len(Lcutoff) == 0:
+        Lcutoff = '0'
+    if len(Rcutoff) == 0:
+        Rcutoff = '0'
     if float(valuesLcutoff) < float(Lcutoff):
         valuesLcutoff = Lcutoff
     if float(valuesRcutoff) > float(Rcutoff):
@@ -409,9 +421,7 @@ def checkLeftRightWavelength(window, valuesLcutoff, valuesRcutoff ,Lcutoff, Rcut
             valuesRcutoff = Lcutoff
         valuesLcutoff = valuesRcutoff
     # End of cutoffs check.
-    #window['Lcutoff'].update(valuesLcutoff)
-    #window['Rcutoff'].update(valuesRcutoff)
-    return window, valuesLcutoff, valuesRcutoff
+    return valuesLcutoff, valuesRcutoff
 
 def addMinimumDots(ax, fig_agg1, left, right):
     peaks_x = []
@@ -522,6 +532,7 @@ def interactiveGraph(csvFile):
     filter_conf_vals = None
     slider_elem = window['-SLIDER-']
     window['-SLIDER-'].bind('<ButtonRelease-1>', ' Release')
+    window['from'].bind('<InputRelease-1>', ' Release')
     # End of Parameters for the functions.
 
     # Sweep Graph - Start:
@@ -792,9 +803,13 @@ def interactiveGraph(csvFile):
                     animation = time.time()
                     sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
                     # Check the range of the wavelength in the 'Range choosing' tab.
-                    window, values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(window, values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
+                    values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
                     window['Lcutoff'].update(values['Lcutoff'])
                     window['Rcutoff'].update(values['Rcutoff'])
+                    values['from'], values['to'] = checkLeftRightWavelength(values['from'], values['to'] ,Lcutoff, Rcutoff)
+                    window['from'].update(values['from'])
+                    window['to'].update(values['to'])
+                    window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to'])))
                     #
                     while True:
                         if (time.time() - animation > 0.05):
@@ -803,7 +818,7 @@ def interactiveGraph(csvFile):
                         #
                         if (Operation_State == 0):
                             if future2 == None:
-                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', 206.0, float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance])
+                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance, values['Lcutoff'], values['Rcutoff']])
                                 #float(values['_ABS_NM_'])
                             elif future2._state != 'RUNNING':
                                 future2 = future2.result()
@@ -890,16 +905,29 @@ def interactiveGraph(csvFile):
                     window['section_AbsValue'].update(visible=True)
                     window['from'].update(values['Lcutoff'])
                     window['to'].update(values['Rcutoff'])
-                    window['_ABS_NM_'].update(str(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['Lcutoff'], values['Rcutoff'])))
+                    window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['Lcutoff'], values['Rcutoff'])))
                 else:
                     window['section_AbsValue'].update(visible=False)
             
             elif event == '_PPM_SLIDER_':
                 convert_concentraion_units(ax_conc, fig_agg2, values['_PPM_SLIDER_'])
 
+            elif event == 'cutoffSet':
+                # Check the range of the wavelength in the 'Range choosing' tab.
+                values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
+                window['Lcutoff'].update(values['Lcutoff'])
+                window['Rcutoff'].update(values['Rcutoff'])
+            
+            elif event == '_data_wavelength_set_':
+                values['from'], values['to'] = checkLeftRightWavelength(values['from'], values['to'] ,Lcutoff, Rcutoff)
+                window['from'].update(values['from'])
+                window['to'].update(values['to'])
+                window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to'])))
+
+
             if values['_PEAKS_SLIDER_'] == 1:
                 # Check the range of the wavelength in the 'Range choosing' tab.
-                window, values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(window, values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
+                values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
                 window['Lcutoff'].update(values['Lcutoff'])
                 window['Rcutoff'].update(values['Rcutoff'])
                 # Cutoffs already checked.
@@ -907,12 +935,6 @@ def interactiveGraph(csvFile):
                 addMinimumDots(ax, fig_agg1, values['Lcutoff'], values['Rcutoff'])
             else: # values['_PEAKS_SLIDER_'] == 0: Delete the dots.
                 deleteMinimumDots(ax, fig_agg1)
-
-            if event == 'cutoffSet':
-                # Check the range of the wavelength in the 'Range choosing' tab.
-                window, values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(window, values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
-                window['Lcutoff'].update(values['Lcutoff'])
-                window['Rcutoff'].update(values['Rcutoff'])
 
             # Update the plot scaling
             ax_conc.relim()  # Recalculate the data limits

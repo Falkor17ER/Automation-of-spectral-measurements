@@ -210,6 +210,19 @@ def getAnalyzerTransmition(val_list):
     df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
     return df_transmittance, darkStatus
 
+def get_closest_peak_in_range(series, L, R):
+
+    # Filter the DataFrame to include only columns within the range (L, R)
+    values = series.iloc[10:]
+
+
+    filtered_series = values.loc[(values.index > L) & (values.index < R)]
+
+    # Find the minimum value within each column
+    min_value = filtered_series.min()
+
+    return - min_value
+
 def beerLambert(val_list):
     dirname = val_list[0]
     databaseFilePath = val_list[1]
@@ -217,6 +230,8 @@ def beerLambert(val_list):
     l = val_list[3]
     G = val_list[4]
     df_transmittance = val_list[5]
+    Lcutoff = float(val_list[6])
+    Rcutoff = float(val_list[7])
     G = float(G)
     #
     # This function calculate C (Concentration).
@@ -249,6 +264,8 @@ def beerLambert(val_list):
     #    real_wavelength = int(real_wavelength)
     real_wavelength = str(real_wavelength)
     
+
+
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
     columnsList.append('Concentration [ppm]')
@@ -256,12 +273,22 @@ def beerLambert(val_list):
     columnsList.append('Concentration [mol/L]=[M]')
     columnsList.append('Wavelength')
     df_C = pd.DataFrame(columns=columnsList)
-    # 
+    #
+    # Get the column names from index 10 to the end
+    columns_to_convert = df_transmittance.columns[10:]
+
+    # Convert the column names to floats
+    converted_columns = [float(col) for col in columns_to_convert]
+
+    # Update the column names in the DataFrame
+    df_transmittance.columns = df_transmittance.columns[:10].tolist() + converted_columns
+
     for row in range(df_transmittance.shape[0]):
         new_row = []
         for idx in range(10):
             new_row.append(df_transmittance.iloc[row][idx])
-        A = - df_transmittance.iloc[row][real_wavelength]
+        # A = - df_transmittance.iloc[row][real_wavelength]
+        A = get_closest_peak_in_range(df_transmittance.iloc[row], Lcutoff, Rcutoff)
         A = A/10 # from 10*log(I0/I) [dB] to log(I0/I) (for beer lambert)
         if A == 0:
             C = 0
@@ -354,5 +381,5 @@ if __name__=='__main__':
     wavelength = 1475.125
     l = 5
     #getAnalyzerTransmition(dirname,to_norm=False)
-    getConcentration(dirname, databaseFile, wavelength, l)
+    get_closest_peak_in_range(pd.read_csv("..\\Results\\Recent_Measurements\\substance.csv").iloc[0], 180, 250)
     print("Everything worked fine!")
