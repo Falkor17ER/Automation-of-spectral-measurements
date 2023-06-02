@@ -1,8 +1,11 @@
+# This file is responsible for all the calculations and analysis after the full test and measurements finish. Also, it responsible for the calculations of the loading files from the 'Result' tab.
 import numpy as np
 import pandas as pd
 import time
 import allantools
 from scipy.signal import butter, cheby1, filtfilt
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Helper function
 def normalize(x, y):
@@ -17,9 +20,7 @@ def substractWatt(x_dBm, y_dBm):
     x_dBm = 10*(np.log10(res/0.001))
     return x_dBm
 
-def minusDark(dirname,df_clean, df_substance, df_dark, mode):
-    
-    #
+def minusDark(dirname,df_clean, df_substance, df_dark, mode):    
     # clean minus dark:
     R, C = df_clean.shape
     for idi in range(0,R):
@@ -60,14 +61,13 @@ def get_clean_substance_transmittance(val_list):
         df_dark = pd.read_csv(dirname+'\\'+'dark.csv')
     except:
         df_dark = pd.DataFrame()
-
+    #
     # filter if requested 
     if to_filter:
         df_dark = filter_df(df_dark, filter_values)
         clean_df = filter_df(clean_df, filter_values)
         substance_df = filter_df(substance_df, filter_values)
     #
-    
     columns = substance_df.columns.to_list()
     clean_df.columns = columns
     if darkMinus and (not df_dark.empty):
@@ -76,9 +76,8 @@ def get_clean_substance_transmittance(val_list):
     R_substance, _ = substance_df.shape
     R_clean, _ = clean_df.shape
     R_dark, _ = df_dark.shape
-
+    #
     if to_norm:
-        
         # Getting the elemnts of normalizations:
         real_freq = get_closeset_wavelength(clean_df.columns[10:], real_freq)
         norm_vals_clean = clean_df[real_freq]
@@ -86,7 +85,7 @@ def get_clean_substance_transmittance(val_list):
         norm_vals_substance = substance_df[real_freq]
         real_freq = get_closeset_wavelength(df_dark.columns[10:], real_freq)
         norm_vals_dark = df_dark[real_freq]
-
+        #
         # Normalizing both clean and substance CSVs
         for idx in range(0,R_substance):
             # Iterating over each row and normlizing
@@ -98,13 +97,12 @@ def get_clean_substance_transmittance(val_list):
             for idx in range(0,R_dark):
                 # Iterating over each row and normlizing
                 df_dark.iloc[idx,10:] = df_dark.iloc[idx,10:].apply(lambda val : val - norm_vals_dark[idx])
-
+    #
     if darkMinus and (not df_dark.empty):
         clean_df, substance_df, darkStatus = minusDark(dirname,clean_df, substance_df, df_dark, "sweepGraph")
     else:
         darkStatus = False
-
-    
+    #
     df_transmittance = substance_df.copy()
     if R_clean < R_substance:
         df_columns = df_transmittance.columns.to_list()
@@ -124,7 +122,7 @@ def get_clean_substance_transmittance(val_list):
         df_transmittance[freqs] = df_transmittance[freqs].subtract(df_clean_multipled[freqs])
     else:
         df_transmittance[freqs] = df_transmittance[freqs].subtract(clean_df[freqs])
-    
+    #
     df_transmittance.to_csv(dirname+'\\transmittance.csv', index=False, encoding='utf-8')
     return df_transmittance, clean_df, substance_df, darkStatus
 
@@ -155,7 +153,7 @@ def getAnalyzerTransmition(val_list):
         df_dark = pd.read_csv(dirname+'\\'+'dark.csv')
     except:
         df_dark = pd.DataFrame()
-
+    #
     # filter if requested 
     if to_filter:
         df_dark = filter_df(df_dark, {})
@@ -167,7 +165,7 @@ def getAnalyzerTransmition(val_list):
     else:
         darkStatus = False
     columns = df_clean.columns.to_list()
-    
+    #
     if to_norm:
         wavelengths = [float(element) for element in columns[10:]]
         distance_from_user = [abs(float(waveLength)-element) for element in wavelengths]
@@ -179,7 +177,7 @@ def getAnalyzerTransmition(val_list):
         # Getting the elemnts of normalizations:
         norm_vals_clean = df_clean[real_wavelength_from_user]
         norm_vals_analyzer = df_analyzer[real_wavelength_from_user]
-
+        #
         # Normalizing both clean and substance CSVs
         R, _ = df_analyzer.shape
         for idx in range(0,R):
@@ -189,9 +187,7 @@ def getAnalyzerTransmition(val_list):
         for idx in range(0,R):
             # Iterating over each row and normlizing
             df_clean.iloc[idx,10:] = df_clean.iloc[idx,10:].apply(lambda val : val - norm_vals_clean[idx])
-    
-    ## [dB], [dBm] --> [dB]
-
+    # [dB], [dBm] --> [dB]
     df_columns = columns
     freqs = [element for element in df_columns[10:]]
     r = None
@@ -214,13 +210,9 @@ def get_closest_peak_in_range(series, L, R):
 
     # Filter the DataFrame to include only columns within the range (L, R)
     values = series.iloc[10:]
-
-
     filtered_series = values.loc[(values.index > L) & (values.index < R)]
-
     # Find the minimum value within each column
     min_value = filtered_series.min()
-
     return - min_value
 
 def beerLambert(val_list):
@@ -237,10 +229,8 @@ def beerLambert(val_list):
     # This function calculate C (Concentration).
     # k = The wavenumber, A = Absorbance, E = Molar attenuation coefficient, l = Lenght of waveguide, c = Molar concentration.
     # E is minus every result, every rublica. 
-
     # Getting the wavenumber from waveguide:
     k = 10000000/wavelength # In unit of cm^(-1)
-    
     # Finding the relevant Absorption from the txt file:
     df_A = pd.read_csv(databaseFilePath, delimiter = "\t", names=['Wavenumber', 'Absorption']) # databaseFilePath=dirname+filename.txt
     wavenumberList = df_A['Wavenumber'].tolist()
@@ -263,9 +253,7 @@ def beerLambert(val_list):
         # convert x to integer
     #    real_wavelength = int(real_wavelength)
     real_wavelength = str(real_wavelength)
-    
-
-
+    #
     # Creating a new df_C & Calculating the concetration:
     columnsList = df_transmittance.columns.to_list()[:10]
     columnsList.append('Concentration [ppm]')
@@ -276,13 +264,11 @@ def beerLambert(val_list):
     #
     # Get the column names from index 10 to the end
     columns_to_convert = df_transmittance.columns[10:]
-
     # Convert the column names to floats
     converted_columns = [float(col) for col in columns_to_convert]
-
     # Update the column names in the DataFrame
     df_transmittance.columns = df_transmittance.columns[:10].tolist() + converted_columns
-
+    #
     for row in range(df_transmittance.shape[0]):
         new_row = []
         for idx in range(10):
@@ -304,7 +290,7 @@ def beerLambert(val_list):
         new_row.append(C)
         new_row.append(real_wavelength)
         df_C.loc[len(df_C)] = new_row
-
+    #
     # Saving the df_C to Concetration.csv
     real_wavelength = str("{:.3f}".format(float(real_wavelength)))
     df_C.to_csv(dirname + '\\Concentration (Wavelength-'+real_wavelength.replace('.','_')+'nm).csv', index=False, encoding='utf-8')
@@ -320,13 +306,9 @@ def getMeanInterval(timeStamps):
 def allandevation(df_C):
     # Calculate divation according to time and this plot to graph - The second graph - LOD
     # Compute the fractional frequency data
-    # df_C = pd.read_csv(dirname+'\Concetration (Wavelength-'+wavelength+'nm)')
-    # ppm_data = df_C['Concentration [ppm]'].tolist()
     ppm_data = df_C['Concentration [ppm]']
     freq_data = ppm_data # / 1e6 + 1
-
     rate = getMeanInterval(df_C['Interval'].tolist())
-    
     # Compute the Allan deviation
     tau, adev, _, _ = allantools.oadev(freq_data, 1/rate, taus='decade')
     return tau, adev, rate
@@ -372,7 +354,9 @@ def cheby1_filter(df, cutoff_freq, order, ripple):
         df.iloc[idx,10:] = filtered_signal + mean_of_sample
     return df
 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# For Our checking:
 if __name__=='__main__':
     now = time.time()
     dirname = "C:\BGUProject\Automation-of-spectral-measurements\Results\Simulation"
@@ -383,3 +367,5 @@ if __name__=='__main__':
     #getAnalyzerTransmition(dirname,to_norm=False)
     get_closest_peak_in_range(pd.read_csv("..\\Results\\Recent_Measurements\\substance.csv").iloc[0], 180, 250)
     print("Everything worked fine!")
+
+# End of 'Analyzer.py' file.

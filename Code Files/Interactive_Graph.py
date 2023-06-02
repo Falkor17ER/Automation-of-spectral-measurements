@@ -1,4 +1,4 @@
-# Interactive Graph GUI:
+# This file is responsible for the results GUI, it contain the layouts for the Graphs. In addition, it contains all the relevant functions to control, operate and show of these graphs.
 import pandas as pd
 import PySimpleGUI as sg
 import time
@@ -25,10 +25,10 @@ PLOT_SIZE = (0.95/130*GRAPH_SIZE_AREA[0],0.95/135*GRAPH_SIZE_AREA[1]) # The plot
 SUBSTANCE_DATABASE_SIZE = (int(WINDOW_SIZE[0]/64),int(WINDOW_SIZE[0]/384)) # The part of the substance window.
 
 # Functions and setting:
-
 # sg.theme('DarkBlue')
 # sg.theme('DarkGrey2')
-sg.theme('Default')
+# sg.theme('Default')
+sg.theme('DefaultNoMoreNagging')
 
 #-------------------------------------------------------------------------------------------------
 
@@ -61,33 +61,22 @@ def collapse(layout, key, visible):
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
 def getGlobalColumn(norm_freq_list):
-    layout = [[sg.Checkbox("Filter", default=False, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_"), sg.Push(),
-              sg.Checkbox("Subtract Dark", default=False, enable_events=True, key="-MINUS_DARK-"),
-              sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push(), 
-              sg.Checkbox("", enable_events=True, key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),enable_events=True,s=7,key="normValue"), sg.Text("[nm]"), sg.Push()],
-              [sg.Push(), sg.Button("Apply", key='_APPLY_GLOBAL_', enable_events=True), sg.Text("Applied", key="_GLOBAL_STATUS_"), sg.Push()]]
+    layout = [[sg.Checkbox("Filter", default=False, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_"),
+            sg.Push (), sg.Checkbox("Subtract Dark", default=False, enable_events=True, key="-MINUS_DARK-"), sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push(), sg.Checkbox("", enable_events=True, key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),enable_events=True,s=7,key="normValue"), sg.Text("[nm]"), sg.Push()], [sg.Push(), sg.Button("Apply", key='_APPLY_GLOBAL_', enable_events=True), sg.Text("Applied", key="_GLOBAL_STATUS_"), sg.Push()]]
     return layout
 
 # The first layout:
 def getSweepLayout(frequencyList, powerList, numIntervals):
     # xAxis is a list of lists. Inputs must not be empty!
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Powers:"), sg.Push()],
-                          [sg.Push(), sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='single', key='_RepetitionListBoxSweepG_'),sg.Listbox(powerList, size=(14,10), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxSweepG_'), sg.Push()]]
+            [sg.Push(), sg.Listbox(values=frequencyList, s=(14,10), enable_events=True, select_mode='single', key='_RepetitionListBoxSweepG_'),sg.Listbox(powerList, size=(14,10), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxSweepG_'), sg.Push()]]
     menu_layout = [[sg.Push(), sg.Checkbox("Logarithmic Scale", default=True, enable_events=True, key="-REG_LOG_SCALE-"), sg.Push()],
-                  [sg.Push(),sg.Checkbox(text="Transmittance\ngraph",font='David 11',key="normCheckBox", enable_events=True, default=True), sg.Checkbox(text="Empty\nsample",font='David 11',key="cleanCheckBox",enable_events=True, default=False), sg.Checkbox(text="Non empty\nsample",font='David 11',key="substanceCheckBox", enable_events=True, default=False), sg.Push()],
-                  [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_SWEEP_PLOT-', enable_events=True),sg.Push()]]
-    graph_layout = [
-        #[sg.T('Controls:')],
-        [sg.Canvas(key='controls_cv1')],
-        #[sg.T('Figure:')],
-        [sg.Column(layout=[[sg.Canvas(key='figCanvas1',
-                        # it's important that you set this size
-                        size=(400 * 2, 400))]], background_color='#DAE0E6', pad=(0, 0))],
-                        
-                    [sg.Text('Graphs Interval')],
-        [sg.Slider(range=(min(numIntervals), max(numIntervals)), size=(60, 10),
-                orientation='h', key='-SLIDER-', resolution=1/(10*len(numIntervals))), sg.Button("Hold", key = '_HOLD_REG_', enable_events=True)]]
+            [sg.Push(),sg.Checkbox(text="Transmittance\ngraph",font='David 11',key="normCheckBox", enable_events=True, default=True), sg.Checkbox(text="Empty\nsample",font='David 11',key="cleanCheckBox",enable_events=True, default=False), sg.Checkbox(text="Non empty\nsample",font='David 11',key="substanceCheckBox", enable_events=True, default=False), sg.Push()],
+            [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
+            [sg.Push(), sg.Button("Clear All", key='-CLEAR_SWEEP_PLOT-', enable_events=True),sg.Push()]]
+    graph_layout = [[sg.Canvas(key='controls_cv1')], [sg.Column(layout=[[sg.Canvas(key='figCanvas1',
+            # it's important that you set this size
+            size=(400 * 2, 400))]], background_color='#DAE0E6', pad=(0, 0))], [sg.Text('Graphs Interval')], [sg.Slider(range=(min(numIntervals), max(numIntervals)), size=(60, 10), orientation='h', key='-SLIDER-', resolution=1/(10*len(numIntervals))), sg.Button("Hold", key = '_HOLD_REG_', enable_events=True)]]
     Layout = [[sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
@@ -96,47 +85,43 @@ def getAllanDeviationLayout(frequencyList, powerList, norm_freq_list):
     # xAxis is a list of lists. Inputs must not be empty!
     database_Layout = [[sg.Text("Select data file")],
                 [sg.Listbox(getDatabases(), select_mode='LISTBOX_SELECT_MODE_SINGLE', key="_DATA_FILE_", enable_events = True, size=SUBSTANCE_DATABASE_SIZE)]]
-    
     sweepCompareSection = [[sg.Push(), sg.Text("Select Repetition:"), sg.Text("Select Power:"), sg.Push()],
-                          [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxAllanDG_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxAllanDG_'), sg.Push()]]
-    absorbance_layout = [[sg.Text("Concetration wavelength range:")], [sg.Push(), sg.Text("From: "), sg.Input("", key="from",s=7), sg.Text("to: "), sg.Input("", key='to', s=7), sg.Text("[nm]"), sg.Button("Set", key='_data_wavelength_set_'), sg.Push()], [sg.Push(), sg.Text("The wavelength value to calculate: "), sg.Text("", key='_ABS_NM_'), sg.Text("nm"), sg.Push()]]
-    #, [sg.Push(), sg.Text("Value to calculate: "), sg.Input(str(norm_freq_list[0]),s=7,key="_ABS_NM_",enable_events=True), sg.Text("[nm]"), sg.Push()]]
+                [sg.Push(), sg.Listbox(values=frequencyList, s=(14,5), enable_events=True, select_mode='single', key='_RepetitionListBoxAllanDG_'),sg.Listbox(powerList, size=(14,5), enable_events=True, bind_return_key=True, select_mode='single', key='_PowerListBoxAllanDG_'), sg.Push()]]
+    absorbance_layout = [[sg.Push(), sg.Text("Help? This range will take the correct\nwavelength peak from the datafile of the substance"), sg.Push()],
+                [sg.Text("Concetration wavelength range:")], [sg.Push(), sg.Text("From: "), sg.Input("", key="from",s=7), sg.Text("to: "), sg.Input("", key='to', s=7), sg.Text("[nm]"), sg.Button("Set", key='_data_wavelength_set_'), sg.Push()], [sg.Push(), sg.Text("The wavelength value to calculate: "), sg.Text("", key='_ABS_NM_'), sg.Text("nm"), sg.Push()]]
     menu_layout = [[sg.Push(), collapse(database_Layout, 'section_dataBaseValue', True), sg.Push()],
-                  [collapse(absorbance_layout, 'section_AbsValue', False)],
-                  [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
-                  [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
-                  [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
-                  [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
-                  [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=True), sg.Input("csv file name", s=15, key='csvFileName'), sg.Push()],
-                  [sg.Push(), sg.Button("Clear All", key='-CLEAR_ALLAN_PLOT-', enable_events=True),sg.Push()],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()],
-                  [sg.Push(), sg.Text("ppm", font='David 10'), sg.Slider(range=(0,1), orientation='h', key='_PPM_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("%", font='David 10'), sg.Push()]]
-                  #[sg.Push(), sg.Button("ppm", key='_ppm_', enable_events=True), sg.Button("%", key='_Precents_', enable_events=True), sg.Push()]]
-    graph_layout = [
-        #[sg.T('Controls:')],
-        [sg.Canvas(key='controls_cv2')],
-        #[sg.T('Figure:')],
-        [sg.Column(layout=[[sg.Canvas(key='figCanvas2',
-                        # it's important that you set this size
-                        size=(400 * 2, 200))]], background_color='#DAE0E6', pad=(0, 0))]]
+                [collapse([[sg.Frame("Peaks for data file", absorbance_layout, key='helpRangeForPPM')]], 'section_AbsValue', False)],
+                [sg.Push(), collapse(sweepCompareSection, 'section_sweepCompare', True), sg.Push()],
+                [sg.Push(), sg.Text("Waveguide length"), sg.Input("", s=7, key='_WAVEGUIDE_LENGTH_', enable_events=True), sg.Text("mm"), sg.Push()],
+                [sg.Push(), sg.Text("Gama Value"), sg.Input("1", s=7, key='_GAMA_', enable_events=True), sg.Push()],
+                [sg.Push(), sg.Button("Add", key='_ADD_GRAPH_', enable_events=True), sg.Button("Hold", key='_HOLD_', enable_events=True), sg.Push()],
+                [sg.Push(), sg.Button("Save to csv file", key='_CSV_', enable_events=True), sg.Input("csv file name", s=15, key='csvFileName'), sg.Push()],
+                [sg.Push(), sg.Button("Clear All", key='-CLEAR_ALLAN_PLOT-', enable_events=True),sg.Push()],[sg.Push(), sg.Text("", key='timeIntervalText') ,sg.Push()],
+                [sg.Push(), sg.Text("ppm", font='David 10'), sg.Slider(range=(0,1), orientation='h', key='_PPM_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("%", font='David 10'), sg.Push()]]
+    graph_layout = [[sg.Canvas(key='controls_cv2')], [sg.Column(layout=[[sg.Canvas(key='figCanvas2',
+                # it's important that you set this size
+                size=(400 * 2, 200))]], background_color='#DAE0E6', pad=(0, 0))]]
     Layout = [[sg.Push(), sg.Column(menu_layout, s=SETTING_AREA_SIZE), sg.Column(graph_layout, s=GRAPH_SIZE_AREA), sg.Push()]]
     return Layout
 
 def getRangeChoosingLayout(left, right):
     # Choose the range of the search location:
-    cutoff_layout = [[sg.Text("Left Cutoff:"), sg.Push(), sg.Input(left, key='Lcutoff', s=15), sg.Text("nm")], [sg.Text("Right Cutoff:"), sg.Push(), sg.Input(right, key='Rcutoff', s=15), sg.Text("nm")]]
-    layout = [[sg.Push(), sg.Text("Show peaks?"), sg.Text("No"), sg.Slider(range=(0,1), orientation='h', key='_PEAKS_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("Yes"), sg.Push()], [sg.Column(cutoff_layout), sg.Button("Set", key='cutoffSet')]]
+    cutoff_layout = [[sg.Text("Left Cutoff:"), sg.Push(), sg.Input(left, key='Lcutoff', s=15), sg.Text("nm")],
+                [sg.Text("Right Cutoff:"), sg.Push(), sg.Input(right, key='Rcutoff', s=15), sg.Text("nm")]]
+    layout = [[sg.Push(), sg.Text("This range will use to calculate the transmittance.") ,sg.Push()],
+                [sg.Push(), sg.Text("Show peaks?"), sg.Text("No"), sg.Slider(range=(0,1), orientation='h', key='_PEAKS_SLIDER_', resolution=1, size=(6,15), default_value = 0, enable_events=True), sg.Text("Yes"), sg.Push()], [sg.Column(cutoff_layout), sg.Button("Set", key='cutoffSet')]]
     return layout
 
 def filter_selection_window():
     butterworth_layout = [[sg.Text("Cutoff frequency:"), sg.Input('0.03', key='_cutoff_BW')],
-                          [sg.Text("Order:"), sg.Input('4', key='_order_BW')]]
+                [sg.Text("Order:"), sg.Input('4', key='_order_BW')]]
     cheby1_layout = [[sg.Text("Cutoff frequency:"), sg.Input('0.03', key='_cutoff_cheby1')],
-                        [sg.Text("Order:"), sg.Input('4', key='_order_cheby1')],
-                        [sg.Text("Ripple [dB]:"), sg.Input('0.5', key='_ripple_cheby1')]]
+                [sg.Text("Order:"), sg.Input('4', key='_order_cheby1')],
+                [sg.Text("Ripple [dB]:"), sg.Input('0.5', key='_ripple_cheby1')]]
     filter_selection_layout = [[sg.Combo(['BW', 'cheby1'], key='_FILTER_TYPE_', default_value='BW', enable_events = True)],
-              [collapse(butterworth_layout, 'section_BW', True)],
-              [collapse(cheby1_layout, 'section_cheby1', False)],
-              [sg.Button('Ok'), sg.Button('Cancel')]]
+                [collapse(butterworth_layout, 'section_BW', True)],
+                [collapse(cheby1_layout, 'section_cheby1', False)],
+                [sg.Button('Ok'), sg.Button('Cancel')]]
     filter_window = sg.Window('Filter configurations', layout=filter_selection_layout, finalize=True)
     while True:
         event, values = filter_window.read()
@@ -255,7 +240,6 @@ def get_maximum(data_file):
 
 def saveAllanPlots(holdAllanDeviationList, new_allandeviation_line, csvFileName, dirname):
     holdAllanDeviationList[new_allandeviation_line._label] = new_allandeviation_line
-    # label = 'p{}_rr{}_c{}_wl{:.2f}'.format(values['_PowerListBoxPC_'][0], values['_RepetitionListBoxPC_'][0], values['_DATA_FILE_'][0], float(realWavelength))
     # Save deviation csv
     new_df = pd.DataFrame(columns=['Rep Rate', 'Power', 'Database file name', 'conentration wavelength [nm]', 'Waveguide Length [mm]', 'Averaging time [s]', 'Value'])
     for line in holdAllanDeviationList.values():
@@ -321,16 +305,12 @@ def check_files(csvFile):
         df_clean = pd.read_csv(csvFile + 'clean.csv', nrows=1)
     except:
         tkm.showerror(title="Problem reading 'clean' file!", message="There was a problem reading 'clean.csv' file.")
-        # sg.popup_ok("There was a problem reading clean.csv")
         return False
-        #exit()
     try:
         df_substance = pd.read_csv(csvFile + 'substance.csv',  nrows=1)
     except:
         tkm.showerror(title="Problem reading 'substance' file!", message="There was a problem reading 'substance.csv' file.")
-        # sg.popup_ok("There was a problem reading substance.csv")
         return False
-        #exit()
 
 def clear_regular_sweep_plot(window, ax, values, scales_dict, fig1, fig_agg1, drawSweepGraph):
     window['_PowerListBoxSweepG_'].update(set_to_index=[])
@@ -459,26 +439,24 @@ def interactiveGraph(csvFile):
     flag_allan = True
     line1 = False
     data_type = 'T'
-
-    #
+    
     colors_allanDeviationConcentration = [name for name, hex in mcolors.CSS4_COLORS.items()
-                   if np.mean(mcolors.hex2color(hex)) < 0.7]
+                if np.mean(mcolors.hex2color(hex)) < 0.7]
     colors_allanDeviationConcentration.pop(0)
     colors_reg_Sweep = colors_allanDeviationConcentration.copy()
     color_reg = colors_reg_Sweep[0]
     color = colors_allanDeviationConcentration[0]
-    #
-
+    
     scales_dict = {"LOG": {"CLEAN": "[dBm]", "SUBSTANCE": "[dBm]", "RATIO": "[dB]"}, "WATT":{"CLEAN": "[mW]", "SUBSTANCE": "[mW]", "RATIO": "Ratio"}}
     scales_dict_converter = {'[dBm]': '[mW]', '[dB]': 'Ratio', '[mW]': '[dBm]', 'Ratio': '[dB]'}
-    #----------------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------------------------------------------------------------------------------------------
     
     check = check_files(csvFile)
     if check == False:
         return False
-    # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=values['-MINUS_DARK-'], filter_values=filter_conf_vals, to_norm=values['-Reg_Norm_Val-'], real_freq=values['normValue'], to_filter=values['_FILTER_CB_'])
+    
     df_ratio, df_clean, df_substance, darkStatus = apply_function_animation(csvFile, {'-MINUS_DARK-': False, '-Reg_Norm_Val-': False, 'normValue': '1500', '_FILTER_CB_': False}, None)
-    # df_ratio, df_clean, df_substance, darkStatus = get_clean_substance_transmittance(csvFile, darkMinus=False, to_norm=False)
     df_transmittance = df_ratio.copy()
     frequencyList = df_ratio['REP_RATE'].unique().tolist()
     powerList = df_ratio['POWER'].unique().tolist()
@@ -494,14 +472,11 @@ def interactiveGraph(csvFile):
     if flag_allan:
         allan_and_concentration = getAllanDeviationLayout(frequencyList, powerList, norm_freq_list) 
     else:
-        allan_and_concentration = [
-            [sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 20, "bold")),sg.Push()],
-            [sg.Push(), sg.Text('There was a problem to read the correct file!'), sg.Push()]
-            ]
+        allan_and_concentration = [[sg.Push(), sg.Text("Allan Deviation & Concentration Graphs", font=("David", 20, "bold")),sg.Push()],
+            [sg.Push(), sg.Text('There was a problem to read the correct file!'), sg.Push()]]
     
-    layout = [
-    [sg.Frame("Sweep Graph", sweepGraph, visible=True, key='section_sweepGraph', size=(FRAME_SIZE[0], FRAME_SIZE[1]))],
-    [sg.Frame("Allan Deviation & Concentration", allan_and_concentration, visible=True, key='section_Allan_Concentration', size=(FRAME_SIZE[0], FRAME_SIZE[1]))]]
+    layout = [[sg.Frame("Sweep Graph", sweepGraph, visible=True, key='section_sweepGraph', size=(FRAME_SIZE[0], FRAME_SIZE[1]))],
+        [sg.Frame("Allan Deviation & Concentration", allan_and_concentration, visible=True, key='section_Allan_Concentration', size=(FRAME_SIZE[0], FRAME_SIZE[1]))]]
     
     wavelengthList = df_clean.columns.to_list()
     Lcutoff = str(round(float(wavelengthList[10]), 2)) # The minimum left wavelength possible in the range.
@@ -510,15 +485,13 @@ def interactiveGraph(csvFile):
     global_layout = getGlobalColumn(norm_freq_list)
     general_Buttons_layout = [[sg.Push(), sg.Button("Reset All", key = 'Are you sure? (Yes, Reset)'), sg.Push()], [sg.Push(), sg.Button("Close", key = 'Close Graph'), sg.Push()]]
 
-    main_Layout = [[sg.Push(), sg.Frame("Peaks", range_choosing_layout, visible=True, key='section_choose_range'), sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf'), sg.Frame("General Buttons", general_Buttons_layout, visible=True, key='section_global_buttons'), sg.Push()],
-    [sg.Push(), sg.Text('Results of: '+csvFile, justification='center', background_color='#7393B3', expand_x=False, font=("David", 15, "bold")), sg.Push()],
-    [sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
-    # Background_color = '#424f5e'
+    main_Layout = [
+            [sg.Push(), sg.Frame("Peaks", range_choosing_layout, visible=True, key='section_choose_range'), sg.Frame("Configurations", global_layout, visible=True, key='section_global_conf'), sg.Frame("General Buttons", general_Buttons_layout, visible=True, key='section_global_buttons'), sg.Push()],
+            [sg.Push(), sg.Text('Results of: '+csvFile, justification='center', background_color='#7393B3', expand_x=False, font=("David", 15, "bold")), sg.Push()],
+            [sg.Column(layout, scrollable=True, vertical_scroll_only=True, key='COLUMN')]]
     
     window = sg.Window("Interactive Graph", main_Layout, size=(WINDOW_SIZE[0], WINDOW_SIZE[1]), finalize=True)
-    #window = sg.Window("Interactive Graph", main_Layout, size=(3860, 2160), finalize=True)
-    #window = sg.Window("Interactive Graph", main_Layout, size=(WINDOW_SIZE[0], WINDOW_SIZE[1]))
-
+    
     # Parameters for the functions:
     fig1 = None
     fig2 = None
@@ -790,7 +763,7 @@ def interactiveGraph(csvFile):
                 window['-CLEAR_ALLAN_PLOT-'].update(disabled=False)
             
             elif event == '_ADD_GRAPH_':
-                if (len(values['_RepetitionListBoxAllanDG_']) > 0) and (len(values['_PowerListBoxAllanDG_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):####### to add protection to the length try: float except ->float
+                if (len(values['_RepetitionListBoxAllanDG_']) > 0) and (len(values['_PowerListBoxAllanDG_']) > 0)  and (len(values['_DATA_FILE_']) > 0) and (values['_WAVEGUIDE_LENGTH_'] != ''):   # To add protection to the length try: float except ->float
                     # All the logic of working Animation is starting:
                     window['_ADD_GRAPH_'].update(disabled=True)
                     window['_HOLD_'].update(disabled=True)
@@ -819,7 +792,6 @@ def interactiveGraph(csvFile):
                         if (Operation_State == 0):
                             if future2 == None:
                                 future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance, values['Lcutoff'], values['Rcutoff']])
-                                #float(values['_ABS_NM_'])
                             elif future2._state != 'RUNNING':
                                 future2 = future2.result()
                                 df_concentration = future2[0]
@@ -897,11 +869,8 @@ def interactiveGraph(csvFile):
                 sg.popup_auto_close(csvFileWasSaved, title="CSV File Saved", auto_close_duration=2)
                 window['_CSV_'].update(disabled=False)
 
-            #elif event == 'Se':#################################################################################################################
-
             elif event == '_DATA_FILE_':
                 if len(values['_DATA_FILE_']) > 0:
-                    # wavelength = get_maximum(values['_DATA_FILE_'][0]+'.txt')
                     window['section_AbsValue'].update(visible=True)
                     window['from'].update(values['Lcutoff'])
                     window['to'].update(values['Rcutoff'])
@@ -941,16 +910,12 @@ def interactiveGraph(csvFile):
             ax_conc.autoscale_view()  # Adjust the axis limits to fit the new data
             fig_agg2.draw()
 
-    # End of allan deviation & concentration graph.
-
-
-# End of main while.
-
+        # End of allan deviation & concentration graph.
+    # End of main while.
 # End of interactiveGraph function.
 
-# End of File.
-
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 # For our checking:
 if __name__ == '__main__':
     # Create the argument parser
@@ -964,15 +929,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.csv_name == None:
-        # dirname='C:\BGUProject\Automation-of-spectral-measurements\Results\\2023_05_04_12_54_02_685629___longer_analyzer_empty__\\'
-        #dirname = "..\\Results\\2023_05_10_12_59_10_356441_lab_demo_CF=1500_Span=50_analyzer=True\\"
         dirname = "..\\Results\\Recent_Measurements\\"
         args.csv_name = dirname
         args.analyzer_substance = False
-        #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Simulation\\"
-        #"C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\"
-        # args.csv_name = "C:\\Users\\2lick\\OneDrive - post.bgu.ac.il\\Documents\\Final BSC Project\\Code\\Automation-of-spectral-measurements\\Results\\2023_04_19_16_49_58_336962_Real Test\\"
     interactiveGraph(args.csv_name)
-    # interactiveGraph(args.csv_name, analyzer_substance=args.analyzer_substance)
 
-########################################## Delete ###########################################################################################
+# Endo of 'Interactive_Graph.py' file.

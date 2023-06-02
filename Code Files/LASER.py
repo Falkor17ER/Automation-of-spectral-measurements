@@ -103,7 +103,9 @@ class Laser:
         else:
             print("Wrong values for the function! Please enter a number between 0 to 255.")
 
-# For Our checking - to delete.
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# For Our checking:
 if __name__ == "__main__":
     # Checks:
     Laser1 = Laser('COM6')
@@ -112,6 +114,7 @@ if __name__ == "__main__":
         Laser1.powerLevel(p)
         time.sleep(1)
     # Laser1.pulsePickerRation(22)
-    # ------------------------------------------------------------------------------------------------------------------------------------------------
     result = registerWriteU8('COM6', 15, 0x37, 60, -1)
     print('Setting power level - Extreme:', RegisterResultTypes(result))
+
+# Endo of 'LASER.py' file.

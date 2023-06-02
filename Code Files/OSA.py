@@ -190,7 +190,11 @@ class OSA:
             return True
         return False
 
-# For Our checking - to delete.
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# For Our checking:
 if __name__ == '__main__':
     osa = OSA(IP = '10.0.0.101')
     osa.setAveraging('2')
+
+# End of 'OSA.py' file.

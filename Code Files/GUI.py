@@ -1,4 +1,4 @@
-# This file contains the Graphical user interface and delivers the requests from the user to devices
+# This file contains the Graphical user interface and delivers the requests from the user to devices.
 from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory, noiseMeasurments
@@ -177,7 +177,7 @@ def updateResults(window):
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-# 
+# Relevant functions for the GUI:
 
 def open_Interactive_Graphs(dirName, analyzer_substance = False):
     files = os.listdir()
@@ -473,4 +473,4 @@ if __name__ == '__main__':
                     print(f"Error killing process with PID {pid}: {e}")
             break
 
-# End of GUI
+# End of 'GUI.py' file.

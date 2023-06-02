@@ -1,3 +1,4 @@
+# This file contain all the functions & operations that are relevant for the managment of the Full test and all the measurments process.
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,12 +59,10 @@ def configureOSA(osa, cf,span,points,sens,res):
         # Set sampling resolution
         osa.setRes(res.split(' ')[0][:-2])
         sleep(1)
-        
-
 
 # End Sample Managment: ----------------------------------------------------------------------------------------------
 
-# Tests Managment: ----------------------------------------------------------------------------------------------
+# Tests Managment: ---------------------------------------------------------------------------------------------------
 
 def getReps(values):
     # returns all the reptition rate keys that are checked True
@@ -171,7 +170,6 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
     global debugMode
     debugMode = debug
     # This function will manage all the test process and call to all the relevant functions.
-    # enterSubstanceToMeasure()
     reps = getReps(values)
     if (not debugMode):
         if values["test_PTS"] == "Auto":
@@ -194,17 +192,14 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
     else:
         powers = [start]
         step = 1
-    # Making the CSV File
+    # Making the CSV File:
     startF = int(values["test_CF"]) - int(values["test_SPAN"])/2
     stopF = startF + int(values["test_SPAN"])
     freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["test_SPAN"])/pts)]
     allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Sens','Res', 'Interval', 'SAMPLINGS_NUMBER']+freqs_columns)
-    # laserPower = True
-    # capturePower = True
     if (not debugMode):
         laser.emission(1)
-    ######################################## IF NO POWER SWEEP stop and start are missing
-    #theTotalForPrecents = len(reps) * (int((stop-start)/step)+1) 
+    # IF NO POWER SWEEP stop and start are missing: theTotalForPrecents = len(reps) * (int((stop-start)/step)+1). The solution to this: 
     theTotalForPrecents = len(reps) * (int((powers[-1]-powers[0])/step)+1) 
     precentsPerJump = 100/theTotalForPrecents # Precents per one operationqmeasure.
     precents = 0 # The total precents until now.
@@ -281,7 +276,7 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
             precents = precents + precentsPerJump
     window['test_errorText'].update(messageText + precentsMessage)
     # End of measurments
-
+    #
     # Save a substance csv
     if csvname[-12:-4] == "analyzer":
         # makeSubstaceCSV(csvname, allResults_df)
@@ -307,7 +302,6 @@ def runSample(laser,osa, isConnected,debugMode, values):
         data = osa.getCSVFile(values["sample_name"])
         data_decoded = data.decode("utf-8")
         data_decoded = data_decoded.split("\r\n")
-
         print("Stop laser TX and return power to 6%\n")
         laser.emission(0)
         laser.powerLevel(6)
@@ -316,11 +310,10 @@ def runSample(laser,osa, isConnected,debugMode, values):
         with open("debug_sample.csv", "r") as f:
             data = f.read()
             data_decoded = data.split("\n")
-
     smpls = data_decoded[39:-2]
     wavelengths = [float(pair.split(",")[0]) for pair in smpls]
     vals = [float(pair.split(",")[1]) for pair in smpls]
-
+    #
     if values["Plot"]:
         #plotting the sample
         plt.plot(wavelengths, vals, '-', color='r', linewidth=1)
@@ -329,7 +322,6 @@ def runSample(laser,osa, isConnected,debugMode, values):
         plt.title("\""+ values["sample_name"] + "\" Sample")
         plt.ylim(-100,0)
         plt.show()
-
     if (values["Save"] and isConnected):
         # #saving the values to csv
         with open(values["sample_name"]+".csv", "wb") as f:
@@ -338,11 +330,13 @@ def runSample(laser,osa, isConnected,debugMode, values):
     else:
         return "Can't Save the file - device is not connsected"
 
-# End of "Operator.py"
+#---------------------------------------------------------------------------------------------------------------------------
 
+# For Our checking:
 if __name__ == '__main__':
     print("this is operator.py")
     csvname = 'C:\\BGUProject\\Automation-of-spectral-measurements\\Results\\Analyzer_Test\\analyzer.csv'
     allResults_df = pd.read_csv(csvname)
     makeSubstaceCSV(csvname, allResults_df)
-#---------------------------------------------------------------------------------------------------------------------------
+
+# End of 'Operator.py' file.
