@@ -1,4 +1,4 @@
-# This file is responsible for all the calculations and analysis after the full test and measurements finish. Also, it responsible for the calculations of the loading files from the 'Result' tab.
+# This file is responsible for all the calculations and analysis after the full test and measurements finish. Also, it responsible for the calculations of the loaded files from the 'Result' tab.
 import numpy as np
 import pandas as pd
 import time
@@ -9,10 +9,12 @@ from scipy.signal import butter, cheby1, filtfilt
 
 # Helper function
 def normalize(x, y):
+    # This function divide x in y (x/y) and return the result.
     x_new = x/y
     return x_new
 
 def substractWatt(x_dBm, y_dBm):
+    # 
     # y is the dark.
     x_watt = 10**((x_dBm-30)/10)
     y_watt = 10**((y_dBm-30)/10)
@@ -20,7 +22,8 @@ def substractWatt(x_dBm, y_dBm):
     x_dBm = 10*(np.log10(res/0.001))
     return x_dBm
 
-def minusDark(dirname,df_clean, df_substance, df_dark, mode):    
+def minusDark(dirname,df_clean, df_substance, df_dark, mode):
+    # This function subtracts the 'dark' measurement (Without laser) from the regular measurements ('clean' and with the substance), save these csv files and return them by the end of the function.
     # clean minus dark:
     R, C = df_clean.shape
     for idi in range(0,R):
@@ -43,6 +46,7 @@ def minusDark(dirname,df_clean, df_substance, df_dark, mode):
     return df_clean, df_substance, True
 
 def get_clean_substance_transmittance(val_list):
+    # This function creating & saving the 'transmittance.csv' file.
     dirname = val_list[0]
     darkMinus = val_list[1]
     filter_values = val_list[2]
@@ -127,6 +131,7 @@ def get_clean_substance_transmittance(val_list):
     return df_transmittance, clean_df, substance_df, darkStatus
 
 def get_closeset_wavelength(freqs, Freq):
+    # This function finds and return the closest wavelength/frequency that exist in the freqs list from the database of the substance.
     freqs = np.asarray(freqs, float)
     distance_from_user = [abs(float(Freq)-element) for element in freqs]
     real_freq = freqs[np.argmin(distance_from_user)]
@@ -137,6 +142,7 @@ def get_closeset_wavelength(freqs, Freq):
     return str(real_freq)
 
 def getAnalyzerTransmition(val_list):
+    # This function saves a csv file of the transmittance and return it data frame.
     dirname = val_list[0]
     to_norm = val_list[1]
     waveLength = val_list[2]
@@ -207,8 +213,7 @@ def getAnalyzerTransmition(val_list):
     return df_transmittance, darkStatus
 
 def get_closest_peak_in_range(series, L, R):
-
-    # Filter the DataFrame to include only columns within the range (L, R)
+    # Filter the DataFrame to include only columns within the range (L, R).
     values = series.iloc[10:]
     filtered_series = values.loc[(values.index > L) & (values.index < R)]
     # Find the minimum value within each column
@@ -216,6 +221,7 @@ def get_closest_peak_in_range(series, L, R):
     return - min_value
 
 def beerLambert(val_list):
+    # This function calculates the concentration of the substance, create csv of the concentrations, and return the data frame of this csv.
     dirname = val_list[0]
     databaseFilePath = val_list[1]
     wavelength = val_list[2]
@@ -297,6 +303,7 @@ def beerLambert(val_list):
     return df_C, real_wavelength
 
 def getMeanInterval(timeStamps):
+    # This function calculate and return the rate.
     sum = 0;
     for idx in range(len(timeStamps)-1):
         sum = sum + timeStamps[idx+1]-timeStamps[idx]
@@ -304,7 +311,7 @@ def getMeanInterval(timeStamps):
     return rate
 
 def allandevation(df_C):
-    # Calculate divation according to time and this plot to graph - The second graph - LOD
+    # Calculate divation according to time and this plot to graph - The second graph - LOD.
     # Compute the fractional frequency data
     ppm_data = df_C['Concentration [ppm]']
     freq_data = ppm_data # / 1e6 + 1

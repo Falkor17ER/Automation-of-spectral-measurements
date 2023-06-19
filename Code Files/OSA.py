@@ -13,8 +13,9 @@ class OSA:
         print('connecting to {} port {}'.format(*server_address))
         self.sock.connect(server_address)
         self.sock.settimeout(120)
-        self.Auth()
-        self._pts = None
+        if self.Auth():
+            self.sendToOSA(':sens:sweep:points?')
+            self._pts = int(self.receiveFromOSA())
 
     def sendToOSA(self, string: str, print_flag = True):
         # Add a newline character to the end of the string.
@@ -52,7 +53,7 @@ class OSA:
                 return True
 
     def setCenterFreq(self, cf):
-        # Set the centeer frequency in nm.
+        # Set the center wavelength/frequency in nm.
         try:
             cf = float(cf)
             if cf < 600 or cf > 1700:
@@ -65,7 +66,7 @@ class OSA:
         return True
 
     def setSpan(self, span):
-        # Set the span. The range will be: [(cf-span/2, cf+span/2)].
+        # Set the span. The range will be: [(cf-span/2, cf+span/2)][nm].
         self.sendToOSA(':sens:wav:span {}nm'.format(span))
         return True
 
@@ -76,8 +77,17 @@ class OSA:
         else:
             self.sendToOSA(':sens:sweep:points:auto off')
             self.sendToOSA(':sens:sweep:points {}'.format(points))
+        self.sendToOSA('*CLS')
+        pts_not_updated = True
         self.sendToOSA(':sens:sweep:points?')
-        self._pts = int(self.receiveFromOSA())
+        while pts_not_updated:
+            try:
+                self._pts = int(self.receiveFromOSA())
+                pts_not_updated = False
+            except:
+                sleep(1)
+                pts_not_updated = True
+                self.sendToOSA(':sens:sweep:points?')
         return True
     
     def getPoints(self):
@@ -89,7 +99,7 @@ class OSA:
         self.sendToOSA(':SENSE:AVERAGE:COUNT {}'.format(times))
 
     def setSpeed(self, speed):
-        # Changing the speed of the sweep
+        # Changing the speed of the sweep.
         self.sendToOSA(':sens:sweep:speed {}'.format(speed))
         return True
 
@@ -183,6 +193,7 @@ class OSA:
             mode = mode - 1
 
     def __checkNumberOfPoints(self, data):
+        # This function check if the number of points that were set by the user are taken exactly in the right number. Else it will cause problem and there is a need to execute another measurement.
         data_decoded = data.decode("utf-8")
         data_decoded = data_decoded.split("\r\n")
         len_smpls = len(data_decoded[39:-2])

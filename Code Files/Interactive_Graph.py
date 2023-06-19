@@ -1,4 +1,4 @@
-# This file is responsible for the results GUI, it contain the layouts for the Graphs. In addition, it contains all the relevant functions to control, operate and show of these graphs.
+# This file is responsible for the results GUI, it contains the layouts for the Graphs. In addition, it contains all the relevant functions to control, operate and show of these graphs.
 import pandas as pd
 import PySimpleGUI as sg
 import time
@@ -61,6 +61,7 @@ def collapse(layout, key, visible):
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
 def getGlobalColumn(norm_freq_list):
+    # This function creates and return the layout of the upper toolbar with the filter settings.
     layout = [[sg.Checkbox("Filter", default=False, enable_events=True, key="_FILTER_CB_"), sg.Button("Filter\nConfiguration", size=(10,2), key="_FILT_CONF_"),
             sg.Push (), sg.Checkbox("Subtract Dark", default=False, enable_events=True, key="-MINUS_DARK-"), sg.Text("Dark Status:"), sg.Text("", key='darkStatus'), sg.Push(), sg.Checkbox("", enable_events=True, key='-Reg_Norm_Val-'), sg.Text("Normlize results by "), sg.Input(str(norm_freq_list[0]),enable_events=True,s=7,key="normValue"), sg.Text("[nm]"), sg.Push()], [sg.Push(), sg.Button("Apply", key='_APPLY_GLOBAL_', enable_events=True), sg.Text("Applied", key="_GLOBAL_STATUS_"), sg.Push()]]
     return layout
@@ -222,6 +223,13 @@ def findValueInDatabase(data_file, left, right):
     max_value = filtered_df['Absorbance'].max()
     max_absorbanceWavelength = filtered_df.loc[filtered_df['Absorbance'] == max_value, 'Wavelength'].values[0]
     return round(max_absorbanceWavelength, 2)
+
+def get_datafile_range(filename):
+    try:
+        df = pd.read_csv("..\\Databases\\" + filename, names=['Wavenumber', 'Absorbance'], delimiter='\t')
+    except:
+        return False, False
+    return str(10000000/df['Wavenumber'].iloc[0]), str(10000000/df['Wavenumber'].iloc[-1])
 
 def get_maximum(data_file):
     with open("..\\Databases\\"+data_file, mode='r') as data:
@@ -505,7 +513,6 @@ def interactiveGraph(csvFile):
     filter_conf_vals = None
     slider_elem = window['-SLIDER-']
     window['-SLIDER-'].bind('<ButtonRelease-1>', ' Release')
-    window['from'].bind('<InputRelease-1>', ' Release')
     # End of Parameters for the functions.
 
     # Sweep Graph - Start:
@@ -779,10 +786,13 @@ def interactiveGraph(csvFile):
                     values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
                     window['Lcutoff'].update(values['Lcutoff'])
                     window['Rcutoff'].update(values['Rcutoff'])
-                    values['from'], values['to'] = checkLeftRightWavelength(values['from'], values['to'] ,Lcutoff, Rcutoff)
+                    values['from'], values['to'] = checkLeftRightWavelength(values['from'], values['to'] ,Lcutoff_datafile, Rcutoff_datafile)
+                    window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to'])))
+                    if values['from'] == values['to']:
+                        values['from'] = Lcutoff_datafile
+                        values['to'] = Rcutoff_datafile
                     window['from'].update(values['from'])
                     window['to'].update(values['to'])
-                    window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to'])))
                     #
                     while True:
                         if (time.time() - animation > 0.05):
@@ -791,7 +801,8 @@ def interactiveGraph(csvFile):
                         #
                         if (Operation_State == 0):
                             if future2 == None:
-                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance, values['Lcutoff'], values['Rcutoff']])
+                                future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt', float(window['_ABS_NM_'].get()), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance, values['Lcutoff'], values['Rcutoff']])
+                                #future2 = concurrent.futures.ThreadPoolExecutor(max_workers=100).submit(beerLambert, [csvFile, "..\\Databases\\"+values['_DATA_FILE_'][0]+'.txt',findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to']), float(values['_WAVEGUIDE_LENGTH_']), values['_GAMA_'], df_transmittance, values['Lcutoff'], values['Rcutoff']])
                             elif future2._state != 'RUNNING':
                                 future2 = future2.result()
                                 df_concentration = future2[0]
@@ -872,9 +883,12 @@ def interactiveGraph(csvFile):
             elif event == '_DATA_FILE_':
                 if len(values['_DATA_FILE_']) > 0:
                     window['section_AbsValue'].update(visible=True)
-                    window['from'].update(values['Lcutoff'])
-                    window['to'].update(values['Rcutoff'])
-                    window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['Lcutoff'], values['Rcutoff'])))
+                    Lcutoff_datafile, Rcutoff_datafile = get_datafile_range(values['_DATA_FILE_'][0]+'.txt')
+                    values['from'] = Lcutoff_datafile
+                    values['to'] = Rcutoff_datafile
+                    window['from'].update(values['from'])
+                    window['to'].update(values['to'])
+                    window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to'])))
                 else:
                     window['section_AbsValue'].update(visible=False)
             
@@ -883,12 +897,12 @@ def interactiveGraph(csvFile):
 
             elif event == 'cutoffSet':
                 # Check the range of the wavelength in the 'Range choosing' tab.
-                values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(values['Lcutoff'], values['Rcutoff'] ,Lcutoff, Rcutoff)
+                values['Lcutoff'], values['Rcutoff'] = checkLeftRightWavelength(values['Lcutoff'], values['Rcutoff'] , Lcutoff, Rcutoff)
                 window['Lcutoff'].update(values['Lcutoff'])
                 window['Rcutoff'].update(values['Rcutoff'])
             
             elif event == '_data_wavelength_set_':
-                values['from'], values['to'] = checkLeftRightWavelength(values['from'], values['to'] ,Lcutoff, Rcutoff)
+                values['from'], values['to'] = checkLeftRightWavelength(values['from'], values['to'] , Lcutoff_datafile, Rcutoff_datafile)
                 window['from'].update(values['from'])
                 window['to'].update(values['to'])
                 window['_ABS_NM_'].update("{:.2f}".format(findValueInDatabase(values['_DATA_FILE_'][0]+'.txt', values['from'], values['to'])))

@@ -6,18 +6,17 @@ import os
 from time import sleep, time
 from datetime import datetime
 
-#Globals
-global numOfMeasurments
+# Globals:
 global wavelengths
 global debugMode
-
+debugMode = False
 rep_values_MHz = {1: '78.56MHz', 2: '39.28MHz', 3: '29.19MHz', 4: '19.64MHz', 5: '15.71MHz',
             6: '13.09MHz', 7: '11.22MHz', 8: '9.821MHz', 9: '8.729MHz', 10: '7.856MHz',
             12: '6.547MHz', 14: '5.612MHz', 16: '4.910MHz', 18: '4.365MHz', 20: '3.928MHz',
             22: '3.571MHz', 25: '3.143MHz', 27: '2.910MHz', 29: '2.709MHz', 32: '2.455MHz',
             34: '2.311MHz', 37: '2.123MHz', 40: '1.964MHz'}
 
-# Possible values for the laser Reputation.
+# Possible values for the laser Reputation:
 rep_values_MHz_inverted = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MHz': 4, '15.71MHz': 5, 
                 '13.09MHz': 6, '11.22MHz': 7, '9.821MHz': 8, '8.729MHz': 9, '7.856MHz': 10, '6.547MHz': 12, 
                 '5.612MHz': 14, '4.910MHz': 16, '4.365MHz': 18, '3.928MHz': 20, '3.571MHz': 22, '3.143MHz': 25, 
@@ -26,10 +25,12 @@ rep_values_MHz_inverted = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MH
 # Sample Managment: ----------------------------------------------------------------------------------------------
 
 def setConfig(laser,osa,cf,span,points,power,rep,sens,res):
+    # This function calls the ' configureLaser' and ' configureOSA' functions to configure the devices.
     configureLaser(laser,power,rep)
     configureOSA(osa,cf,span,points,sens,res)
 
 def configureLaser(laser, power,rep):
+    # This function config the Laser to operate at the desire power and repetition.
     if not debugMode:
         # Setting repetition rate
         laser.pulsePickerRation(rep)
@@ -37,6 +38,7 @@ def configureLaser(laser, power,rep):
         laser.powerLevel(int(power))
 
 def configureOSA(osa, cf,span,points,sens,res):
+    # This function config the OSA to operate at the desire parameters from the inputs of the function.
     if not debugMode:
         convertDict = {
             "SPEED": {"Normal": "x1", "Fast": "x2"},
@@ -65,7 +67,7 @@ def configureOSA(osa, cf,span,points,sens,res):
 # Tests Managment: ---------------------------------------------------------------------------------------------------
 
 def getReps(values):
-    # returns all the reptition rate keys that are checked True
+    # This function returns all the repetitions rate keys that are checked as 'True' or in other words were chosen.
     rep_keys = ["r"+str(k) for k in range(1,41,1)]
     reps = []
     for rep_key in rep_keys:
@@ -78,6 +80,7 @@ def getReps(values):
     return reps
 
 def meanMeasure(osa ,numOfSamples, numOfDots, debugMode, debug_type):
+    # This function averages the number of samples according to the 'numOfSamples' parameter and return one sample after averaging all. If we are in 'Debug Mode', the function will return a random value for the averaging process.
     try:
         numOfSamples = int(numOfSamples)
     except:
@@ -100,7 +103,8 @@ def meanMeasure(osa ,numOfSamples, numOfDots, debugMode, debug_type):
             random_samples[len(random_samples)//2:(len(random_samples)//2)+5] = random_samples[len(random_samples)//2:(len(random_samples)//2)+5] - [1,3,7,4,2]
     return random_samples
 
-def noiseMeasurments(laser, osa ,values, debugMode, csvName): # Dark Measurmennts
+def noiseMeasurments(laser, osa ,values, debugMode, csvName):
+    # This is a 'Dark' Measurement, without the laser. Creating the 'dark.csv' file.
     # Here we are taking in mind that the laser and the OSA are already configed.
     print("Noise measurment, please wait...")
     sleep(0.5)
@@ -138,6 +142,7 @@ def noiseMeasurments(laser, osa ,values, debugMode, csvName): # Dark Measurmennt
     sleep(0.2)
 
 def getTime():
+    # This function returns the time in a relevant format for the folder name.
     time = str(datetime.today())
     time = time.replace('-', '_')
     time = time.replace(' ', '_')
@@ -146,6 +151,7 @@ def getTime():
     return time
 
 def makedirectory(dirname, cf,span,npoints,sens,res,analyzer):
+    # This function creates the folder of the test. The name of the folder determined according to the dirname and the relevant parameters.
     dir = "/Results/"+getTime()+"_"+dirname+"_CF="+cf+"_Span="+span+"_analyzer="+str(analyzer)
     dir = dir.replace("<", "(")
     dir = dir.replace(">", ")")
@@ -155,6 +161,7 @@ def makedirectory(dirname, cf,span,npoints,sens,res,analyzer):
     return dir
 
 def makeSubstaceCSV(csvname, df_original):
+    # This function creates the 'substance.csv' file. This file contains the measurements with the substance in the chamber.
     csvname = csvname[:-12]+'substance.csv'
     df_substance = pd.DataFrame(columns = df_original.columns.tolist())
     r = None
@@ -167,9 +174,9 @@ def makeSubstaceCSV(csvname, df_original):
     df_substance.to_csv(csvname, index=False)
 
 def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
+    # This function will manage all the test process and call to all the relevant functions. It will save the results to the relevant csv file.
     global debugMode
     debugMode = debug
-    # This function will manage all the test process and call to all the relevant functions.
     reps = getReps(values)
     if (not debugMode):
         if values["test_PTS"] == "Auto":
@@ -250,7 +257,10 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
                         sleep(timeleft)
             #---------------------------------------------------------------------------------------------------------------
             else: # Regular Mode
-                window['test_errorText'].update(messageText + precentsMessage)
+                try:
+                    window['test_errorText'].update(messageText + precentsMessage)
+                except:
+                    return False
                 sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
                 if csvname[-9:-4] == "clean":
                     numOfSamples = values['cleanNumSamplesParameter']
@@ -292,6 +302,7 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
 # Sample function:
 
 def runSample(laser,osa, isConnected,debugMode, values):
+    # This function run a single sample that asked for from the 'Single Sample' tab. Work only if the devices where connected and we are not in 'Debug Mode'.
     if ( isConnected or (not debugMode) ):
         laser.emission(1)
         print("Waiting 5 seconds for Laser to start TX\n")

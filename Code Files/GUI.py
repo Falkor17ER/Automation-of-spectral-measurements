@@ -13,10 +13,11 @@ import multiprocessing
 import threading
 import tkinter.messagebox as tkm
 import time
+import PyQt5
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-# Globals
+# Globals:
 global layouts
 global cwd
 global connectionsDict
@@ -24,15 +25,11 @@ global osa
 global laser
 global isConnected
 global debugMode
-global live_plt
-global laserPowerMeasurment
-global laserFrequanceyMeasurment
 global status
 global getConnectionsText
 global getSamplesText
 global getTestsText
 global getTestErrorText
-live_flag = True    # For real time monitoring
 isConnected = False # Until first connection
 debugMode = False
 status = "The devices are not connected"
@@ -43,20 +40,22 @@ getTestErrorText = ""
 graphs_pids = []
 # sg.theme_previewer()
 
+# Initial reads:
+cwd = os.getcwd() # The Currently working directory - where this .py file can be found.
 
-# Initial reads
-# The Currently working directory - where this .py file can be found.
-cwd = os.getcwd()
-#cwd = cwd+"\\BGU_Project"
 # Possible values for the laser Reputation.
 rep_values_MHz = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MHz': 4, '15.71MHz': 5, 
                 '13.09MHz': 6, '11.22MHz': 7, '9.821MHz': 8, '8.729MHz': 9, '7.856MHz': 10, '6.547MHz': 12, 
                 '5.612MHz': 14, '4.910MHz': 16, '4.365MHz': 18, '3.928MHz': 20, '3.571MHz': 22, '3.143MHz': 25, 
                 '2.910MHz': 27, '2.709MHz': 29, '2.455MHz': 32, '2.311MHz': 34, '2.123MHz': 37, '1.964MHz': 40}
+
 # The size of the GUI window (Width, Length).
 SIZE = (600,630)
-#sg.theme('DarkBlue')
-sg.theme('Default')
+
+sg.theme('DefaultNoMoreNagging')
+# sg.theme('DarkBlue')
+# sg.theme('Default')
+
 #---------------------------------------------------------------------------------------------------------------------------
 
 # Functions:
@@ -72,10 +71,11 @@ def getConnections():
                     [sg.Text("COM:"), sg.Push(), sg.Input(connectionsDict["LASER"]["COM"],s=15)],
                     [sg.Text("Serial:"), sg.Push(), sg.Input(connectionsDict["LASER"]["Serial"],s=15)],
                     [sg.Push(), sg.Button("Connect"), sg.Push()],
-                    [sg.Push(), sg.Text(getConnectionsText), sg.Push()]]
+                    [sg.Push(), sg.Text(getConnectionsText, key='getConnectText'), sg.Push()]]
     return connections
 
 def updateConnections(values):
+    # This function gets the values from the user in the main GUI window and if the connection was successful than it saves the correct parameters (IP Address, Port, COM, Serial) for the next connection.
     with open(cwd+"\\connections.json", 'r') as f:
         connectionsDict = load(f)
     connectionsDict["OSA"]["IP"] = values[0]
@@ -92,13 +92,14 @@ def updateConnections(values):
 #--- Here we start with Layouts:
 
 def collapse(layout, key, visible):
-    # Hide or show the relevants fields.
+    # Hide or show the relevants fields. This function responsible for allowing us to show and hide relevant parts in a layout according to user checkbox chooses. When the relevant choice done there is an event, and this function is called to do the work.
     return sg.pin(sg.Column(layout, key=key, visible=visible))
 
 def getSampleL():
+    # This function creates the layout for the second tab, the 'Single Sample' tab. This function allows to operate one single measurement and by that to learn each relevant parameter and his influence on the measurement result. To be prepared for the full test in the next tab.
     if (isConnected or debugMode):
         sampleL = [[sg.Push(), sg.Text("OSA", font='David 15 bold'), sg.Push()],
-                    [sg.Text("Center Frequency:"), sg.Push(), sg.Input("1500",s=15,key="CF"), sg.Text("[nm]")],
+                    [sg.Text("Center Wavelength:"), sg.Push(), sg.Input("1500",s=15,key="CF"), sg.Text("[nm]")],
                     [sg.Text("Span:"), sg.Push(), sg.Input("50",s=15,key="SPAN"), sg.Text("[nm]")],
                     [sg.Text("Number of Points (Auto recommended):"), sg.Push(), sg.Input("Auto",s=15,key="PTS")],
                     [sg.Text("Sensetivity: "), sg.Push(), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="sens")],
@@ -118,13 +119,14 @@ def getSampleL():
     return sampleL
 
 def getTests():
+    # This function creates the layout for the third tab, the 'Tests' tab. Here it is possible to set combinations of powers and repetitions, to choose the Laser and OSA parameters, to set the total time and interval time for Allan deviation and Beer-Lambert law.
     powerSweepSection = [[sg.Text("Stop Power Level"), sg.Input("50",s=3,key="maxPL"),sg.Text("Step:"), sg.Input("10",s=3,key="stepPL")]]
     analyzerSection = [[sg.Text("Total time for test"),sg.Input("60",s=3,key="totalSampleTime"),sg.Text("[seconds]"),sg.Push(),sg.Text("Interval time: "),sg.Input("1",
     s=3,key="intervalTime"), sg.Text("seconds")]]
     stopTestSection = [[sg.Button("Stop Test")]]
     if (isConnected or debugMode):
         test_values = [[sg.Push(), sg.Text("Tests - choose the tests you want", font='David 15 bold'), sg.Push()],
-                    [sg.Text("Center Frequency:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
+                    [sg.Text("Center Wavelength:"), sg.Input("1500",s=5,key="test_CF"), sg.Text("[nm]"),
                     sg.Text("Span:"), sg.Input("50",s=5,key="test_SPAN"), sg.Text("[nm]")],
                     [sg.Text("Number of Points: (Auto recommended)"), sg.Input("Auto",s=12,key="test_PTS"), sg.Text("Sensetivity: "), sg.Combo(["NORM/HOLD", "NORM/AUTO", "NORMAL", "MID", "HIGH1", "HIGH2", "HIGH3"], default_value='MID',key="test_sens")], [sg.Text("Resolution: "), sg.Combo(["0.02nm <0.019nm>", "0.05nm <0.043nm>", "0.1nm <0.076nm>", "0.2nm <0.160nm>", "0.5nm <0.408nm>", "1nm <0.820nm>", "2nm <1.643nm>"], enable_events=True, default_value="1nm <0.820nm>" ,key="test_res")],
                     [sg.Text("Start Power Level [%]:"), sg.Input("6",s=3,key="minPL"), sg.Checkbox(text="Sweep?", enable_events=True, key="testPowerLevelSweep"), collapse(powerSweepSection, 'section_powerSweep', False)],
@@ -137,7 +139,7 @@ def getTests():
                     [sg.Checkbox(text="3.143",font='David 11',key="r25",default=False),sg.Checkbox(text="2.910",font='David 11',key="r27",default=False),sg.Checkbox(text="2.709",font='David 11',key="r29",default=False),sg.Checkbox(text="2.455",font='David 11',key="r32",default=False),sg.Checkbox(text="2.311",font='David 11',key="r34",default=False),sg.Checkbox(text="2.123",font='David 11',key="r37",default=False),sg.Checkbox(text="1.964",font='David 11',key="r40",default=False)],
                     [],[],
                     [sg.Text("Output name:"), sg.Input("Test_sample1", s=15, key="test_name"), sg.Push(), sg.Text("Comments:"),sg.Input("",s=30,key="TEST1_COMMENT")], [],
-                    [sg.Checkbox(text="Analyzer (Beer-Lambert & Allan Variance) ?",enable_events=True,key="test_analyzer")], [collapse(analyzerSection, 'section_analyzer', False)],
+                    [sg.Checkbox(text="Analyzer (Beer-Lambert & Allan Deviation) ?",enable_events=True,key="test_analyzer")], [collapse(analyzerSection, 'section_analyzer', False)],
                     [sg.Push(), sg.Button("Start Test"), sg.Push()],[sg.Push(), collapse(stopTestSection, 'section_stopTest', False), sg.Push()],
                     [sg.Push(),sg.Text(str(getTestErrorText), key="test_errorText", justification='center'),sg.Push()]]
     else:
@@ -156,6 +158,7 @@ def getDatabases():
 
 # The fourth layout - the results window:
 def getResultsTabLayout():
+    # This function creates the layout for the fourth tab, the 'Results' tab. This tab allows to load, show, and compare on the graphs previous measurements were done.
     try:
         foldersNames = os.listdir("..\\Results")
     except:
@@ -168,7 +171,7 @@ def getResultsTabLayout():
     return Layout
 
 def updateResults(window):
-    # This function is to update the list in the result rublica after a measurment was finished.
+    # This function is to update the list in the 'Results' tab after a measurement was finished.
     foldersNames = os.listdir("..\\Results")
     foldersNames.sort()
     window['-SAMPLE_TO_PLOT-'].update(foldersNames)
@@ -204,7 +207,7 @@ def checkStartConditions(values):
     # Checking all the condition if everything is ok and we can start the test:
     getTestErrorText = ""
     if (int(values["test_CF"]) < 700):
-        getTestErrorText = "Error: The 'Center Frequency' can only be between 700nm to 1600nm."
+        getTestErrorText = "Error: The 'Center Wavelength' can only be between 700nm to 1600nm."
     elif (int(values["test_SPAN"]) > 250):
         getTestErrorText = "Error: The 'Span' value can only be between XXX to YYY."
     elif (values["test_PTS"] != "Auto"):
@@ -244,14 +247,16 @@ def reopenMainL(window = None):
     mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0]+30,SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status)]]
     try:
         window.close()
-        window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE)
+        window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE, finalize = True)
     except:
-        window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE)
+        window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE, finalize = True)
     return window
 
 def popup(message):
-    #sg.theme('DarkGrey')
-    sg.theme('Default')
+    # This function gets a message and create a popup window with this message.
+    # sg.theme('DarkGrey')
+    # sg.theme('Default')
+    sg.theme('DefaultNoMoreNagging')
     layout = [[sg.Text(message)]]
     window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
     return window
@@ -260,6 +265,7 @@ def popup(message):
 
 class theTestThread(threading.Thread):
     def __init__(self, arg1, arg2, arg3, arg4, arg5, arg6):
+        # This is the first, default and must function of the class. Setup all the relevant objects and parameters the class will use to call the relevant functions for the test from the thread.
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
         self.arg1 = arg1 # Laser
@@ -271,6 +277,7 @@ class theTestThread(threading.Thread):
         self.result = None
 
     def run(self):
+        # This is the function that manage all the test process & operation. It allows the threading and parallel operation to the main GUI, or an open Interactive Graph.
         # Set names:
         laser = self.arg1
         osa = self.arg2
@@ -282,16 +289,22 @@ class theTestThread(threading.Thread):
         #
         window['test_errorText'].update("Part 1/3: Executing 'Dark' Test...")
         noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
-        window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests...")
+        try:
+            window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests...")
+        except:
+            return False
         reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv", window, "Part 2/3: Executing 'Clean/Empty' Tests...", self)
         if reason == False:
             self.result = False
+            laser.emission(0)
+            del laser
+            del self.arg1
             return False
         window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests... (100%)")
-        # For user
+        # For user:
         tempEvent = tkm.askokcancel(title="Enter Substance!", message="Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
         #tempEvent = sg.popup_ok_cancel("Enter Substance!", "Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
-        # OK was chosen
+        # OK was chosen:
         if tempEvent:
             window['test_errorText'].update("Part 3/3: Executing 'Substance' Test...")
             if (values['test_analyzer']):
@@ -303,6 +316,9 @@ class theTestThread(threading.Thread):
                 reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv", window, "Part 3/3: Executing 'Substance' Tests...", self)
             if reason == False:
                 self.result = False
+                laser.emission(0)
+                del laser
+                del self.arg1
                 return False
             window['test_errorText'].update("Part 3/3: Executing 'Substance' Test... (100%)")
             # Adding to Results tab.
@@ -321,10 +337,14 @@ class theTestThread(threading.Thread):
         window['section_stopTest'].update(visible=False)
         if reason:
             self.result = True
+            laser.emission(0)
+            del laser
+            del self.arg1
             return True
     # End of the test thread.
 
     def stop(self):
+        # This function allows the stop of the running thread.
         self.stop_event.set()
 
 #----------------------------------------------------------------------------------------------------------------------------------------
@@ -347,8 +367,10 @@ if __name__ == '__main__':
                     getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "The devices are connected"
                     window.close()
                     window = reopenMainL()
+                    window['getConnectText'].update("Connection successful! You are now connected to the devices")
             except:
-                print("Failed to connect to OSA or Laser, try again or continue wiht DEBUG mode.")
+                window['getConnectText'].update("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
+                print("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
             updateConnections(values)
             
         elif event == 'Debug Mode':
@@ -380,7 +402,7 @@ if __name__ == '__main__':
                 getSamplesText = runSample(laser,osa, isConnected,debugMode, values)
         
         elif event == "testPowerLevelSweep":
-            # To show the power test parameters setting.
+            # To show the power test parameters setting–the line will continue in the GUI.
             if (values["testPowerLevelSweep"] == True):
                 window['section_powerSweep'].update(visible=True)
             else:
@@ -402,6 +424,7 @@ if __name__ == '__main__':
                 window['section_analyzer'].update(visible=False)
 
         elif event == "Start Test":
+            # Start a full test with the parameters that set up from the user in the 'Tests' tab. First there is a need to cheek if all the parameters are OK.
             if (isConnected or debugMode):
                 getTestErrorText = checkStartConditions(values) # Checking if all the parameters & conditions to start the tests are OK.
                 if (getTestErrorText == ""):
@@ -421,7 +444,7 @@ if __name__ == '__main__':
                 getTestErrorText = ""
 
         elif event == "Stop Test":
-            # This function support to stop the test.
+            # This function support to stop the test. The maximum wait time until stop is the 'Interval time' that set or available/possible (The longer).
             tempEvent = sg.popup_ok_cancel("Stop Running test?", "Are you sure you want to stop the running test?\n'Ok' - Yes, stop the test.\n'Cancel' - Opps, continue the test.")
             if (tempEvent.upper()=="OK"):
                 # Open and close a window
@@ -434,6 +457,11 @@ if __name__ == '__main__':
                         sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
                         animation = time.time()
                 sg.PopupAnimated(None)
+                # laser.emission(0)
+                # del laser
+                # os.kill(testThread.ident, signal.SIGTERM) # I added
+                del testThread
+                laser = Laser((values[2]))
                 window['section_stopTest'].update(visible=False)
                 window['Start Test'].update(disabled=False)
                 window['test_errorText'].update("The testing process was stopped.")
@@ -441,17 +469,19 @@ if __name__ == '__main__':
                 getTestErrorText = ""
 
         elif event == "-LOAD_SAMPLE-":
-            # This function load a result from the forth rublic.
+            # This function loads a result from the fourth tab.
             dirName = "..\\Results\\"+values['-SAMPLE_TO_PLOT-'][0]+"\\"
-            processPID = open_Interactive_Graphs(dirName)
+            processPID = open_Interactive_Graphs(dirName) ##################################################################
+            #processPID = interactiveGraph(dirName) ########## I added
             if processPID != False:
                 graphs_pids.append(processPID)
             else:
                 tkm.showerror(title="Problem in loading the file", message="There was a problem in loading this measurment, probably because missing files.")
+            #graphs_pids[-1].start() ########## I added
             #graphs_pids.append(open_Interactive_Graphs(dirName))
 
         elif event == '-DELETE_SAMPLE-':
-            #  This function delete the selected result from the results list in the forth rublic.
+            # This function deletes the selected result from the results list in the fourth tab.
             tempEvent = sg.popup_ok_cancel("Are you sure you  want to delete this sample?")
             if ( tempEvent.upper() == "OK" ):
                 try:
