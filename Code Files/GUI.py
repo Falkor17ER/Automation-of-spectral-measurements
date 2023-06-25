@@ -13,7 +13,17 @@ import multiprocessing
 import threading
 import tkinter.messagebox as tkm
 import time
-import PyQt5
+
+#from PyQt5.QtCore import QThread, QObject, pyqtSignal
+#import sys
+import serial
+import serial.tools.list_ports
+
+def printPortList():
+    ports = list(serial.tools.list_ports.comports())
+    # ports = list(serial.tools.list_ports.comports())
+    for port in ports:
+        print(port.device)
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -350,6 +360,7 @@ class theTestThread(threading.Thread):
 #----------------------------------------------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
     # The checking events - The managment of the GUI:
+
     testProcess = None
     window = reopenMainL()
     while True:
@@ -457,11 +468,19 @@ if __name__ == '__main__':
                         sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
                         animation = time.time()
                 sg.PopupAnimated(None)
-                # laser.emission(0)
+                
+                
+                laser.emission(0)
                 # del laser
                 # os.kill(testThread.ident, signal.SIGTERM) # I added
                 del testThread
+                printPortList()
+                ser = serial.Serial('COM4', 9600)
+                ser.close()
+                printPortList()                
                 laser = Laser((values[2]))
+
+
                 window['section_stopTest'].update(visible=False)
                 window['Start Test'].update(disabled=False)
                 window['test_errorText'].update("The testing process was stopped.")

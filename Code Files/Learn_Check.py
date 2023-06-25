@@ -1,32 +1,51 @@
-import sys
-from PyQt5.QtCore import QThread, QObject, pyqtSignal
+import serial
+import serial.tools.list_ports
 
-class Worker(QObject):
-    finished = pyqtSignal()
+def printPortList():
+    ports = list(serial.tools.list_ports.comports())
+    # ports = list(serial.tools.list_ports.comports())
+    for port in ports:
+        print(port.device)
 
-    def __init__(self):
-        super().__init__()
+printPortList()
+ser = serial.Serial('COM4', 9600)
+ser.close()
+printPortList()
 
-    def run(self):
-        # Do some work here...
-        self.finished.emit()
+# ser = serial.Serial('COM4', 9600)
+# ser.close()
+# printPortList()
 
-class MyWindow(QWidget):
-    def __init__(self):
-        super().__init__()
+# ------------------------------------------------
+# import sys
+# from PyQt5.QtCore import QThread, QObject, pyqtSignal
 
-        self.thread = QThread()
-        self.worker = Worker()
+# class Worker(QObject):
+#     finished = pyqtSignal()
 
-        self.worker.moveToThread(self.thread)
-        self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
+#     def __init__(self):
+#         super().__init__()
 
-        self.thread.start()
+#     def run(self):
+#         # Do some work here...
+#         self.finished.emit()
 
-app = QApplication(sys.argv)
-window = MyWindow()
-window.show()
-sys.exit(app.exec_())
+# class MyWindow(QWidget):
+#     def __init__(self):
+#         super().__init__()
+
+#         self.thread = QThread()
+#         self.worker = Worker()
+
+#         self.worker.moveToThread(self.thread)
+#         self.thread.started.connect(self.worker.run)
+#         self.worker.finished.connect(self.thread.quit)
+#         self.worker.finished.connect(self.worker.deleteLater)
+#         self.thread.finished.connect(self.thread.deleteLater)
+
+#         self.thread.start()
+
+# app = QApplication(sys.argv)
+# window = MyWindow()
+# window.show()
+# sys.exit(app.exec_())
