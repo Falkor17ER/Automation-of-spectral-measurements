@@ -1,18 +1,17 @@
-# This file is an API to work and send commands to the Laser device.
 from NKTP_DLL import *
 import time
 
-class Laser:
-    # Class to operate the Laser:
+# This file connect to the laser
 
-    # This function create the object of the laser.
+
+class Laser:
+
     def __init__(self, COM, Serial=15, type=0):
         self.COM = COM
         self.Serial = Serial
         self.type = type  # SuperK EXTREME
 
     def send_TO_Register(self, reg, val, size=8):
-        #  This function get the relevant register and the value to send to him.
         if (size == 16):
             ans = registerWriteU16(self.COM, self.Serial, reg, val, self.type) 
         else:
@@ -103,10 +102,9 @@ class Laser:
         else:
             print("Wrong values for the function! Please enter a number between 0 to 255.")
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-# For Our checking:
 if __name__ == "__main__":
+
+
     # Checks:
     Laser1 = Laser('COM6')
     Laser1.emission(0)
@@ -114,7 +112,7 @@ if __name__ == "__main__":
         Laser1.powerLevel(p)
         time.sleep(1)
     # Laser1.pulsePickerRation(22)
+
+    # ------------------------------------------------------------------------------------------------------------------------------------------------
     result = registerWriteU8('COM6', 15, 0x37, 60, -1)
     print('Setting power level - Extreme:', RegisterResultTypes(result))
-
-# Endo of 'LASER.py' file.
