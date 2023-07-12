@@ -9,7 +9,8 @@ from Allan_Variance import allan_variance, params_from_avar # Documentation: htt
 import matplotlib.pyplot as plt
 import os
 # from json import load, dump
-from time import sleep, time
+from time import sleep
+import time
 # import pylab as plb
 # from GUI import enterSubstanceToMeasure
 from datetime import datetime
@@ -26,30 +27,23 @@ rep_values_MHz = {1: '78.56MHz', 2: '39.28MHz', 3: '29.19MHz', 4: '19.64MHz', 5:
             22: '3.571MHz', 25: '3.143MHz', 27: '2.910MHz', 29: '2.709MHz', 32: '2.455MHz',
             34: '2.311MHz', 37: '2.123MHz', 40: '1.964MHz'}
 
-# Possible values for the laser Reputation.
-rep_values_MHz_inverted = {'78.56MHz': 1, '39.28MHz': 2, '29.19MHz': 3, '19.64MHz': 4, '15.71MHz': 5, 
-                '13.09MHz': 6, '11.22MHz': 7, '9.821MHz': 8, '8.729MHz': 9, '7.856MHz': 10, '6.547MHz': 12, 
-                '5.612MHz': 14, '4.910MHz': 16, '4.365MHz': 18, '3.928MHz': 20, '3.571MHz': 22, '3.143MHz': 25, 
-                '2.910MHz': 27, '2.709MHz': 29, '2.455MHz': 32, '2.311MHz': 34, '2.123MHz': 37, '1.964MHz': 40}
-
 # Sample Managment: ----------------------------------------------------------------------------------------------
 
-def setConfig(laser,osa,cf,span,points,speed,power,rep,sens,res):
+def setConfig(laser,osa,cf,span,points,speed,power,rep):
     configureLaser(laser,power,rep)
-    configureOSA(osa,cf,span,points,speed,sens,res)
+    configureOSA(osa,cf,span,points,speed)
 
 def configureLaser(laser, power,rep):
     if not debugMode:
         # Setting repetition rate
-        laser.pulsePickerRation(rep)
+        laser.pulsePickerRation(rep_values_MHz[rep])
         sleep(1)
         laser.powerLevel(int(power))
 
-def configureOSA(osa, cf,span,points,speed,sens,res):
+def configureOSA(osa, cf,span,points,speed):
     if not debugMode:
         convertDict = {
-            "SPEED": {"Normal": "x1", "Fast": "x2"},
-            "Sens": {"NORM/HOLD": 0, "NORM/AUTO": 1, "NORMAL": 6, "MID": 2, "HIGH1": 3, "HIGH2": 4, "HIGH3": 5}
+            "SPEED": {"Normal": "x1", "Fast": "x2"}
         }
         # Set center frequency
         osa.setCenterFreq(cf)
@@ -65,14 +59,6 @@ def configureOSA(osa, cf,span,points,speed,sens,res):
         # Set sampling speed
         osa.setSpeed(convertDict["SPEED"][speed])
         sleep(1)
-        # Set sampling sensetivity
-        osa.setSens(convertDict["Sens"][sens])
-        sleep(1)
-        # Set sampling resolution
-        osa.setRes(res)
-        sleep(1)
-        
-
 
 # End Sample Managment: ----------------------------------------------------------------------------------------------
 
@@ -159,8 +145,8 @@ def getTime():
     time = time.replace('.', '_')
     return time
 
-def makedirectory(dirname, ):
-    dir = "../Results/"+getTime()+"___"+dirname+"___"
+def makedirectory(dirname):
+    dir = "../Results/"+getTime()+"_"+dirname
     os.mkdir(dir)
     return dir
 
@@ -174,11 +160,7 @@ def getSweepResults(laser,osa,values,debug,csvname):
         pts = 500
     else:
         pts = int(values["test_PTS"])
-    if values["test_res"] == "Manuall (Enter a value)":
-        res = values["test_manuallRes"]
-    else:
-        res = values["test_res"]
-    setConfig(laser,osa,values["test_CF"],values["test_SPAN"], pts, values['test_SPD'], values["minPL"], reps[0], values['test_sens'], res)
+    setConfig(laser,osa,values["test_CF"],values["test_SPAN"], pts, values['test_SPD'], values["minPL"], reps[0])
     start = int(values["minPL"])
     if (values["testPowerLevelSweep"]):
         stop = int(values["maxPL"])
@@ -192,74 +174,53 @@ def getSweepResults(laser,osa,values,debug,csvname):
     stopF = startF + int(values["SPAN"])
     freqs_columns = [str(freq) for freq in np.arange(startF,stopF,int(values["SPAN"])/pts)]
     allResults_df =  pd.DataFrame(columns=['Date', 'Comment', 'CF',	'SPAN',	'REP_RATE',	'POWER', 'Start Power (I0)','End Power (I)', 'I/I0 Ratio', 'SAMPLINGS_NUMBER']+freqs_columns)
-    laserPower = True
-    capturePower = True
     # Start the tests:
-    #if (not debugMode):
-    #    laser.emission(0)
-    if (not debugMode):
-        laser.emission(1)
     for freq in reps:
         for p in powers:
-            configureLaser(laser, p, freq)
-            
-            ##################################################### To Change instead of Allan
-            if csvname[-9:-4] == "allan": # Analyze Graph: Beer-Lambert & Allan Variance Mode
-                if (not debugMode):
-                    laser.emission(0)
-                totalTime = int(values['totalTimeAllanVariance'])
-                intervalTime = int(values['intervalTimeAllanVariance'])
-                startTime = time()
-                lastTime = startTime
-                if (not debugMode):
-                    laser.emission(1)
-                while(time() - startTime < totalTime):
-                    result = meanMeasure(laser,osa, 1 ,pts)
-                    lastTime = time()
-                    new_row = []
-                    new_row.append(getTime())
-                    new_row.append(values["TEST1_COMMENT"])
-                    new_row.append(values["CF"])
-                    new_row.append(values["SPAN"])
-                    new_row.append(rep_values_MHz[freq])
-                    new_row.append(p)
-                    new_row.append(lastTime-startTime)
-                    new_row.append(laserPower)
-                    new_row.append(capturePower)
-                    new_row.append(capturePower/laserPower)
-                    new_row.append(values["numSamplesParameter"])
-                    sleep(intervalTime)
-                if (not debugMode):
-                    laser.emission(0)
-                sleep(5)
-            ###################################################################
-            
-            else: # Regular Mode
-                #if (not debugMode):
-                #    laser.emission(1)
-                # sleep(0.5)
-                sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
-                result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
-                #if (not debugMode):
-                #    laser.emission(0)    
-                # Preparing new row for allResults
-                new_row = []
-                new_row.append(getTime())
-                new_row.append(values["TEST1_COMMENT"])
-                new_row.append(values["CF"])
-                new_row.append(values["SPAN"])
-                new_row.append(rep_values_MHz[freq])
-                new_row.append(p)
-                new_row.append(laserPower)
-                new_row.append(capturePower)
-                new_row.append(capturePower/laserPower)
-                new_row.append(values["numSamplesParameter"])
-                new_row = new_row + list(result)
-                # Append the new row to the dataframe
-                allResults_df.loc[len(allResults_df)] = new_row
-    if (not debugMode):
-        laser.emission(0) # Turn off the laser after the measurments sweep. 
+            configureLaser(laser, p,freq)
+            if (not debugMode):
+                laser.emission(1)
+            result = meanMeasure(laser,osa, values["numSamplesParameter"],pts)
+            if (not debugMode):
+                laser.emission(0)
+            laserPower = calculateLaserLightPower(p,freq)
+            capturePower = calculateCaptureLightPower()
+            # Preparing new row for allResults
+            new_row = []
+            new_row.append(getTime())
+            new_row.append(values["TEST1_COMMENT"])
+            new_row.append(values["CF"])
+            new_row.append(values["SPAN"])
+            new_row.append(rep_values_MHz[freq])
+            new_row.append(p)
+            new_row.append(laserPower)
+            new_row.append(capturePower)
+            new_row.append(capturePower/laserPower)
+            new_row.append(values["numSamplesParameter"])
+            new_row = new_row + list(result)
+            # Append the new row to the dataframe
+            allResults_df.loc[len(allResults_df)] = new_row
     allResults_df.to_csv(csvname, index=False)
+
+# This function responsibles for Beer-Lambert Law:
+
+def calculateCaptureLightPower():
+    return True # OSA - Power of capture light
+
+def calculateLaserLightPower(power,frequency):
+    return True
+def calculateConcentrationOfSubstance():
+    return True
+
+#def CSVFilecreator():
+#    skip
+
+#def analyizer():
+#    skip
+
+#def plotResults():
+#    skip
+
 
 # End Tests Managment: ----------------------------------------------------------------------------------------------
 
@@ -311,21 +272,3 @@ def runSample(laser,osa, isConnected,debugMode, values):
 
 if __name__ == '__main__':
     print("this is operator.py")
-
-
-#---------------------------------------------------------------------------------------------------------------------------
-# Comments to delete after all the work:
-
-
-# This function responsibles for Beer-Lambert Law:
-
-# def calculateCaptureLightPower():
-#     return True # OSA - Power of capture light
-
-# def calculateLaserLightPower(power,frequency):
-#     return True
-# def calculateConcentrationOfSubstance():
-#     return True
-
-# # laserPower = calculateLaserLightPower(p,freq)
-#             # capturePower = calculateCaptureLightPower()
