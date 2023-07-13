@@ -30,21 +30,19 @@ import PySimpleGUI as sg
 global layouts
 global cwd
 global connectionsDict
-global osa
-global laser
+#global osa
+#global laser
 global isConnected
 global debugMode
 global status
 global getConnectionsText
 global getSamplesText
-global getTestsText
 global getTestErrorText
 isConnected = False # Until first connection
 debugMode = False
 status = "The devices are not connected"
 getConnectionsText = "If you don't succed to connect you can work in 'Debug Mode'"
 getSamplesText = "Connect to devices first or work in 'Debug Mode'"
-getTestsText = "Connect to devices first or work in 'Debug Mode'"
 getTestErrorText = ""
 graphs_pids = []
 # sg.theme_previewer()
@@ -199,6 +197,66 @@ def open_Interactive_Graphs(dirName, analyzer_substance = False):
     else:
         return False
 
+def updateJsonFileOfTestsParameters(values):
+    # This funciton save the tests parameters from GUI that setup by the user.
+    with open(cwd+"\\connections.json", 'r') as f:
+        connectionsDict = load(f)
+    # Parameters:
+    connectionsDict["Samples"]["CF"] = values['CF']
+    connectionsDict["Samples"]["Span"] = values['SPAN']
+    connectionsDict["Samples"]["Points"] = values['PTS']
+    connectionsDict["Samples"]["Sens"] = values['sens']
+    connectionsDict["Samples"]["Res"] = values['res']
+    connectionsDict["Samples"]["Power"] = values['POWER']
+    connectionsDict["Samples"]["Rep"] = values['REP']
+    connectionsDict["Samples"]["SaveSample"] = values['Save']
+    connectionsDict["Samples"]["Plot"] = values['Plot']
+    connectionsDict["Samples"]["OutputName"] = values['sample_name']
+    connectionsDict["Tests"]["CF"] = values['test_CF']
+    connectionsDict["Tests"]["Span"] = values['test_SPAN']
+    connectionsDict["Tests"]["Points"] = values['test_PTS']
+    connectionsDict["Tests"]["Sens"] = values['test_sens']
+    connectionsDict["Tests"]["Res"] = values['test_res']
+    connectionsDict["Tests"]["StartPower"] = values['minPL']
+    connectionsDict["Tests"]["Sweep"] = values['testPowerLevelSweep']
+    connectionsDict["Tests"]["EndPower"] = values['maxPL']
+    connectionsDict["Tests"]["Step"] = values['stepPL']
+    connectionsDict["Tests"]["AvgDark"] = values['darkNumSamplesParameter']
+    connectionsDict["Tests"]["AvgClean"] = values['cleanNumSamplesParameter']
+    connectionsDict["Tests"]["AvgSubstance"] = values['substanceNumSamplesParameter']
+    connectionsDict["Tests"]["SelectAll"] = values['selectAllRep']
+    connectionsDict["Tests"]["78.56"] = values['r1']
+    connectionsDict["Tests"]["39.28"] = values['r2']
+    connectionsDict["Tests"]["29.19"] = values['r3']
+    connectionsDict["Tests"]["19.64"] = values['r4']
+    connectionsDict["Tests"]["15.71"] = values['r5']
+    connectionsDict["Tests"]["13.09"] = values['r6']
+    connectionsDict["Tests"]["11.22"] = values['r7']
+    connectionsDict["Tests"]["9.82"] = values['r8']
+    connectionsDict["Tests"]["8.729"] = values['r9']
+    connectionsDict["Tests"]["7.856"] = values['r10']
+    connectionsDict["Tests"]["6.547"] = values['r12']
+    connectionsDict["Tests"]["5.612"] = values['r14']
+    connectionsDict["Tests"]["4.910"] = values['r16']
+    connectionsDict["Tests"]["4.365"] = values['r18']
+    connectionsDict["Tests"]["3.928"] = values['r20']
+    connectionsDict["Tests"]["3.571"] = values['r22']
+    connectionsDict["Tests"]["3.143"] = values['r25']
+    connectionsDict["Tests"]["2.910"] = values['r27']
+    connectionsDict["Tests"]["2.709"] = values['r29']
+    connectionsDict["Tests"]["2.455"] = values['r32']
+    connectionsDict["Tests"]["2.311"] = values['r34']
+    connectionsDict["Tests"]["2.123"] = values['r37']
+    connectionsDict["Tests"]["1.964"] = values['r40']
+    connectionsDict["Tests"]["OutputName"] = values['test_name']
+    connectionsDict["Tests"]["Comments"] = values['TEST1_COMMENT']
+    connectionsDict["Tests"]["Analyzer"] = values['test_analyzer']
+    connectionsDict["Tests"]["TotalTime"] = values['totalSampleTime']
+    connectionsDict["Tests"]["IntervalTime"] = values['intervalTime']
+    #
+    with open(cwd+"\\connections.json", 'w') as f:
+        dump(connectionsDict, f)
+
 def updateJsonFileBeforeEnd(values):
     # This funciton save default connection parameters.
     with open(cwd+"\\connections.json", 'r') as f:
@@ -210,6 +268,68 @@ def updateJsonFileBeforeEnd(values):
     connectionsDict["Samples"]["Serial"] = values[3]
     with open(cwd+"\\connections.json", 'w') as f:
         dump(connectionsDict, f)
+
+def reloadParameters(window):
+    with open(cwd+"\\connections.json", 'r') as f:
+        connectionsDict = load(f)
+    # Loading from Json file to the window:
+    window['CF'].update(connectionsDict["Samples"]["CF"])
+    window['SPAN'].update(connectionsDict["Samples"]["Span"])
+    window['PTS'].update(connectionsDict["Samples"]["Points"])
+    window['sens'].update(connectionsDict["Samples"]["Sens"])
+    window['res'].update(connectionsDict["Samples"]["Res"])
+    window['POWER'].update(connectionsDict["Samples"]["Power"])
+    window['REP'].update(connectionsDict["Samples"]["Rep"])
+    window['Save'].update(connectionsDict["Samples"]["SaveSample"])
+    window['Plot'].update(connectionsDict["Samples"]["Plot"])
+    window['sample_name'].update(connectionsDict["Samples"]["OutputName"])
+    window['test_CF'].update(connectionsDict["Tests"]["CF"])
+    window['test_SPAN'].update(connectionsDict["Tests"]["Span"])
+    window['test_PTS'].update(connectionsDict["Tests"]["Points"])
+    window['test_sens'].update(connectionsDict["Tests"]["Sens"])
+    window['test_res'].update(connectionsDict["Tests"]["Res"])
+    window['minPL'].update(connectionsDict["Tests"]["StartPower"])
+    window['testPowerLevelSweep'].update(connectionsDict["Tests"]["Sweep"])
+    window['maxPL'].update(connectionsDict["Tests"]["EndPower"])
+    window['stepPL'].update(connectionsDict["Tests"]["Step"])
+    window['darkNumSamplesParameter'].update(connectionsDict["Tests"]["AvgDark"])
+    window['cleanNumSamplesParameter'].update(connectionsDict["Tests"]["AvgClean"])
+    window['substanceNumSamplesParameter'].update(connectionsDict["Tests"]["AvgSubstance"])
+    window['selectAllRep'].update(connectionsDict["Tests"]["SelectAll"])
+    window['r1'].update(connectionsDict["Tests"]["78.56"])
+    window['r2'].update(connectionsDict["Tests"]["39.28"])
+    window['r3'].update(connectionsDict["Tests"]["29.19"])
+    window['r4'].update(connectionsDict["Tests"]["19.64"])
+    window['r5'].update(connectionsDict["Tests"]["15.71"])
+    window['r6'].update(connectionsDict["Tests"]["13.09"])
+    window['r7'].update(connectionsDict["Tests"]["11.22"])
+    window['r8'].update(connectionsDict["Tests"]["9.82"])
+    window['r9'].update(connectionsDict["Tests"]["8.729"])
+    window['r10'].update(connectionsDict["Tests"]["7.856"])
+    window['r12'].update(connectionsDict["Tests"]["6.547"])
+    window['r14'].update(connectionsDict["Tests"]["5.612"])
+    window['r16'].update(connectionsDict["Tests"]["4.910"])
+    window['r18'].update(connectionsDict["Tests"]["4.365"])
+    window['r20'].update(connectionsDict["Tests"]["3.928"])
+    window['r22'].update(connectionsDict["Tests"]["3.571"])
+    window['r25'].update(connectionsDict["Tests"]["3.143"])
+    window['r27'].update(connectionsDict["Tests"]["2.910"])
+    window['r29'].update(connectionsDict["Tests"]["2.709"])
+    window['r32'].update(connectionsDict["Tests"]["2.455"])
+    window['r34'].update(connectionsDict["Tests"]["2.311"])
+    window['r37'].update(connectionsDict["Tests"]["2.123"])
+    window['r40'].update(connectionsDict["Tests"]["1.964"])
+    window['test_name'].update(connectionsDict["Tests"]["OutputName"])
+    window['TEST1_COMMENT'].update(connectionsDict["Tests"]["Comments"])
+    window['test_analyzer'].update(connectionsDict["Tests"]["Analyzer"])
+    window['totalSampleTime'].update(connectionsDict["Tests"]["TotalTime"])
+    window['intervalTime'].update(connectionsDict["Tests"]["IntervalTime"])
+    if connectionsDict["Tests"]["Sweep"] == True:
+        window['section_powerSweep'].update(visible=True)
+    if connectionsDict["Tests"]["Analyzer"] == True:
+        window['section_analyzer'].update(visible=True)
+    #
+    return window
 
 def checkStartConditions(values):
     # Checking all the condition if everything is ok and we can start the test:
@@ -362,14 +482,50 @@ class theTestThread(threading.Thread):
 #----------------------------------------------------------------------------------------------------------------------------------------
 
 # The next funcion 'main' is to ensure the GUI.py file will not creates copy of himself every time we are creating a process by the multiprocessing library.
-def main(firstRun = True):
+def main(mode = 0):
 
     isConnected = False
     window = reopenMainL()
-    if (firstRun == False ):
+    if (mode != 0 ):
         # Here we are doing reconnect to the device and after that loading the test parameters again:
-        #Loading from the json file ##############################################################################################################
         window['-TAB3-'].select()
+        window = reloadParameters(window) # Updating all the other parameters.
+        if (mode == 1):
+            event, values = window.read()
+            # Try to connect.
+            try:
+                osa = OSA(values[0])
+                laser = Laser(values[2])
+                if not isConnected:
+                    isConnected = True
+                    debugMode = False
+                    status = "Devices are connected"
+                    getConnectionsText = getSamplesText = getTestErrorText = "The devices are connected"
+                    window['sample_status_message'].update(visible=False)
+                    window['sample_status_menu'].update(visible=True)
+                    window['test_status_message'].update(visible=False)
+                    window['test_status_menu'].update(visible=True)
+                    window['status'].update(status)
+                    window['getConnectText'].update(getConnectionsText)
+                    window['getConnectText'].update("Connection successful! You are now connected to the devices")
+                    window['test_errorText'].update("The testing process was stopped.")
+            except:
+                window['getConnectText'].update("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
+                print("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
+        if (mode == 2):
+            debugMode = True
+            status = "Debug Mode"
+            getConnectionsText = getSamplesText = getTestErrorText = "Now you are working in 'Debug Mode'!"
+            laser = None
+            osa = None
+            window['sample_status_message'].update(visible=False)
+            window['sample_status_menu'].update(visible=True)
+            window['test_status_message'].update(visible=False)
+            window['test_status_menu'].update(visible=True)
+            window['status'].update(status)
+            window['getConnectText'].update(getConnectionsText)
+            window['test_errorText'].update("The testing process was stopped.")
+    # End of Setup
 
     while True:
         event, values = window.read()
@@ -383,15 +539,13 @@ def main(firstRun = True):
                     isConnected = True
                     debugMode = False
                     status = "Devices are connected"
-                    getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "The devices are connected"
+                    getConnectionsText = getSamplesText = getTestErrorText = "The devices are connected"
                     window['sample_status_message'].update(visible=False)
                     window['sample_status_menu'].update(visible=True)
                     window['test_status_message'].update(visible=False)
                     window['test_status_menu'].update(visible=True)
                     window['status'].update(status)
                     window['getConnectText'].update(getConnectionsText)
-                    # window.close()
-                    # window = reopenMainL()
                     window['getConnectText'].update("Connection successful! You are now connected to the devices")
             except:
                 window['getConnectText'].update("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
@@ -402,7 +556,7 @@ def main(firstRun = True):
             # Move and working in Debug Mode to allow the relevant functions and rest of the GUI.
             debugMode = True
             status = "Debug Mode"
-            getConnectionsText = getSamplesText = getTestsText = getTestErrorText = "Now you are working in 'Debug Mode'!"
+            getConnectionsText = getSamplesText = getTestErrorText = "Now you are working in 'Debug Mode'!"
             laser = None
             osa = None
             window['sample_status_message'].update(visible=False)
@@ -499,12 +653,17 @@ def main(firstRun = True):
                 window['test_errorText'].update("The testing process was stopped.")
                 sg.popup_ok("The test process was stopped by the user!\nPress 'Ok' and please wait.")
                 updateJsonFileBeforeEnd(values)
+                updateJsonFileOfTestsParameters(values)
                 # Now we will close the specific main GUI process that running:
                 window.close()
                 # Save the test results to json file.
                 getTestErrorText = ""
-                # Now we can open a new process after we return False - this is for not causing a recursion.
-                return False # False is indicate that the main program is not finished and we just need to relaunch the main GUI window.
+                # Now we can get out of the main function to kill the process and running thread after stopping it and we will open a new process after we return value.
+                # We just need to relaunch the main GUI window: 2 - 'Debug Mode', 1 - 'Connect again'
+                if debugMode:
+                    return 2
+                else:
+                    return 1
 
         elif event == "-LOAD_SAMPLE-":
             # This function loads a result from the fourth tab.
@@ -537,17 +696,18 @@ def main(firstRun = True):
                     print(f"Process with PID {pid} killed successfully.")
                 except OSError as e:
                     print(f"Error killing process with PID {pid}: {e}")
-            return True
+            return 0
             # break
 # End of main function.
+
+# -----
 
 def install_packages_message(val):
     if val == False:
         import tkinter.messagebox as tkm # tkinter is in the standard Pyhon library.
-        tkm.showinfo("Message", "Installing relevant packages! Press 'OK'and please wait.")
+        tkm.showinfo("Message", "Installing/Updating relevant packages! Press 'OK'and please wait.")
     return True
 
-# -----
 def install_packages():
     # This function checks if all the relevants packages are installed on the PC.
     # The python standard library: https://docs.python.org/3/library/
@@ -642,12 +802,15 @@ def install_packages():
 
 if __name__ == '__main__':
 # The checking events - The managment of the GUI:
-    install_packages()
+    # install_packages() # This is good for installing & updating the relevant libraries.
     freeze_support()
     # main()
+    # val == 0: End of Program,
+    # val == 1: Connecting Mode,
+    # val == 2: Debug Mode.
     val = main()
-    while val == False: # The test was stopped - reload again the main GUI window:
-        val = main(False)
+    while (val != 0): # The test was stopped - reload again the main GUI window:
+        val = main(val)
     # The program finished - Need to close all the windows:
     print("The program is finished. Thank you & Goodbye.")
 
