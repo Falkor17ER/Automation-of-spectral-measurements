@@ -3,23 +3,26 @@ from OSA import OSA
 from LASER import Laser
 from Operator import getSweepResults, runSample, setConfig, makedirectory, noiseMeasurments
 from Interactive_Graph import interactiveGraph
+from multiprocessing import Process, freeze_support
 from json import load, dump
 from time import sleep
-from multiprocessing import Process, freeze_support
-import PySimpleGUI as sg
+import time
 import os
 import shutil
 import threading
 import tkinter.messagebox as tkm
-import time
-import serial
-import serial.tools.list_ports
+import PySimpleGUI as sg
 
-def printPortList():
-    ports = list(serial.tools.list_ports.comports())
-    # ports = list(serial.tools.list_ports.comports())
-    for port in ports:
-        print(port.device)
+# try:
+#     import serial
+# except:
+#     subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'serial'])
+# import serial.tools.list_ports
+# def printPortList():
+#     ports = list(serial.tools.list_ports.comports())
+#     # ports = list(serial.tools.list_ports.comports())
+#     for port in ports:
+#         print(port.device)
 
 #---------------------------------------------------------------------------------------------------------------------------
 
@@ -249,7 +252,7 @@ def checkStartConditions(values):
 
 def reopenMainL(window = None):
     # This function start the GUI window:
-    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections()), sg.Tab('Single Sample', getSampleL()), sg.Tab('Tests', getTests()), sg.Tab('Results', getResultsTabLayout())]], size = (SIZE[0]+30,SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status, key='status')]]
+    mainL = [[sg.TabGroup([[sg.Tab('Connections',getConnections(), key='-TAB1-'), sg.Tab('Single Sample', getSampleL(), key='-TAB2-'), sg.Tab('Tests', getTests(), key='-TAB3-'), sg.Tab('Results', getResultsTabLayout(), key='-TAB4-')]], key='-TABGROUP-', size = (SIZE[0]+30,SIZE[1]-70))],[sg.Button("Close"), sg.Button("Debug Mode"), sg.Push(), sg.Text(status, key='status')]]
     try:
         window.close()
         window = sg.Window('Lab Tool', mainL, disable_close=True, size = SIZE, finalize = True)
@@ -266,77 +269,7 @@ def popup(message):
     window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
     return window
 
-# #----------------------------------------------------------------------------------------------------------------------------------------
-
-# def mainTestProcess(laser, osa, values, debugMode, dirName, window, t_stop):
-#     # This is the function that manage all the test process & operation. It allows the threading and parallel operation to the main GUI, or an open Interactive Graph.
-#     result = None
-#     window['test_errorText'].update("Part 1/3: Executing 'Dark' Test...")
-#     noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
-#     try:
-#         window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests...")
-#     except:
-#         return False
-#     reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv", window, "Part 2/3: Executing 'Clean/Empty' Tests...", t_stop)
-#     if reason == False:
-#         result = False
-#         laser.emission(0)
-#         return False
-#     window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests... (100%)")
-#     # For user:
-#     tempEvent = tkm.askokcancel(title="Enter Substance!", message="Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
-#     #tempEvent = sg.popup_ok_cancel("Enter Substance!", "Empty measurment finished.\nPlease insert substance, then press 'OK'.\nChoosing 'Cancel' will stop the all process\nand delete all the measurments.")
-#     # OK was chosen:
-#     if tempEvent:
-#         window['test_errorText'].update("Part 3/3: Executing 'Substance' Test...")
-#         if (values['test_analyzer']):
-#             if (not debugMode):
-#                 laser.emission(0)
-#                 sleep(8)
-#             reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv", window, "Part 3/3: Executing 'Substance' Tests...", t_stop)
-#         else:
-#             reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv", window, "Part 3/3: Executing 'Substance' Tests...", t_stop)
-#         if reason == False:
-#             result = False
-#             laser.emission(0)
-#             return False
-#         window['test_errorText'].update("Part 3/3: Executing 'Substance' Test... (100%)")
-#         # Adding to Results tab.
-#         updateResults(window)
-#         # Open a new process of the graph/grphs.
-#         if reason != False: # Everyting is OK, can open Graphs window.
-#             processPID = open_Interactive_Graphs(dirName + "\\") # process ID or False
-#             if processPID != False:
-#                 graphs_pids.append(processPID)
-#                 window['test_errorText'].update("Finish Testing.")
-#             else:
-#                 window['test_errorText'].update("There was some problem! Probably because missing files.")
-#     else:
-#         shutil.rmtree(dirName)
-#     window['Start Test'].update(disabled=False)
-#     window['section_stopTest'].update(visible=False)
-#     if reason:
-#         result = True
-#         laser.emission(0)
-#         return True
-# # End of the test function.
-
-# #----------------------------------------------------------------------------------------------------------------------------------------
-
-# class stopTheTestThread(threading.Thread):
-#     def __init__(self):
-#         threading.Thread.__init__(self)
-#         self.stop_event = threading.Event()
-#         self.run = None
-
-#     def run(self):
-#         self.run = True
-
-#     def stop(self):
-#         self.run = False
-#         self.stop_event.set()
-
-# #---------------------------------------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------------------------------------------
 
 class theTestThread(threading.Thread):
     def __init__(self, arg1, arg2, arg3, arg4, arg5, arg6):
@@ -410,6 +343,7 @@ class theTestThread(threading.Thread):
                     window['test_errorText'].update("There was some problem! Probably because missing files.")
         else:
             shutil.rmtree(dirName)
+        window['Sample'].update(disabled=False)
         window['Start Test'].update(disabled=False)
         window['section_stopTest'].update(visible=False)
         if reason:
@@ -428,11 +362,15 @@ class theTestThread(threading.Thread):
 #----------------------------------------------------------------------------------------------------------------------------------------
 
 # The next funcion 'main' is to ensure the GUI.py file will not creates copy of himself every time we are creating a process by the multiprocessing library.
-def main():
+def main(firstRun = True):
 
     isConnected = False
-    testProcess = None
     window = reopenMainL()
+    if (firstRun == False ):
+        # Here we are doing reconnect to the device and after that loading the test parameters again:
+        #Loading from the json file ##############################################################################################################
+        window['-TAB3-'].select()
+
     while True:
         event, values = window.read()
         
@@ -473,8 +411,6 @@ def main():
             window['test_status_menu'].update(visible=True)
             window['status'].update(status)
             window['getConnectText'].update(getConnectionsText)
-            # window.close()
-            # window = reopenMainL()
 
         elif event == 'Sample':
             # To do only one sample.
@@ -527,23 +463,13 @@ def main():
                         res = values["test_manuallRes"]
                     else:
                         res = values["test_res"]
+                    window['Sample'].update(disabled=True)
                     window['Start Test'].update(disabled=True)
                     window['section_stopTest'].update(visible=True)
                     window['test_errorText'].update("Executing Clean Test...")
                     dirName = makedirectory(values["test_name"],values["test_CF"],values["test_SPAN"],values["test_PTS"],values["test_sens"],res,values["test_analyzer"])
                     testThread = theTestThread(laser,osa,values,debugMode,dirName,window)
                     testThread.start()
-                    # ----------------------------------------------------------------------------------------------------------------------------
-                    # t_stop = stopTheTestThread()
-                    # t_stop.start()
-                    # args = [laser, osa, values, debugMode, dirName, window, t_stop]
-                    # process = Process(target=mainTestProcess, args=args)
-                    # process.start()
-                    # if process != False:
-                    #     testProcess = process.pid # return the process number.
-                    # else:
-                    #     return sg.popup_ok("There was a problem to start the test")
-                    # ----------------------------------------------------------------------------------------------------------------------------
                 else:
                     window['test_errorText'].update(getTestErrorText)
                 getTestErrorText = ""
@@ -562,48 +488,23 @@ def main():
                         sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
                         animation = time.time()
                 sg.PopupAnimated(None)
-                # -----------------------------------------------------------------------------------------------------------------------
-                # t_stop.stop()
-                # #testThread.stop()
-                # sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-                # animation = time.time()
-                # timeToWaitForStop = time.time()
-                # # while ( (testThread.result != False) and (time.time() - timeToWaitForStop <= 2*float(values['intervalTime'])) ):
-                # #     if (time.time() - animation > 0.05):
-                # #         sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-                # #         animation = time.time()
-                # while ( (testProcess != False) and (time.time() - timeToWaitForStop <= 2*float(values['intervalTime'])) ):
-                #     if (time.time() - animation > 0.05):
-                #         sg.PopupAnimated(sg.DEFAULT_BASE64_LOADING_GIF, background_color='white', time_between_frames=50)
-                #         animation = time.time()
-                # sg.PopupAnimated(None)
-                # ---------------------------------------------------------------------------------------------------------------------
                 if isConnected:
                     laser.emission(0)
                 # del laser
                 # os.kill(testThread.ident, signal.SIGTERM) # I added
                 del testThread
                 window['section_stopTest'].update(visible=False)
+                window['Sample'].update(disabled=False)
                 window['Start Test'].update(disabled=False)
                 window['test_errorText'].update("The testing process was stopped.")
                 sg.popup_ok("The test process was stopped by the user!\nPress 'Ok' and please wait.")
-                # Reconnecting to the laser:
-                # del laser
-                try:
-                    laser = Laser(values[2])
-                    sg.popup_ok("The system is ready to use again.")   
-                except:
-                    isConnected = False
-                    debugMode = True
-                    sg.popup_ok("Reconnecting to laser device failed!")
-                    print("Reconnecting to laser device failed!")
-                # printPortList()
-                # ser = serial.Serial('COM4', 9600)
-                # ser.close()
-                # printPortList()                
-                # laser = Laser((values[2]))
-                #
+                updateJsonFileBeforeEnd(values)
+                # Now we will close the specific main GUI process that running:
+                window.close()
+                # Save the test results to json file.
                 getTestErrorText = ""
+                # Now we can open a new process after we return False - this is for not causing a recursion.
+                return False # False is indicate that the main program is not finished and we just need to relaunch the main GUI window.
 
         elif event == "-LOAD_SAMPLE-":
             # This function loads a result from the fourth tab.
@@ -636,14 +537,118 @@ def main():
                     print(f"Process with PID {pid} killed successfully.")
                 except OSError as e:
                     print(f"Error killing process with PID {pid}: {e}")
-            break
+            return True
+            # break
 # End of main function.
 
+def install_packages_message(val):
+    if val == False:
+        import tkinter.messagebox as tkm # tkinter is in the standard Pyhon library.
+        tkm.showinfo("Message", "Installing relevant packages! Press 'OK'and please wait.")
+    return True
+
 # -----
+def install_packages():
+    # This function checks if all the relevants packages are installed on the PC.
+    # The python standard library: https://docs.python.org/3/library/
+    import sys # sys is the standard Python library.
+    import subprocess # subprocess is the standard Python library.
+    import tkinter.messagebox as tkm # tkinter is in the standard Pyhon library.
+    val = False # No message already printed.
+    # json is in the standard Python library.
+    # time is the standard Python library.
+    # multiprocessing is in the standard Pyhon library.
+    # os is in the standard Pyhon library.
+    # shutil is in the standard Pyhon library.
+    # threading is in the standard Pyhon library.
+    # datetime is in the standard Pyhon library.
+    # argparse is in the standard Pyhon library.
+    # concurrent.futures is in the standard Python library.
+    #
+    # ------------------------------
+    # import PySimpleGUI library:
+    try:
+        import PySimpleGUI as sg
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'PySimpleGUI'])
+        except:
+            None
+    except:
+        val = install_packages_message(val)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'PySimpleGUI'])
+        import PySimpleGUI as sg
+    # ------------------------------
+    # import pandas library:
+    try:
+        import pandas as pd
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pandas'])
+        except:
+            None
+    except:
+        val = install_packages_message(val)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pandas'])
+        import pandas as pd
+    # ------------------------------
+    # import numpy library:
+    try:
+        import numpy as np
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'numpy'])
+        except:
+            None
+    except:
+        val = install_packages_message(val)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'numpy'])
+        import numpy as np
+    # ------------------------------
+    # import matplotlib library:
+    try:
+        import matplotlib.pyplot as plt
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'matplotlib'])
+        except:
+            None
+    except:
+        val = install_packages_message(val)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'matplotlib'])
+        import matplotlib.pyplot as plt
+    # ------------------------------
+    # import allantools library:
+    try:
+        import allantools
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'allantools'])
+        except:
+            None
+    except:
+        val = install_packages_message(val)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'allantools'])
+        import allantools
+    # ------------------------------
+    # import scipy.signal library:
+    try:
+        from scipy.signal import butter, cheby1, filtfilt
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'scipy'])
+        except:
+            None
+    except:
+        val = install_packages_message(val)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'scipy'])
+        from scipy.signal import butter, cheby1, filtfilt
+    # ------------------------------
+# End of install_packages function.
 
 if __name__ == '__main__':
 # The checking events - The managment of the GUI:
+    install_packages()
     freeze_support()
-    main()
+    # main()
+    val = main()
+    while val == False: # The test was stopped - reload again the main GUI window:
+        val = main(False)
+    # The program finished - Need to close all the windows:
+    print("The program is finished. Thank you & Goodbye.")
 
 # End of 'GUI.py' file.

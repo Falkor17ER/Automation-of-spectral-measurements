@@ -1,7 +1,7 @@
 # This file is responsible for all the calculations and analysis after the full test and measurements finish. Also, it responsible for the calculations of the loaded files from the 'Result' tab.
-import numpy as np
-import pandas as pd
 import time
+import pandas as pd
+import numpy as np
 import allantools
 from scipy.signal import butter, cheby1, filtfilt
 

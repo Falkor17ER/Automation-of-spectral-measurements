@@ -1,10 +1,10 @@
 # This file contain all the functions & operations that are relevant for the managment of the Full test and all the measurments process.
+from time import sleep, time
+from datetime import datetime
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-from time import sleep, time
-from datetime import datetime
 
 # Globals:
 global wavelengths

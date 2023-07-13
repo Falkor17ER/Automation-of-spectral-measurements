@@ -1,19 +1,20 @@
 # This file is responsible for the results GUI, it contains the layouts for the Graphs. In addition, it contains all the relevant functions to control, operate and show of these graphs.
+import argparse
+import os
+import time
+from Analyzer import get_clean_substance_transmittance, beerLambert, allandevation
+from datetime import datetime
+from multiprocessing import Process, freeze_support
 import pandas as pd
 import PySimpleGUI as sg
 import time
 import concurrent.futures
 import matplotlib.pyplot as plt
 import numpy as np
-import argparse
-import os
 import matplotlib.colors as mcolors
 import tkinter.messagebox as tkm
 import matplotlib.collections as clt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from Analyzer import get_clean_substance_transmittance, beerLambert, allandevation
-from datetime import datetime
-from multiprocessing import Process, freeze_support
 
 # Parameters:
 #SIZE = (WIDTH,LENTH/HIGH):
