@@ -69,8 +69,15 @@ sg.theme('DefaultNoMoreNagging')
 
 # This function is the first Tab of the GUI window - Responsible for the connections with the Laser & OSA devices.
 def getConnections():
-    with open(cwd+"\\connections.json", 'r') as f:
-        connectionsDict = load(f)
+    try:
+        with open(cwd+"\\connections.json", 'r') as f:
+            connectionsDict = load(f)
+    except:
+        data = {"OSA": {"IP": "10.0.0.101", "PORT": "10001"}, "LASER": {"COM": "COM6", "Serial": "15"}}
+        with open("connections.json", "w") as write_file:
+            dump(data, write_file)
+        with open(cwd+"\\connections.json", 'r') as f:
+            connectionsDict = load(f)
     connections = [[sg.Push(), sg.Text("OSA", font='David 15 bold'), sg.Push()],
                     [sg.Text("IP Address:"), sg.Push(), sg.Input(connectionsDict["OSA"]["IP"],s=15)],
                     [sg.Text("Port:"), sg.Push(), sg.Input(connectionsDict["OSA"]["PORT"],s=15)],
@@ -617,6 +624,7 @@ def main(mode = 0):
                         res = values["test_manuallRes"]
                     else:
                         res = values["test_res"]
+                    updateJsonFileOfTestsParameters(values)
                     window['Sample'].update(disabled=True)
                     window['Start Test'].update(disabled=True)
                     window['section_stopTest'].update(visible=True)
