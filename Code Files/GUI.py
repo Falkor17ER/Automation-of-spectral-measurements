@@ -67,15 +67,18 @@ sg.theme('DefaultNoMoreNagging')
 
 # Functions:
 
+def createJSONFile():
+    data = {"OSA": {"IP": "10.0.0.101", "PORT": "10001"}, "LASER": {"COM": "COM4", "Serial": "15"}, "Samples": {"CF": "1500", "Span": "50", "Points": "Auto", "Sens": "MID", "Res": "1nm <0.820nm>", "Power": "6", "Rep": "78.56MHz", "SaveSample": False, "Plot": False, "OutputNamme": "demo_sample", "Serial": "15", "OutputName": "demo_sample"}, "Tests": {"CF": "1500", "Span": "50", "Points": "Auto", "Sens": "MID", "Res": "1nm <0.820nm>", "StartPower": "6", "Sweep": True, "EndPower": "25", "Step": "5", "AvgDark": "5", "AvgClean": "5", "AvgSubstance": "1", "SelectAll": True, "78.56": True, "39.28": False, "29.19": False, "19.64": True, "15.71": True, "13.09": True, "11.22": True, "9.82": True, "8.729": True, "7.856": True, "6.547": True, "5.612": True, "4.910": True, "4.365": True, "3.928": True, "3.571": True, "3.143": True, "2.910": True, "2.709": True, "2.455": True, "2.311": True, "2.123": True, "1.964": True, "OutputName": "Test_sample1", "Comments": "", "Analyzer": True, "TotalTime": "20", "IntervalTime": "1"}}
+    with open("connections.json", "w") as write_file:
+        dump(data, write_file)
+
 # This function is the first Tab of the GUI window - Responsible for the connections with the Laser & OSA devices.
 def getConnections():
     try:
         with open(cwd+"\\connections.json", 'r') as f:
             connectionsDict = load(f)
     except:
-        data = {"OSA": {"IP": "10.0.0.101", "PORT": "10001"}, "LASER": {"COM": "COM6", "Serial": "15"}}
-        with open("connections.json", "w") as write_file:
-            dump(data, write_file)
+        createJSONFile()
         with open(cwd+"\\connections.json", 'r') as f:
             connectionsDict = load(f)
     connections = [[sg.Push(), sg.Text("OSA", font='David 15 bold'), sg.Push()],
@@ -204,65 +207,73 @@ def open_Interactive_Graphs(dirName, analyzer_substance = False):
     else:
         return False
 
-def updateJsonFileOfTestsParameters(values):
+def updateJsonFileOfTestsParameters(values, try_index):
     # This funciton save the tests parameters from GUI that setup by the user.
-    with open(cwd+"\\connections.json", 'r') as f:
-        connectionsDict = load(f)
-    # Parameters:
-    connectionsDict["Samples"]["CF"] = values['CF']
-    connectionsDict["Samples"]["Span"] = values['SPAN']
-    connectionsDict["Samples"]["Points"] = values['PTS']
-    connectionsDict["Samples"]["Sens"] = values['sens']
-    connectionsDict["Samples"]["Res"] = values['res']
-    connectionsDict["Samples"]["Power"] = values['POWER']
-    connectionsDict["Samples"]["Rep"] = values['REP']
-    connectionsDict["Samples"]["SaveSample"] = values['Save']
-    connectionsDict["Samples"]["Plot"] = values['Plot']
-    connectionsDict["Samples"]["OutputName"] = values['sample_name']
-    connectionsDict["Tests"]["CF"] = values['test_CF']
-    connectionsDict["Tests"]["Span"] = values['test_SPAN']
-    connectionsDict["Tests"]["Points"] = values['test_PTS']
-    connectionsDict["Tests"]["Sens"] = values['test_sens']
-    connectionsDict["Tests"]["Res"] = values['test_res']
-    connectionsDict["Tests"]["StartPower"] = values['minPL']
-    connectionsDict["Tests"]["Sweep"] = values['testPowerLevelSweep']
-    connectionsDict["Tests"]["EndPower"] = values['maxPL']
-    connectionsDict["Tests"]["Step"] = values['stepPL']
-    connectionsDict["Tests"]["AvgDark"] = values['darkNumSamplesParameter']
-    connectionsDict["Tests"]["AvgClean"] = values['cleanNumSamplesParameter']
-    connectionsDict["Tests"]["AvgSubstance"] = values['substanceNumSamplesParameter']
-    connectionsDict["Tests"]["SelectAll"] = values['selectAllRep']
-    connectionsDict["Tests"]["78.56"] = values['r1']
-    connectionsDict["Tests"]["39.28"] = values['r2']
-    connectionsDict["Tests"]["29.19"] = values['r3']
-    connectionsDict["Tests"]["19.64"] = values['r4']
-    connectionsDict["Tests"]["15.71"] = values['r5']
-    connectionsDict["Tests"]["13.09"] = values['r6']
-    connectionsDict["Tests"]["11.22"] = values['r7']
-    connectionsDict["Tests"]["9.82"] = values['r8']
-    connectionsDict["Tests"]["8.729"] = values['r9']
-    connectionsDict["Tests"]["7.856"] = values['r10']
-    connectionsDict["Tests"]["6.547"] = values['r12']
-    connectionsDict["Tests"]["5.612"] = values['r14']
-    connectionsDict["Tests"]["4.910"] = values['r16']
-    connectionsDict["Tests"]["4.365"] = values['r18']
-    connectionsDict["Tests"]["3.928"] = values['r20']
-    connectionsDict["Tests"]["3.571"] = values['r22']
-    connectionsDict["Tests"]["3.143"] = values['r25']
-    connectionsDict["Tests"]["2.910"] = values['r27']
-    connectionsDict["Tests"]["2.709"] = values['r29']
-    connectionsDict["Tests"]["2.455"] = values['r32']
-    connectionsDict["Tests"]["2.311"] = values['r34']
-    connectionsDict["Tests"]["2.123"] = values['r37']
-    connectionsDict["Tests"]["1.964"] = values['r40']
-    connectionsDict["Tests"]["OutputName"] = values['test_name']
-    connectionsDict["Tests"]["Comments"] = values['TEST1_COMMENT']
-    connectionsDict["Tests"]["Analyzer"] = values['test_analyzer']
-    connectionsDict["Tests"]["TotalTime"] = values['totalSampleTime']
-    connectionsDict["Tests"]["IntervalTime"] = values['intervalTime']
-    #
-    with open(cwd+"\\connections.json", 'w') as f:
-        dump(connectionsDict, f)
+    try:
+        with open(cwd+"\\connections.json", 'r') as f:
+            connectionsDict = load(f)
+        # Parameters:
+        connectionsDict["Samples"]["CF"] = values['CF']
+        connectionsDict["Samples"]["Span"] = values['SPAN']
+        connectionsDict["Samples"]["Points"] = values['PTS']
+        connectionsDict["Samples"]["Sens"] = values['sens']
+        connectionsDict["Samples"]["Res"] = values['res']
+        connectionsDict["Samples"]["Power"] = values['POWER']
+        connectionsDict["Samples"]["Rep"] = values['REP']
+        connectionsDict["Samples"]["SaveSample"] = values['Save']
+        connectionsDict["Samples"]["Plot"] = values['Plot']
+        connectionsDict["Samples"]["OutputName"] = values['sample_name']
+        connectionsDict["Tests"]["CF"] = values['test_CF']
+        connectionsDict["Tests"]["Span"] = values['test_SPAN']
+        connectionsDict["Tests"]["Points"] = values['test_PTS']
+        connectionsDict["Tests"]["Sens"] = values['test_sens']
+        connectionsDict["Tests"]["Res"] = values['test_res']
+        connectionsDict["Tests"]["StartPower"] = values['minPL']
+        connectionsDict["Tests"]["Sweep"] = values['testPowerLevelSweep']
+        connectionsDict["Tests"]["EndPower"] = values['maxPL']
+        connectionsDict["Tests"]["Step"] = values['stepPL']
+        connectionsDict["Tests"]["AvgDark"] = values['darkNumSamplesParameter']
+        connectionsDict["Tests"]["AvgClean"] = values['cleanNumSamplesParameter']
+        connectionsDict["Tests"]["AvgSubstance"] = values['substanceNumSamplesParameter']
+        connectionsDict["Tests"]["SelectAll"] = values['selectAllRep']
+        connectionsDict["Tests"]["78.56"] = values['r1']
+        connectionsDict["Tests"]["39.28"] = values['r2']
+        connectionsDict["Tests"]["29.19"] = values['r3']
+        connectionsDict["Tests"]["19.64"] = values['r4']
+        connectionsDict["Tests"]["15.71"] = values['r5']
+        connectionsDict["Tests"]["13.09"] = values['r6']
+        connectionsDict["Tests"]["11.22"] = values['r7']
+        connectionsDict["Tests"]["9.82"] = values['r8']
+        connectionsDict["Tests"]["8.729"] = values['r9']
+        connectionsDict["Tests"]["7.856"] = values['r10']
+        connectionsDict["Tests"]["6.547"] = values['r12']
+        connectionsDict["Tests"]["5.612"] = values['r14']
+        connectionsDict["Tests"]["4.910"] = values['r16']
+        connectionsDict["Tests"]["4.365"] = values['r18']
+        connectionsDict["Tests"]["3.928"] = values['r20']
+        connectionsDict["Tests"]["3.571"] = values['r22']
+        connectionsDict["Tests"]["3.143"] = values['r25']
+        connectionsDict["Tests"]["2.910"] = values['r27']
+        connectionsDict["Tests"]["2.709"] = values['r29']
+        connectionsDict["Tests"]["2.455"] = values['r32']
+        connectionsDict["Tests"]["2.311"] = values['r34']
+        connectionsDict["Tests"]["2.123"] = values['r37']
+        connectionsDict["Tests"]["1.964"] = values['r40']
+        connectionsDict["Tests"]["OutputName"] = values['test_name']
+        connectionsDict["Tests"]["Comments"] = values['TEST1_COMMENT']
+        connectionsDict["Tests"]["Analyzer"] = values['test_analyzer']
+        connectionsDict["Tests"]["TotalTime"] = values['totalSampleTime']
+        connectionsDict["Tests"]["IntervalTime"] = values['intervalTime']
+        #
+        with open(cwd+"\\connections.json", 'w') as f:
+            dump(connectionsDict, f)
+    except:
+        if (try_index == 0):
+            os.remove("connections.json")
+            createJSONFile()
+            updateJsonFileOfTestsParameters(values, 1)
+        else:
+            print("Problem with JSON file!")
 
 def updateJsonFileBeforeEnd(values):
     # This funciton save default connection parameters.
@@ -624,7 +635,7 @@ def main(mode = 0):
                         res = values["test_manuallRes"]
                     else:
                         res = values["test_res"]
-                    updateJsonFileOfTestsParameters(values)
+                    updateJsonFileOfTestsParameters(values, 0)
                     window['Sample'].update(disabled=True)
                     window['Start Test'].update(disabled=True)
                     window['section_stopTest'].update(visible=True)
@@ -661,7 +672,7 @@ def main(mode = 0):
                 window['test_errorText'].update("The testing process was stopped.")
                 sg.popup_ok("The test process was stopped by the user!\nPress 'Ok' and please wait.")
                 updateJsonFileBeforeEnd(values)
-                updateJsonFileOfTestsParameters(values)
+                updateJsonFileOfTestsParameters(values, 0)
                 # Now we will close the specific main GUI process that running:
                 window.close()
                 # Save the test results to json file.
