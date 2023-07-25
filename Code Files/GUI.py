@@ -31,7 +31,7 @@ global layouts
 global cwd
 global connectionsDict
 #global osa
-#global laser
+global laser
 global isConnected
 global debugMode
 global status
@@ -414,7 +414,6 @@ class theTestThread(threading.Thread):
         # This is the first, default and must function of the class. Setup all the relevant objects and parameters the class will use to call the relevant functions for the test from the thread.
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
-        self.arg1 = arg1 # Laser
         self.arg2 = arg2 # OSA
         self.arg3 = arg3 # values
         self.arg4 = arg4 # debugMode
@@ -425,7 +424,7 @@ class theTestThread(threading.Thread):
     def run(self):
         # This is the function that manage all the test process & operation. It allows the threading and parallel operation to the main GUI, or an open Interactive Graph.
         # Set names:
-        laser = self.arg1
+        global laser
         osa = self.arg2
         values = self.arg3
         debugMode = self.arg4
@@ -502,6 +501,7 @@ class theTestThread(threading.Thread):
 # The next funcion 'main' is to ensure the GUI.py file will not creates copy of himself every time we are creating a process by the multiprocessing library.
 def main(mode = 0):
 
+    global laser
     isConnected = False
     window = reopenMainL()
     if (mode != 0 ):
