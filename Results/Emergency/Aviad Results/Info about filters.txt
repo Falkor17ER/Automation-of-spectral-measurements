@@ -1,3 +1,0 @@
-BW (Butterworth) filter:	Cutoff frequency: 0.03,	Order: 4
-		
-Chebyshev filter:		Cutoff frequency: 0.03,	Order: 4,		Ripple [dB]: 0.5
