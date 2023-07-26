@@ -12,6 +12,7 @@ import shutil
 import threading
 import tkinter.messagebox as tkm
 import PySimpleGUI as sg
+import subprocess
 
 # try:
 #     import serial
@@ -38,6 +39,7 @@ global status
 global getConnectionsText
 global getSamplesText
 global getTestErrorText
+global graphs_pids
 isConnected = False # Until first connection
 debugMode = False
 status = "The devices are not connected"
@@ -68,7 +70,7 @@ sg.theme('DefaultNoMoreNagging')
 # Functions:
 
 def createJSONFile():
-    data = {"OSA": {"IP": "10.0.0.101", "PORT": "10001"}, "LASER": {"COM": "COM4", "Serial": "15"}, "Samples": {"CF": "1500", "Span": "50", "Points": "Auto", "Sens": "MID", "Res": "1nm <0.820nm>", "Power": "6", "Rep": "78.56MHz", "SaveSample": False, "Plot": False, "OutputNamme": "demo_sample", "Serial": "15", "OutputName": "demo_sample"}, "Tests": {"CF": "1500", "Span": "50", "Points": "Auto", "Sens": "MID", "Res": "1nm <0.820nm>", "StartPower": "6", "Sweep": True, "EndPower": "25", "Step": "5", "AvgDark": "5", "AvgClean": "5", "AvgSubstance": "1", "SelectAll": True, "78.56": True, "39.28": False, "29.19": False, "19.64": True, "15.71": True, "13.09": True, "11.22": True, "9.82": True, "8.729": True, "7.856": True, "6.547": True, "5.612": True, "4.910": True, "4.365": True, "3.928": True, "3.571": True, "3.143": True, "2.910": True, "2.709": True, "2.455": True, "2.311": True, "2.123": True, "1.964": True, "OutputName": "Test_sample1", "Comments": "", "Analyzer": True, "TotalTime": "20", "IntervalTime": "1"}}
+    data = {"OSA": {"IP": "10.0.0.101", "PORT": "10001"}, "LASER": {"COM": "COM4", "Serial": "15"}, "Samples": {"CF": "1500", "Span": "50", "Points": "Auto", "Sens": "MID", "Res": "1nm <0.820nm>", "Power": "6", "Rep": "78.56MHz", "SaveSample": False, "Plot": False, "OutputNamme": "demo_sample", "Serial": "15", "OutputName": "demo_sample"}, "Tests": {"CF": "1500", "Span": "50", "Points": "Auto", "Sens": "MID", "Res": "1nm <0.820nm>", "StartPower": "6", "Sweep": True, "EndPower": "25", "Step": "5", "AvgDark": "5", "AvgClean": "5", "AvgSubstance": "1", "SelectAll": True, "78.56": True, "39.28": False, "29.19": False, "19.64": True, "15.71": True, "13.09": True, "11.22": True, "9.82": True, "8.729": True, "7.856": True, "6.547": True, "5.612": True, "4.910": True, "4.365": True, "3.928": True, "3.571": True, "3.143": True, "2.910": True, "2.709": True, "2.455": True, "2.311": True, "2.123": True, "1.964": True, "OutputName": "Test_sample1", "Comments": "", "Analyzer": True, "TotalTime": "20", "IntervalTime": "1"}, "PIDs": {}}
     with open("connections.json", "w") as write_file:
         dump(data, write_file)
 
@@ -432,20 +434,26 @@ class theTestThread(threading.Thread):
         dirName = self.arg5
         window = self.arg6
         reason = None
+        with open(cwd+"\\connections.json", 'r') as f:
+            connectionsDict = load(f)
         #
         window['test_errorText'].update("Part 1/3: Executing 'Dark' Test...")
         noiseMeasurments(laser, osa ,values, debugMode, dirName+"\\dark.csv")
         try:
             window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests...")
         except:
+            connectionsDict["Tests"]["Finish_Status"] = False
+            with open(cwd+"\\connections.json", 'w') as f:
+                dump(connectionsDict, f)
             return False
         reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\clean.csv", window, "Part 2/3: Executing 'Clean/Empty' Tests...", self)
         if reason == False:
             self.result = False
             if isConnected:
                 laser.emission(0)
-            # del laser
-            # del self.arg1
+            connectionsDict["Tests"]["Finish_Status"] = False
+            with open(cwd+"\\connections.json", 'w') as f:
+                dump(connectionsDict, f)
             return False
         window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests... (100%)")
         # For user:
@@ -457,7 +465,7 @@ class theTestThread(threading.Thread):
             if (values['test_analyzer']):
                 if (not debugMode):
                     laser.emission(0)
-                    sleep(8)
+                    sleep(1)
                 reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\analyzer.csv", window, "Part 3/3: Executing 'Substance' Tests...", self) 
             else:
                 reason = getSweepResults(laser,osa,values,debugMode,dirName+"\\substance.csv", window, "Part 3/3: Executing 'Substance' Tests...", self)
@@ -465,20 +473,13 @@ class theTestThread(threading.Thread):
                 self.result = False
                 if isConnected:
                     laser.emission(0)
-                # del laser
-                # del self.arg1
+                connectionsDict["Tests"]["Finish_Status"] = False
+                with open(cwd+"\\connections.json", 'w') as f:
+                    dump(connectionsDict, f)
                 return False
             window['test_errorText'].update("Part 3/3: Executing 'Substance' Test... (100%)")
             # Adding to Results tab.
             updateResults(window)
-            # Open a new process of the graph/grphs.
-            if reason != False: # Everyting is OK, can open Graphs window.
-                processPID = open_Interactive_Graphs(dirName + "\\") # process ID or False
-                if processPID != False:
-                    graphs_pids.append(processPID)
-                    window['test_errorText'].update("Finish Testing.")
-                else:
-                    window['test_errorText'].update("There was some problem! Probably because missing files.")
         else:
             shutil.rmtree(dirName)
         window['Sample'].update(disabled=False)
@@ -490,6 +491,13 @@ class theTestThread(threading.Thread):
                 laser.emission(0)
             # del laser
             # del self.arg1
+            # Writing the val value to the json File:
+            with open(cwd+"\\connections.json", 'r') as f:
+                connectionsDict = load(f)
+            connectionsDict["Tests"]["Finish_Status"] = True
+            connectionsDict["Tests"]["File_To_Open"] = dirName + "\\"
+            with open(cwd+"\\connections.json", 'w') as f:
+                dump(connectionsDict, f)
             return True
     # End of the test thread.
 
@@ -504,18 +512,24 @@ def main(mode = 0):
 
     isConnected = False
     window = reopenMainL()
+    finishStatus = None
     if (mode != 0 ):
         # Here we are doing reconnect to the device and after that loading the test parameters again:
-        window['-TAB3-'].select()
         window = reloadParameters(window) # Updating all the other parameters.
+        window['-TAB3-'].select()
         if (mode == 1):
-            event, values = window.read()
+            isConnected = True
             # Try to connect.
             try:
-                osa = OSA(values[0])
-                laser = Laser(values[2])
-                if not isConnected:
-                    isConnected = True
+                with open(cwd+"\\connections.json", 'r') as f:
+                    connectionsDict = load(f)
+                osa = OSA(connectionsDict["OSA"]["IP"])
+                laser = Laser(connectionsDict["LASER"]["COM"])
+                # Close the JSON file.
+                with open(cwd+"\\connections.json", 'w') as f:
+                    dump(connectionsDict, f)
+                #
+                if isConnected:
                     debugMode = False
                     status = "Devices are connected"
                     getConnectionsText = getSamplesText = getTestErrorText = "The devices are connected"
@@ -527,12 +541,19 @@ def main(mode = 0):
                     window['getConnectText'].update(getConnectionsText)
                     window['getConnectText'].update("Connection successful! You are now connected to the devices")
                     window['test_errorText'].update("The testing process was stopped.")
+                    window['test_errorText'].update("Finish Testing.")
+                    window['-TAB3-'].select()
+                    window = reloadParameters(window) # Updating all the other parameters.
             except:
                 window['getConnectText'].update("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
                 print("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
+                isConnected = False
+            # event, values = window.read()
         if (mode == 2):
             debugMode = True
             status = "Debug Mode"
+            window = reloadParameters(window) # Updating all the other parameters.
+            window['-TAB3-'].select()
             getConnectionsText = getSamplesText = getTestErrorText = "Now you are working in 'Debug Mode'!"
             laser = None
             osa = None
@@ -543,11 +564,19 @@ def main(mode = 0):
             window['status'].update(status)
             window['getConnectText'].update(getConnectionsText)
             window['test_errorText'].update("The testing process was stopped.")
+            window['-TAB3-'].select()
+            window = reloadParameters(window) # Updating all the other parameters.
     # End of Setup
 
     while True:
-        event, values = window.read()
-        
+        event, values = window.read(timeout=100, timeout_key="TIMEOUT")
+
+        with open(cwd+"\\connections.json", 'r') as f:
+            connectionsDict = load(f)
+        finishStatus = connectionsDict["Tests"]["Finish_Status"]
+        with open(cwd+"\\connections.json", 'w') as f:
+            dump(connectionsDict, f)
+
         if event == 'Connect':
             # Try connect the devices:
             try:
@@ -679,10 +708,28 @@ def main(mode = 0):
                 getTestErrorText = ""
                 # Now we can get out of the main function to kill the process and running thread after stopping it and we will open a new process after we return value.
                 # We just need to relaunch the main GUI window: 2 - 'Debug Mode', 1 - 'Connect again'
+                with open(cwd+"\\connections.json", 'r') as f:
+                    connectionsDict = load(f)
                 if debugMode:
+                    connectionsDict["Tests"]["val"] = 2
+                    with open(cwd+"\\connections.json", 'w') as f:
+                        dump(connectionsDict, f)
                     return 2
                 else:
+                    connectionsDict["Tests"]["val"] = 1
+                    with open(cwd+"\\connections.json", 'w') as f:
+                        dump(connectionsDict, f)
                     return 1
+
+        elif (finishStatus == True) and (event == 'TIMEOUT'):
+            finishStatus = False
+            with open(cwd+"\\connections.json", 'r') as f:
+                connectionsDict = load(f)
+            connectionsDict["Tests"]["val"] = 1
+            with open(cwd+"\\connections.json", 'w') as f:
+                dump(connectionsDict, f)
+            window.close()
+            return 1
 
         elif event == "-LOAD_SAMPLE-":
             # This function loads a result from the fourth tab.
@@ -708,13 +755,11 @@ def main(mode = 0):
         elif ( (event == 'Close') or (event == sg.WIN_CLOSED) ):
             # This function close the main GUI.
             window.close()
-            for pid in graphs_pids:
-                try:
-                    os.system(f'taskkill /F /PID {pid}')
-                    # os.kill(pid, signal.SIGTERM)
-                    print(f"Process with PID {pid} killed successfully.")
-                except OSError as e:
-                    print(f"Error killing process with PID {pid}: {e}")
+            with open(cwd+"\\connections.json", 'r') as f:
+                connectionsDict = load(f)
+            connectionsDict["Tests"]["val"] = 0
+            with open(cwd+"\\connections.json", 'w') as f:
+                dump(connectionsDict, f)
             return 0
             # break
 # End of main function.
@@ -827,10 +872,46 @@ if __name__ == '__main__':
     # val == 0: End of Program,
     # val == 1: Connecting Mode,
     # val == 2: Debug Mode.
-    val = main()
+    graphs_pids = []
+    val = -1 # To start.
     while (val != 0): # The test was stopped - reload again the main GUI window:
-        val = main(val)
+        if (val == -1):
+            val = 0
+        process = Process(target=main, args=(val,))
+        process.start()
+        process.join()
+        process.terminate()
+        # Reading the val value:
+        with open(cwd+"\\connections.json", 'r') as f:
+            connectionsDict = load(f)
+        val = connectionsDict["Tests"]["val"]
+        #
+        # Open a new process of the graph/grphs.
+        if connectionsDict["Tests"]["Finish_Status"]: # Everyting is OK, can open Graphs window.
+            connectionsDict["Tests"]["Finish_Status"] = False
+            fileLocation = connectionsDict["Tests"]["File_To_Open"]
+            processPID = open_Interactive_Graphs(fileLocation) # process ID or False
+            if processPID != False:
+                graphs_pids.append(processPID)
+        #
+        with open(cwd+"\\connections.json", 'w') as f:
+            dump(connectionsDict, f)
+        #
+    # End of while.
+    # Delete all the open process.
+    for pid in graphs_pids:
+        try:
+            os.system(f'taskkill /F /PID {pid}')
+            # os.kill(pid, signal.SIGTERM)
+            print(f"Process with PID {pid} killed successfully.")
+        except OSError as e:
+            print(f"Error killing process with PID {pid}: {e}")
     # The program finished - Need to close all the windows:
     print("The program is finished. Thank you & Goodbye.")
 
 # End of 'GUI.py' file.
+
+
+    # else:
+    #     window['test_errorText'].update("There was some problem! Probably because missing files.")
+        
