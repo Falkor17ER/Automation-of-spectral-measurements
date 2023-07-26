@@ -454,6 +454,7 @@ class theTestThread(threading.Thread):
             connectionsDict["Tests"]["Finish_Status"] = False
             with open(cwd+"\\connections.json", 'w') as f:
                 dump(connectionsDict, f)
+            laser.emission(0)
             return False
         window['test_errorText'].update("Part 2/3: Executing 'Clean/Empty' Tests... (100%)")
         # For user:
@@ -476,6 +477,7 @@ class theTestThread(threading.Thread):
                 connectionsDict["Tests"]["Finish_Status"] = False
                 with open(cwd+"\\connections.json", 'w') as f:
                     dump(connectionsDict, f)
+                laser.emission(0)
                 return False
             window['test_errorText'].update("Part 3/3: Executing 'Substance' Test... (100%)")
             # Adding to Results tab.
@@ -498,6 +500,7 @@ class theTestThread(threading.Thread):
             connectionsDict["Tests"]["File_To_Open"] = dirName + "\\"
             with open(cwd+"\\connections.json", 'w') as f:
                 dump(connectionsDict, f)
+            laser.emission(0)
             return True
     # End of the test thread.
 
@@ -517,7 +520,7 @@ def main(mode = 0):
         # Here we are doing reconnect to the device and after that loading the test parameters again:
         window = reloadParameters(window) # Updating all the other parameters.
         window['-TAB3-'].select()
-        if (mode == 1):
+        if (mode == 1 or mode == 3):
             isConnected = True
             # Try to connect.
             try:
@@ -540,8 +543,10 @@ def main(mode = 0):
                     window['status'].update(status)
                     window['getConnectText'].update(getConnectionsText)
                     window['getConnectText'].update("Connection successful! You are now connected to the devices")
-                    window['test_errorText'].update("The testing process was stopped.")
-                    window['test_errorText'].update("Finish Testing.")
+                    if (mode == 1):
+                        window['test_errorText'].update("Finish Testing.")
+                    if (mode == 3):
+                        window['test_errorText'].update("The testing process was stopped.")
                     window['-TAB3-'].select()
                     window = reloadParameters(window) # Updating all the other parameters.
             except:
@@ -549,7 +554,7 @@ def main(mode = 0):
                 print("Failed to connect to OSA or Laser, try again or continue wiht 'Debug mode'.")
                 isConnected = False
             # event, values = window.read()
-        if (mode == 2):
+        if (mode == 2 or mode == 4):
             debugMode = True
             status = "Debug Mode"
             window = reloadParameters(window) # Updating all the other parameters.
@@ -563,7 +568,10 @@ def main(mode = 0):
             window['test_status_menu'].update(visible=True)
             window['status'].update(status)
             window['getConnectText'].update(getConnectionsText)
-            window['test_errorText'].update("The testing process was stopped.")
+            if (mode == 2):
+                window['test_errorText'].update("Finish Testing.")
+            if (mode == 4):
+                window['test_errorText'].update("The testing process was stopped.")
             window['-TAB3-'].select()
             window = reloadParameters(window) # Updating all the other parameters.
     # End of Setup
@@ -692,8 +700,6 @@ def main(mode = 0):
                 sg.PopupAnimated(None)
                 if isConnected:
                     laser.emission(0)
-                # del laser
-                # os.kill(testThread.ident, signal.SIGTERM) # I added
                 del testThread
                 window['section_stopTest'].update(visible=False)
                 window['Sample'].update(disabled=False)
@@ -710,26 +716,35 @@ def main(mode = 0):
                 # We just need to relaunch the main GUI window: 2 - 'Debug Mode', 1 - 'Connect again'
                 with open(cwd+"\\connections.json", 'r') as f:
                     connectionsDict = load(f)
-                if debugMode:
-                    connectionsDict["Tests"]["val"] = 2
+                if isConnected:
+                    connectionsDict["Tests"]["val"] = 3
                     with open(cwd+"\\connections.json", 'w') as f:
                         dump(connectionsDict, f)
-                    return 2
+                    laser.emission(0)
+                    return 3
                 else:
-                    connectionsDict["Tests"]["val"] = 1
+                    connectionsDict["Tests"]["val"] = 4
                     with open(cwd+"\\connections.json", 'w') as f:
                         dump(connectionsDict, f)
-                    return 1
+                    laser.emission(0)
+                    return 4
 
         elif (finishStatus == True) and (event == 'TIMEOUT'):
             finishStatus = False
             with open(cwd+"\\connections.json", 'r') as f:
                 connectionsDict = load(f)
-            connectionsDict["Tests"]["val"] = 1
+            if isConnected:
+                connectionsDict["Tests"]["val"] = 1
+            elif debugMode:
+                connectionsDict["Tests"]["val"] = 2
             with open(cwd+"\\connections.json", 'w') as f:
                 dump(connectionsDict, f)
             window.close()
-            return 1
+            laser.emission(0)
+            if isConnected:
+                return 1
+            else:
+                return 2
 
         elif event == "-LOAD_SAMPLE-":
             # This function loads a result from the fourth tab.
@@ -760,6 +775,7 @@ def main(mode = 0):
             connectionsDict["Tests"]["val"] = 0
             with open(cwd+"\\connections.json", 'w') as f:
                 dump(connectionsDict, f)
+            laser.emission(0)
             return 0
             # break
 # End of main function.
@@ -869,9 +885,11 @@ if __name__ == '__main__':
     # install_packages() # This is good for installing & updating the relevant libraries.
     freeze_support()
     # main()
-    # val == 0: End of Program,
-    # val == 1: Connecting Mode,
-    # val == 2: Debug Mode.
+    # val == 0: End of Program.
+    # val == 1: Connecting Mode - Finish Test.
+    # val == 2: Debug Mode - Finish Test.
+    # val == 3: Connecting Mode - Test Stoped.
+    # val == 4: Debug Mode - Test Stoped.
     graphs_pids = []
     val = -1 # To start.
     while (val != 0): # The test was stopped - reload again the main GUI window:
@@ -910,8 +928,3 @@ if __name__ == '__main__':
     print("The program is finished. Thank you & Goodbye.")
 
 # End of 'GUI.py' file.
-
-
-    # else:
-    #     window['test_errorText'].update("There was some problem! Probably because missing files.")
-        
