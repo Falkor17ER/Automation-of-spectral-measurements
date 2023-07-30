@@ -5,10 +5,13 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import config
+from PySimpleGUI import popup_auto_close
 
 # Globals:
 global wavelengths
 global debugMode
+
 debugMode = False
 rep_values_MHz = {1: '78.56MHz', 2: '39.28MHz', 3: '29.19MHz', 4: '19.64MHz', 5: '15.71MHz',
             6: '13.09MHz', 7: '11.22MHz', 8: '9.821MHz', 9: '8.729MHz', 10: '7.856MHz',
@@ -173,7 +176,8 @@ def makeSubstaceCSV(csvname, df_original):
             df_substance.loc[len(df_substance)] = df_original.iloc[idx]
     df_substance.to_csv(csvname, index=False)
 
-def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
+def getSweepResults(laser,osa,values,debug,csvname, window, messageText):
+    laser = config.laser
     # This function will manage all the test process and call to all the relevant functions. It will save the results to the relevant csv file.
     global debugMode
     debugMode = debug
@@ -213,8 +217,7 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
     precentsMessage = None
     for freq in reps:
         for p in powers:
-            # For stopping the thread
-            if t.stop_event.is_set():
+            if config.thread_stop:
                 return False
             #
             precentsMessage = " (" + str(round(precents, 2)) + "%)\nChecking right now: Repetition: "+ str(rep_values_MHz[freq]) + ", Power: " + str(p)
@@ -230,12 +233,13 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
                 #
                 timeCounter = time()
                 while(time() - startTime < totalTime):
-                    # For stopping the thread
-                    if t.stop_event.is_set():
-                        return False
+
                     #
                     intervalMessage = "\n, Total time check: " + str( round(time() - timeCounter, 2) ) + " seconds / " + str(totalTime) + " seconds"
+                    if config.thread_stop:
+                        return False
                     window['test_errorText'].update(messageText + precentsMessage + intervalMessage)
+                    popup_auto_close(messageText + precentsMessage + intervalMessage, auto_close_duration=2,non_blocking=True)
                     lastTime = time()
                     result = meanMeasure(osa, 1 ,pts, debugMode, debug_type='substance')
                     new_row = []
@@ -258,7 +262,10 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
             #---------------------------------------------------------------------------------------------------------------
             else: # Regular Mode
                 try:
+                    if config.thread_stop:
+                        return False
                     window['test_errorText'].update(messageText + precentsMessage)
+                    popup_auto_close(messageText + precentsMessage, auto_close_duration=2,non_blocking=True)
                 except:
                     return False
                 sleep(0.4) # Sleep - waiting to change the parameter changing parameters.
@@ -284,7 +291,10 @@ def getSweepResults(laser,osa,values,debug,csvname, window, messageText, t):
                 # Append the new row to the dataframe
                 allResults_df.loc[len(allResults_df)] = new_row
             precents = precents + precentsPerJump
+    if config.thread_stop:
+        return False
     window['test_errorText'].update(messageText + precentsMessage)
+    popup_auto_close(messageText + precentsMessage, auto_close_duration=2,non_blocking=True)
     # End of measurments
     #
     # Save a substance csv
